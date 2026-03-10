@@ -16,10 +16,10 @@ class RecordingHandler(InstrumentationHandler):
         self.llm_spans: list[LLMSpan] = []
         self.observe_spans: list[ObserveSpan] = []
 
-    def on_llm(self, span: LLMSpan) -> None:
+    async def on_llm(self, span: LLMSpan) -> None:
         self.llm_spans.append(span)
 
-    def on_observe(self, span: ObserveSpan) -> None:
+    async def on_observe(self, span: ObserveSpan) -> None:
         self.observe_spans.append(span)
 
 

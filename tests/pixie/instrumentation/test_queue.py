@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import threading
 from datetime import datetime, timezone
 
 from pixie.instrumentation.handler import InstrumentationHandler
@@ -60,10 +62,30 @@ def _make_observe_span() -> ObserveSpan:
     )
 
 
+def _make_named_observe_span(name: str) -> ObserveSpan:
+    """Create a minimal ObserveSpan with a specific name for fire-and-forget tests."""
+    now = datetime.now(tz=timezone.utc)
+    return ObserveSpan(
+        span_id="0000000000000002",
+        trace_id="00000000000000000000000000000001",
+        parent_span_id=None,
+        started_at=now,
+        ended_at=now,
+        duration_ms=0.0,
+        name=name,
+        input=None,
+        output=None,
+        metadata={},
+        error=None,
+    )
+
+
 class TestDeliveryQueueDispatch:
     """Tests for dispatching spans to correct handler methods."""
 
-    def test_llm_span_dispatched_to_on_llm(self, recording_handler: RecordingHandler) -> None:
+    def test_llm_span_dispatched_to_on_llm(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         q.submit(_make_llm_span())
         q.flush()
@@ -105,13 +127,11 @@ class TestDeliveryQueueDropping:
     def test_dropped_count_increments(self) -> None:
         """Test with a handler that blocks to guarantee drops."""
 
-        import threading
-
         block = threading.Event()
 
         class BlockingHandler(InstrumentationHandler):
-            def on_llm(self, span: LLMSpan) -> None:
-                block.wait()  # Block until released
+            async def on_llm(self, span: LLMSpan) -> None:
+                await asyncio.get_event_loop().run_in_executor(None, block.wait)
 
         handler = BlockingHandler()
         q = _DeliveryQueue(handler, maxsize=2)
@@ -142,10 +162,10 @@ class TestDeliveryQueueHandlerExceptions:
             def __init__(self) -> None:
                 self.observe_count = 0
 
-            def on_llm(self, span: LLMSpan) -> None:
+            async def on_llm(self, span: LLMSpan) -> None:
                 raise RuntimeError("handler crash!")
 
-            def on_observe(self, span: ObserveSpan) -> None:
+            async def on_observe(self, span: ObserveSpan) -> None:
                 self.observe_count += 1
 
         handler = CrashingHandler()
@@ -158,3 +178,50 @@ class TestDeliveryQueueHandlerExceptions:
         q.flush()
 
         assert handler.observe_count == 1
+
+
+class TestDeliveryQueueFireAndForget:
+    """Tests that the queue worker is fire-and-forget: it schedules async processing
+    and immediately loops back to consume the next item without waiting."""
+
+    def test_worker_does_not_block_on_slow_handler(self) -> None:
+        """The queue worker must not await the handler coroutine.
+
+        span1's handler intentionally blocks.  If the worker were synchronous
+        or awaiting directly, span2 would only start after span1 released.
+        With the fire-and-forget design the worker loops immediately, so span2
+        starts processing while span1's coroutine is still running.
+        """
+        span1_started = threading.Event()
+        span2_started = threading.Event()
+        span1_release = threading.Event()
+
+        class OrderTracker(InstrumentationHandler):
+            async def on_observe(self, span: ObserveSpan) -> None:
+                if span.name == "span1":
+                    span1_started.set()
+                    # Block span1 inside the event loop's thread-pool executor
+                    await asyncio.get_running_loop().run_in_executor(
+                        None, span1_release.wait
+                    )
+                elif span.name == "span2":
+                    span2_started.set()
+
+        q = _DeliveryQueue(OrderTracker(), maxsize=10)
+        q.submit(_make_named_observe_span("span1"))
+
+        # Wait until span1's async handler has started running
+        assert span1_started.wait(timeout=2.0), "span1 handler never started"
+
+        # span1's handler is now blocked inside run_in_executor.
+        # The worker should already have looped back; submit span2.
+        q.submit(_make_named_observe_span("span2"))
+
+        # span2 must start processing WITHOUT waiting for span1 to release.
+        assert span2_started.wait(
+            timeout=2.0
+        ), "span2 did not start — worker likely blocked on span1's slow handler"
+
+        # Clean up: release span1 and drain the queue.
+        span1_release.set()
+        q.flush()

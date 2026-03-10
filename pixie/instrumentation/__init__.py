@@ -57,7 +57,7 @@ def _reset_state() -> None:
 
 def init(
     *,
-    capture_content: bool = False,
+    capture_content: bool = True,
     queue_size: int = 1000,
 ) -> None:
     """Initialize the instrumentation sub-package.

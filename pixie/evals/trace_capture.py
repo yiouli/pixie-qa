@@ -26,11 +26,11 @@ class MemoryTraceHandler(InstrumentationHandler):
     def __init__(self) -> None:
         self.spans: list[ObserveSpan | LLMSpan] = []
 
-    def on_llm(self, span: LLMSpan) -> None:
+    async def on_llm(self, span: LLMSpan) -> None:
         """Called when an LLM span completes."""
         self.spans.append(span)
 
-    def on_observe(self, span: ObserveSpan) -> None:
+    async def on_observe(self, span: ObserveSpan) -> None:
         """Called when an observe span completes."""
         self.spans.append(span)
 

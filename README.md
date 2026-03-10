@@ -40,14 +40,14 @@ from pixie.instrumentation import InstrumentationHandler, LLMSpan, ObserveSpan
 
 
 class PrintHandler(InstrumentationHandler):
-	def on_llm(self, span: LLMSpan) -> None:
+	async def on_llm(self, span: LLMSpan) -> None:
 		print("LLM", span.request_model, span.duration_ms)
 
-	def on_observe(self, span: ObserveSpan) -> None:
+	async def on_observe(self, span: ObserveSpan) -> None:
 		print("OBS", span.name, span.input, span.output)
 
 
-px.init(capture_content=True)
+px.init()  # capture_content=True by default
 px.add_handler(PrintHandler())
 
 with px.log(input="What is the capital of France?", name="qa") as span:
@@ -98,7 +98,7 @@ asyncio.run(main())
 
 ### Instrumentation
 
-- `init(*, capture_content=False, queue_size=1000)` — initialize OTel pipeline (idempotent)
+- `init(*, capture_content=True, queue_size=1000)` — initialize OTel pipeline (idempotent); content capture on by default
 - `add_handler(handler)` — register a handler to receive spans
 - `remove_handler(handler)` — unregister a handler
 - `log(input=None, *, name=None)` — context manager for observe spans

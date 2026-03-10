@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import queue
 import threading
+from concurrent.futures import Future
 
 from .handler import InstrumentationHandler
 from .spans import LLMSpan, ObserveSpan
@@ -12,13 +14,29 @@ from .spans import LLMSpan, ObserveSpan
 class _DeliveryQueue:
     """Single queue for both LLMSpan and ObserveSpan.
 
-    Handler methods are dispatched by type on a background daemon thread.
+    A dedicated asyncio event loop runs on a background daemon thread.  The
+    queue-worker thread picks up each span and schedules an async dispatch
+    coroutine on that loop (fire and forget from the worker's perspective).
+    ``queue.task_done()`` is called via a ``Future`` done-callback once the
+    coroutine finishes, so ``flush()`` (which calls ``queue.join()``) correctly
+    waits for all in-flight async processing to complete.
     """
 
     def __init__(self, handler: InstrumentationHandler, maxsize: int = 1000) -> None:
         self._handler = handler
         self._queue: queue.Queue[LLMSpan | ObserveSpan] = queue.Queue(maxsize=maxsize)
         self._dropped_count = 0
+
+        # Dedicated event loop running on its own daemon thread.
+        self._loop = asyncio.new_event_loop()
+        self._loop_thread = threading.Thread(
+            target=self._loop.run_forever,
+            daemon=True,
+            name="pixie-asyncio-loop",
+        )
+        self._loop_thread.start()
+
+        # Queue-consumer thread: picks items and schedules async tasks.
         self._thread = threading.Thread(
             target=self._worker, daemon=True, name="pixie-delivery-worker"
         )
@@ -32,7 +50,7 @@ class _DeliveryQueue:
             self._dropped_count += 1
 
     def flush(self, timeout_seconds: float = 5.0) -> bool:
-        """Block until all queued items are processed."""
+        """Block until all queued items and their async handlers are done."""
         try:
             self._queue.join()
             return True
@@ -40,18 +58,29 @@ class _DeliveryQueue:
             return False
 
     def _worker(self) -> None:
-        """Background worker that processes spans and dispatches to handler."""
+        """Queue-consumer: fire-and-forget async dispatch for each span."""
         while True:
             item = self._queue.get()
             try:
-                if isinstance(item, LLMSpan):
-                    self._handler.on_llm(item)
-                elif isinstance(item, ObserveSpan):
-                    self._handler.on_observe(item)
+                future: Future[None] = asyncio.run_coroutine_threadsafe(
+                    self._dispatch(item), self._loop
+                )
+                # task_done() is deferred until the coroutine finishes so
+                # that flush() / queue.join() waits for async handlers too.
+                future.add_done_callback(lambda _f: self._queue.task_done())
             except Exception:
-                pass  # Handler exceptions are silently swallowed
-            finally:
+                # Scheduling failed — mark done immediately to avoid deadlock.
                 self._queue.task_done()
+
+    async def _dispatch(self, item: LLMSpan | ObserveSpan) -> None:
+        """Async dispatch: route span to the appropriate handler method."""
+        try:
+            if isinstance(item, LLMSpan):
+                await self._handler.on_llm(item)
+            elif isinstance(item, ObserveSpan):
+                await self._handler.on_observe(item)
+        except Exception:
+            pass  # Handler exceptions are silently swallowed
 
     @property
     def dropped_count(self) -> int:

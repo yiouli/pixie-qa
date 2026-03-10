@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
+import asyncio
 import threading
 
 from .spans import LLMSpan, ObserveSpan
@@ -11,19 +11,21 @@ from .spans import LLMSpan, ObserveSpan
 class InstrumentationHandler:
     """Base class for instrumentation handlers.
 
-    Both methods are optional overrides — a handler only implementing
-    on_llm is valid, and vice versa.
+    Both methods are optional async overrides — a handler only implementing
+    on_llm is valid, and vice versa.  Implementations may be long-running
+    (e.g. calling external APIs) since each handler coroutine runs
+    concurrently with other registered handlers.
     """
 
-    def on_llm(self, span: LLMSpan) -> None:
-        """Called on background thread when an LLM provider call completes.
+    async def on_llm(self, span: LLMSpan) -> None:
+        """Called when an LLM provider call completes.
 
         Default: no-op. Override to capture LLM call data for root-cause analysis.
         Exceptions are caught and suppressed.
         """
 
-    def on_observe(self, span: ObserveSpan) -> None:
-        """Called on background thread when a log() block completes.
+    async def on_observe(self, span: ObserveSpan) -> None:
+        """Called when a log() block completes.
 
         Default: no-op. Override to capture eval-relevant data.
         Exceptions are caught and suppressed.
@@ -33,10 +35,10 @@ class InstrumentationHandler:
 class _HandlerRegistry(InstrumentationHandler):
     """Fan-out handler that dispatches to multiple registered handlers.
 
-    Thread-safe: handlers can be added/removed from any thread while the
-    delivery worker calls ``on_llm``/``on_observe`` from the background
-    thread.  Per-handler exceptions are caught so one failing handler
-    does not prevent delivery to the remaining handlers.
+    Thread-safe: handlers can be added/removed from any thread.
+    Each handler coroutine runs concurrently via ``asyncio.gather``;
+    per-handler exceptions are isolated so one failing handler does not
+    prevent delivery to the remaining handlers.
     """
 
     def __init__(self) -> None:
@@ -53,18 +55,18 @@ class _HandlerRegistry(InstrumentationHandler):
         with self._lock:
             self._handlers.remove(handler)
 
-    def on_llm(self, span: LLMSpan) -> None:
-        """Dispatch to all registered handlers, isolating exceptions."""
+    async def on_llm(self, span: LLMSpan) -> None:
+        """Dispatch to all registered handlers concurrently, isolating exceptions."""
         with self._lock:
             snapshot = list(self._handlers)
-        for h in snapshot:
-            with contextlib.suppress(Exception):
-                h.on_llm(span)
+        await asyncio.gather(
+            *(h.on_llm(span) for h in snapshot), return_exceptions=True
+        )
 
-    def on_observe(self, span: ObserveSpan) -> None:
-        """Dispatch to all registered handlers, isolating exceptions."""
+    async def on_observe(self, span: ObserveSpan) -> None:
+        """Dispatch to all registered handlers concurrently, isolating exceptions."""
         with self._lock:
             snapshot = list(self._handlers)
-        for h in snapshot:
-            with contextlib.suppress(Exception):
-                h.on_observe(span)
+        await asyncio.gather(
+            *(h.on_observe(span) for h in snapshot), return_exceptions=True
+        )

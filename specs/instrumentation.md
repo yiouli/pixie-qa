@@ -241,7 +241,7 @@ Initializes the instrumentation sub-package. Truly idempotent — calling `init(
 
 **Parameters:**
 
-- `capture_content: bool` — sets `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, enabling `input_messages` / `output_messages` on `LLMSpan`
+- `capture_content: bool` — sets `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, enabling `input_messages` / `output_messages` on `LLMSpan`. **Default `True`.**
 - `queue_size: int` — shared delivery queue depth, default 1000
 
 **Behavior:**
@@ -266,7 +266,7 @@ Unregister a previously registered _handler_. Raises `ValueError` if the handler
 
 ### `_HandlerRegistry` (`pixie/instrumentation/handler.py`)
 
-Internal fan-out handler that dispatches to all registered handlers. Thread-safe — handlers can be added/removed from any thread while the delivery worker dispatches from the background thread. Per-handler exceptions are caught via `contextlib.suppress(Exception)` so one failing handler does not prevent delivery to the remaining handlers.
+Internal fan-out handler that dispatches to all registered handlers. Thread-safe — handlers can be added/removed from any thread. All registered handler coroutines for a given span are **run concurrently** via `asyncio.gather(..., return_exceptions=True)`. Exceptions from any handler are captured by `return_exceptions=True` and silently discarded, so one failing handler never blocks delivery to the remaining handlers.
 
 ---
 
@@ -344,27 +344,24 @@ class _SpanContext:
 ## `InstrumentationHandler` (`pixie/instrumentation/handler.py`)
 
 ```python
-from abc import ABC, abstractmethod
 from .spans import LLMSpan, ObserveSpan
 
-class InstrumentationHandler(ABC):
+class InstrumentationHandler:
 
-    def on_llm(self, span: LLMSpan) -> None:
-        """Called on background thread when an LLM provider call completes.
+    async def on_llm(self, span: LLMSpan) -> None:
+        """Called when an LLM provider call completes.
         Default: no-op. Override to capture LLM call data for root-cause analysis.
         Exceptions are caught and suppressed.
         """
-        pass
 
-    def on_observe(self, span: ObserveSpan) -> None:
-        """Called on background thread when a log() block completes.
+    async def on_observe(self, span: ObserveSpan) -> None:
+        """Called when a log() block completes.
         Default: no-op. Override to capture eval-relevant data.
         Exceptions are caught and suppressed.
         """
-        pass
 ```
 
-Both methods are optional overrides, not abstract — a handler only implementing `on_llm` is valid, and vice versa.
+Both methods are **async** optional overrides — a handler only implementing `on_llm` is valid, and vice versa. Because they are coroutines, handlers may perform I/O (e.g. HTTP calls, DB writes) without blocking the delivery pipeline.
 
 **Association pattern:** LLM calls made inside a `log()` block will have `llm_span.parent_span_id == observe_span.span_id` and the same `trace_id`. Join in storage on these keys.
 
@@ -477,7 +474,14 @@ Produces `tuple[ToolDefinition, ...]`. Always populated when available, independ
 
 ## `_DeliveryQueue` (`pixie/instrumentation/queue.py`)
 
-Single queue for both `LLMSpan` and `ObserveSpan`. The handler methods are dispatched by type.
+Single queue for both `LLMSpan` and `ObserveSpan`. Two daemon threads drive the pipeline:
+
+1. **`pixie-asyncio-loop`** — runs a dedicated `asyncio` event loop via `loop.run_forever()`.
+2. **`pixie-delivery-worker`** — a plain thread that consumes items and schedules async dispatch
+   coroutines on the event loop via `asyncio.run_coroutine_threadsafe()` (**fire-and-forget**).
+   The worker does **not** await the returned `Future`; instead `queue.task_done()` is called
+   through a `Future.add_done_callback`, so `flush()` / `queue.join()` correctly blocks until
+   all in-flight async processing completes.
 
 ```python
 class _DeliveryQueue:
@@ -485,6 +489,13 @@ class _DeliveryQueue:
         self._handler = handler
         self._queue: queue.Queue[LLMSpan | ObserveSpan] = queue.Queue(maxsize=maxsize)
         self._dropped_count = 0
+
+        self._loop = asyncio.new_event_loop()
+        self._loop_thread = threading.Thread(
+            target=self._loop.run_forever, daemon=True, name="pixie-asyncio-loop"
+        )
+        self._loop_thread.start()
+
         self._thread = threading.Thread(
             target=self._worker, daemon=True, name="pixie-delivery-worker"
         )
@@ -507,14 +518,21 @@ class _DeliveryQueue:
         while True:
             item = self._queue.get()
             try:
-                if isinstance(item, LLMSpan):
-                    self._handler.on_llm(item)
-                elif isinstance(item, ObserveSpan):
-                    self._handler.on_observe(item)
+                future = asyncio.run_coroutine_threadsafe(
+                    self._dispatch(item), self._loop
+                )
+                future.add_done_callback(lambda _f: self._queue.task_done())
             except Exception:
-                pass
-            finally:
                 self._queue.task_done()
+
+    async def _dispatch(self, item: LLMSpan | ObserveSpan) -> None:
+        try:
+            if isinstance(item, LLMSpan):
+                await self._handler.on_llm(item)
+            elif isinstance(item, ObserveSpan):
+                await self._handler.on_observe(item)
+        except Exception:
+            pass
 
     @property
     def dropped_count(self) -> int:
@@ -574,9 +592,9 @@ _state = _State()
 ## Error Handling Rules
 
 1. Never raise from `LLMSpanProcessor.on_end()` — entire body in try/except
-2. Never raise from `_DeliveryQueue._worker()` — each iteration wrapped
+2. Never raise from `_DeliveryQueue._worker()` — scheduling failure falls through to `task_done()`
 3. Never raise from `submit()` — drop silently on full queue
-4. Handler method exceptions silently swallowed
+4. Handler coroutine exceptions are silently swallowed — collected via `return_exceptions=True` in `asyncio.gather`
 5. Malformed JSON in span attributes — fall back to `{}` or `None`, never raise
 6. `log()` block exceptions re-raised normally after snapshotting `error` field
 
@@ -597,11 +615,18 @@ _state = _State()
 - Exception inside `with` block → `error` field set, exception re-raised
 - Nesting: `log()` inside `log()` → inner `parent_span_id` == outer `span_id`
 
+### `test_handler.py`
+
+- Concurrent dispatch: two handlers registered — one slow (async sleep), one fast; verify timeline shows interleaving not sequential execution
+- Error isolation: a raising handler does not prevent other handlers from receiving the span (on_observe and on_llm variants)
+- Multiple crashes: several raising handlers interspersed with good handlers — all good handlers still called
+
 ### `test_queue.py`
 
 - Both `LLMSpan` and `ObserveSpan` dispatched to correct handler methods
 - Drop on full queue; `dropped_count` increments
 - Handler exceptions don't crash worker
+- Fire-and-forget: queue worker schedules coroutine and loops immediately; span2 starts processing while span1's slow handler coroutine is still running
 
 ### `test_processor.py`
 
@@ -632,9 +657,9 @@ from pixie.instrumentation import InstrumentationHandler, LLMSpan, ObserveSpan
 
 class MyHandler(InstrumentationHandler):
 
-    def on_llm(self, span: LLMSpan) -> None:
+    async def on_llm(self, span: LLMSpan) -> None:
         # Root-cause data — store for debugging when evals flag issues
-        db.insert("llm_spans", {
+        await db.insert_async("llm_spans", {
             "span_id": span.span_id,
             "parent_span_id": span.parent_span_id,
             "trace_id": span.trace_id,
@@ -644,9 +669,9 @@ class MyHandler(InstrumentationHandler):
             "latency_ms": span.duration_ms,
         })
 
-    def on_observe(self, span: ObserveSpan) -> None:
+    async def on_observe(self, span: ObserveSpan) -> None:
         # Eval data — the input/output/metadata you actually run evals against
-        db.insert("observe_spans", {
+        await db.insert_async("observe_spans", {
             "span_id": span.span_id,
             "trace_id": span.trace_id,
             "input": span.input,
@@ -691,7 +716,6 @@ atexit.register(px.flush)
 
 - Other `pixie.*` sub-packages — this spec covers `pixie.instrumentation` only
 - OTel metrics pipeline — traces only
-- Async handler interface — background thread handles this; handlers are sync
 - Sampling / rate limiting — implement in handler if needed
 - Retry logic for failed handler calls — implement in handler if needed
 - Any UI, dashboard, or storage backend

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 import pytest
@@ -86,29 +87,29 @@ class TestMemoryTraceHandler:
     def test_collects_observe_span(self) -> None:
         handler = MemoryTraceHandler()
         span = _make_observe_span()
-        handler.on_observe(span)
+        asyncio.run(handler.on_observe(span))
         assert handler.spans == [span]
 
     def test_collects_llm_span(self) -> None:
         handler = MemoryTraceHandler()
         span = _make_llm_span()
-        handler.on_llm(span)
+        asyncio.run(handler.on_llm(span))
         assert handler.spans == [span]
 
     def test_collects_mixed_spans(self) -> None:
         handler = MemoryTraceHandler()
         obs = _make_observe_span()
         llm = _make_llm_span()
-        handler.on_observe(obs)
-        handler.on_llm(llm)
+        asyncio.run(handler.on_observe(obs))
+        asyncio.run(handler.on_llm(llm))
         assert handler.spans == [obs, llm]
 
     def test_get_trace_returns_tree_for_matching_trace_id(self) -> None:
         handler = MemoryTraceHandler()
         parent = _make_observe_span(span_id="p1", trace_id="t1")
         child = _make_llm_span(span_id="c1", trace_id="t1", parent_span_id="p1")
-        handler.on_observe(parent)
-        handler.on_llm(child)
+        asyncio.run(handler.on_observe(parent))
+        asyncio.run(handler.on_llm(child))
 
         tree = handler.get_trace("t1")
         assert len(tree) == 1
@@ -118,14 +119,18 @@ class TestMemoryTraceHandler:
 
     def test_get_trace_returns_empty_for_nonmatching_trace_id(self) -> None:
         handler = MemoryTraceHandler()
-        handler.on_observe(_make_observe_span(trace_id="t1"))
+        asyncio.run(handler.on_observe(_make_observe_span(trace_id="t1")))
         assert handler.get_trace("t_nonexistent") == []
 
     def test_get_all_traces_groups_by_trace_id(self) -> None:
         handler = MemoryTraceHandler()
-        handler.on_observe(_make_observe_span(span_id="a1", trace_id="t1"))
-        handler.on_observe(_make_observe_span(span_id="b1", trace_id="t2"))
-        handler.on_llm(_make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1"))
+        asyncio.run(handler.on_observe(_make_observe_span(span_id="a1", trace_id="t1")))
+        asyncio.run(handler.on_observe(_make_observe_span(span_id="b1", trace_id="t2")))
+        asyncio.run(
+            handler.on_llm(
+                _make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1")
+            )
+        )
 
         traces = handler.get_all_traces()
         assert set(traces.keys()) == {"t1", "t2"}
@@ -136,8 +141,8 @@ class TestMemoryTraceHandler:
 
     def test_clear_removes_all_spans(self) -> None:
         handler = MemoryTraceHandler()
-        handler.on_observe(_make_observe_span())
-        handler.on_llm(_make_llm_span())
+        asyncio.run(handler.on_observe(_make_observe_span()))
+        asyncio.run(handler.on_llm(_make_llm_span()))
         handler.clear()
         assert handler.spans == []
 
