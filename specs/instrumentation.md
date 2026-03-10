@@ -235,24 +235,38 @@ class ObserveSpan:
 
 ## Public API (`pixie/instrumentation/__init__.py`)
 
-### `init(handler, *, capture_content=False, queue_size=1000)`
+### `init(*, capture_content=False, queue_size=1000)`
 
-Initializes the instrumentation sub-package. Idempotent.
+Initializes the instrumentation sub-package. Truly idempotent — calling `init()` a second time is a no-op.
 
 **Parameters:**
 
-- `handler: InstrumentationHandler`
 - `capture_content: bool` — sets `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, enabling `input_messages` / `output_messages` on `LLMSpan`
 - `queue_size: int` — shared delivery queue depth, default 1000
 
 **Behavior:**
 
-1. Set env vars before instrumentors load
-2. Create `_DeliveryQueue(handler, queue_size)`
-3. Set up `TracerProvider` with `LLMSpanProcessor(delivery_queue)`
-4. Store a module-level `_tracer` from this provider for use by `log()`
-5. Add processor to existing provider if one is already set; otherwise set as global
-6. Call `_activate_instrumentors()`
+1. Return immediately if already initialized (idempotent)
+2. Set env vars before instrumentors load
+3. Create `_HandlerRegistry` and `_DeliveryQueue(registry, queue_size)`
+4. Set up `TracerProvider` with `LLMSpanProcessor(delivery_queue)`
+5. Store a module-level `_tracer` from this provider for use by `log()`
+6. Set as global tracer provider
+7. Call `_activate_instrumentors()`
+
+Handler registration is separate — see `add_handler()` and `remove_handler()`.
+
+### `add_handler(handler)`
+
+Register _handler_ to receive span notifications. Must be called after `init()`. Multiple handlers can be registered; each receives every span delivered through the pipeline.
+
+### `remove_handler(handler)`
+
+Unregister a previously registered _handler_. Raises `ValueError` if the handler was not registered.
+
+### `_HandlerRegistry` (`pixie/instrumentation/handler.py`)
+
+Internal fan-out handler that dispatches to all registered handlers. Thread-safe — handlers can be added/removed from any thread while the delivery worker dispatches from the background thread. Per-handler exceptions are caught via `contextlib.suppress(Exception)` so one failing handler does not prevent delivery to the remaining handlers.
 
 ---
 
@@ -544,6 +558,7 @@ def _activate_instrumentors() -> list[str]:
 ```python
 @dataclass
 class _State:
+    registry: _HandlerRegistry | None = None
     delivery_queue: _DeliveryQueue | None = None
     tracer: Tracer | None = None
     tracer_provider: TracerProvider | None = None
@@ -552,7 +567,7 @@ class _State:
 _state = _State()
 ```
 
-On re-init: flush existing queue before replacing.
+`init()` is truly idempotent — a second call is a no-op. Handler registration is managed separately via `add_handler()` / `remove_handler()`. A `_reset_state()` helper exists for test isolation (not part of the public API).
 
 ---
 
@@ -600,10 +615,12 @@ On re-init: flush existing queue before replacing.
 
 ### `test_integration.py`
 
-- `init(handler)` → fake LLM span → `on_llm()` called with correct `LLMSpan`
+- `init()` + `add_handler(handler)` → fake LLM span → `on_llm()` called with correct `LLMSpan`
 - `log(input=...)` block → `on_observe()` called with correct `ObserveSpan`
 - LLM call inside `log()` block → `llm_span.parent_span_id == observe_span.span_id`
-- `flush()` → both handlers called before flush returns
+- `flush()` → all pending spans delivered before flush returns
+- Multiple handlers: `add_handler(h1)` + `add_handler(h2)` → both receive every span
+- `remove_handler(h1)` → h1 no longer receives spans, h2 still does
 
 ---
 
@@ -638,7 +655,8 @@ class MyHandler(InstrumentationHandler):
             "error": span.error,
         })
 
-px.init(MyHandler(), capture_content=True)
+px.init(capture_content=True)
+px.add_handler(MyHandler())
 
 # Usage
 from anthropic import Anthropic

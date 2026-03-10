@@ -145,15 +145,11 @@ class TestLLMSpanRoundTrip:
             output_messages=(
                 AssistantMessage(
                     content=(TextContent(text="Hi!"),),
-                    tool_calls=(
-                        ToolCall(name="lookup", arguments={"q": "x"}, id="tc-1"),
-                    ),
+                    tool_calls=(ToolCall(name="lookup", arguments={"q": "x"}, id="tc-1"),),
                     finish_reason="stop",
                 ),
             ),
-            tool_definitions=(
-                ToolDefinition(name="lookup", description="Look up data"),
-            ),
+            tool_definitions=(ToolDefinition(name="lookup", description="Look up data"),),
         )
         row = serialize_span(span)
         restored = deserialize_span(row)

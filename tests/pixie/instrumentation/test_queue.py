@@ -63,9 +63,7 @@ def _make_observe_span() -> ObserveSpan:
 class TestDeliveryQueueDispatch:
     """Tests for dispatching spans to correct handler methods."""
 
-    def test_llm_span_dispatched_to_on_llm(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_llm_span_dispatched_to_on_llm(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         q.submit(_make_llm_span())
         q.flush()

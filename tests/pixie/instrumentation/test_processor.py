@@ -93,9 +93,7 @@ class TestProcessorDetection:
         q.flush()
         assert len(recording_handler.llm_spans) == 1
 
-    def test_embedding_span_processed(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_embedding_span_processed(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -184,9 +182,7 @@ class TestProcessorTokenUsage:
         assert llm.cache_read_tokens == 30
         assert llm.cache_creation_tokens == 10
 
-    def test_missing_tokens_default_to_zero(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_missing_tokens_default_to_zero(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -207,9 +203,7 @@ class TestProcessorTokenUsage:
 class TestProcessorRequestParams:
     """Tests for request parameter parsing from invocation_parameters."""
 
-    def test_invocation_parameters_parsed(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_invocation_parameters_parsed(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -235,9 +229,7 @@ class TestProcessorRequestParams:
         assert llm.request_max_tokens == 1024
         assert llm.request_top_p == 0.9
 
-    def test_max_completion_tokens_fallback(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_max_completion_tokens_fallback(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -405,9 +397,7 @@ class TestProcessorOutputMessages:
         assert msg.tool_calls[0].arguments == {"query": "test"}
         assert msg.tool_calls[0].id == "call_abc"
 
-    def test_finish_reasons_collected(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_finish_reasons_collected(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -426,9 +416,7 @@ class TestProcessorOutputMessages:
         llm = recording_handler.llm_spans[0]
         assert llm.finish_reasons == ("stop",)
 
-    def test_malformed_tool_call_arguments(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_malformed_tool_call_arguments(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 
@@ -532,9 +520,7 @@ class TestProcessorProviderInference:
 class TestProcessorErrorHandling:
     """Tests for error type extraction and processor safety."""
 
-    def test_error_type_from_attribute(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_error_type_from_attribute(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         processor = LLMSpanProcessor(q)
 

@@ -83,9 +83,7 @@ class TestObservationNodeFind:
         assert len(results) == 1
         assert results[0].span is sample_llm_span
 
-    def test_find_nonexistent_returns_empty(
-        self, sample_observe_span: ObserveSpan
-    ) -> None:
+    def test_find_nonexistent_returns_empty(self, sample_observe_span: ObserveSpan) -> None:
         roots = build_tree([sample_observe_span])
         assert roots[0].find("nonexistent") == []
 
@@ -129,9 +127,7 @@ class TestObservationNodeDelegatedProps:
         node = ObservationNode(span=sample_observe_span)
         assert node.name == "root_pipeline"
 
-    def test_name_observe_span_unnamed(
-        self, sample_observe_span_none_io: ObserveSpan
-    ) -> None:
+    def test_name_observe_span_unnamed(self, sample_observe_span_none_io: ObserveSpan) -> None:
         node = ObservationNode(span=sample_observe_span_none_io)
         assert node.name == "(unnamed)"
 
@@ -226,9 +222,7 @@ class TestToTextLLMSpan:
         text = node.to_text()
         assert "<e>TimeoutError</e>" in text
 
-    def test_omits_output_when_empty(
-        self, sample_llm_span_empty_output: LLMSpan
-    ) -> None:
+    def test_omits_output_when_empty(self, sample_llm_span_empty_output: LLMSpan) -> None:
         node = ObservationNode(span=sample_llm_span_empty_output)
         text = node.to_text()
         assert "output:" not in text

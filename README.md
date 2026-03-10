@@ -6,6 +6,7 @@ This repository provides:
 
 - **`pixie.instrumentation`** — Typed span capture from OpenInference / OpenTelemetry
 - **`pixie.storage`** — Persistence, querying, and tree assembly for observation traces
+- **`pixie.evals`** — Evaluation harness for LLM application testing
 
 ## Installation
 
@@ -46,7 +47,8 @@ class PrintHandler(InstrumentationHandler):
 		print("OBS", span.name, span.input, span.output)
 
 
-px.init(PrintHandler(), capture_content=True)
+px.init(capture_content=True)
+px.add_handler(PrintHandler())
 
 with px.log(input="What is the capital of France?", name="qa") as span:
 	answer = "Paris"
@@ -96,9 +98,11 @@ asyncio.run(main())
 
 ### Instrumentation
 
-- `init(handler, *, capture_content=False, queue_size=1000)`
-- `log(input=None, *, name=None)`
-- `flush(timeout_seconds=5.0)`
+- `init(*, capture_content=False, queue_size=1000)` — initialize OTel pipeline (idempotent)
+- `add_handler(handler)` — register a handler to receive spans
+- `remove_handler(handler)` — unregister a handler
+- `log(input=None, *, name=None)` — context manager for observe spans
+- `flush(timeout_seconds=5.0)` — drain the delivery queue
 
 Data model types are exported from `pixie.instrumentation`, including `LLMSpan`, `ObserveSpan`, and message/content/tool types.
 
@@ -118,6 +122,61 @@ Data model types are exported from `pixie.instrumentation`, including `LLMSpan`,
 - `build_tree(spans)` — assemble flat spans into a tree
 - `Evaluable` protocol with `ObserveSpanEval`, `LLMSpanEval`, `as_evaluable()`
 
+### Evaluation Harness
+
+```python
+from pixie.evals import (
+    Evaluation, evaluate, run_and_evaluate, assert_pass,
+    capture_traces, MemoryTraceHandler, EvalAssertionError,
+)
+from pixie.storage.evaluable import Evaluable
+from pixie.storage.tree import ObservationNode
+```
+
+- `Evaluation(score, reasoning, details={})` — frozen result of one evaluator run
+- `evaluate(evaluator, evaluable, *, trace=None)` — run one evaluator (sync or async)
+- `run_and_evaluate(evaluator, runnable, input, *, from_trace=None)` — run a callable, capture traces, evaluate
+- `assert_pass(runnable, inputs, evaluators, *, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `MemoryTraceHandler` — `InstrumentationHandler` that collects spans in-memory
+- `capture_traces()` — context manager that registers a handler and yields it
+- `EvalAssertionError` — raised when `assert_pass` fails; carries full results tensor
+
+**Example evaluator:**
+
+```python
+async def exact_match(evaluable: Evaluable, *, trace=None) -> Evaluation:
+    match = str(evaluable.eval_output).strip().lower() == "expected"
+    return Evaluation(
+        score=1.0 if match else 0.0,
+        reasoning="Exact match" if match else "No match",
+    )
+```
+
+**Example test:**
+
+```python
+import asyncio
+from pixie.evals import assert_pass, Evaluation
+
+def my_app(question):
+    import pixie.instrumentation as px
+    with px.log(input=question, name="qa") as span:
+        span.set_output("expected")
+
+async def test_my_app():
+    await assert_pass(
+        runnable=my_app,
+        inputs=["What is 2+2?"],
+        evaluators=[exact_match],
+    )
+```
+
+### CLI
+
+```bash
+pixie-test [path] [-k filter] [-v]
+```
+
 ## Development
 
 Run checks through `uv run`:
@@ -133,12 +192,14 @@ Run module-specific tests:
 ```bash
 uv run pytest tests/pixie/instrumentation -v
 uv run pytest tests/pixie/observation_store -v
+uv run pytest tests/pixie/evals -v
 ```
 
 ## Documentation
 
 - Instrumentation spec: `specs/instrumentation.md`
 - Storage spec: `specs/storage.md`
+- Evals harness spec: `specs/evals-harness.md`
 - Change history: `changelogs/`
 
 ## Dev Setup (Skills)

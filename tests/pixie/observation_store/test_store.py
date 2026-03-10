@@ -156,9 +156,7 @@ class TestGetByName:
         sample_llm_span: LLMSpan,
     ) -> None:
         await store.save_many([sample_observe_span, sample_llm_span])
-        results = await store.get_by_name(
-            "gpt-4o", trace_id=sample_observe_span.trace_id
-        )
+        results = await store.get_by_name("gpt-4o", trace_id=sample_observe_span.trace_id)
         assert len(results) == 1
         assert results[0] == sample_llm_span
 

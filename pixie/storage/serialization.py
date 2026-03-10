@@ -144,12 +144,8 @@ def _deserialize_llm(data: dict[str, Any]) -> LLMSpan:
         response_id=data["response_id"],
         output_type=data["output_type"],
         error_type=data["error_type"],
-        input_messages=tuple(
-            _deserialize_message(m) for m in data["input_messages"]
-        ),
-        output_messages=tuple(
-            _deserialize_assistant_message(m) for m in data["output_messages"]
-        ),
+        input_messages=tuple(_deserialize_message(m) for m in data["input_messages"]),
+        output_messages=tuple(_deserialize_assistant_message(m) for m in data["output_messages"]),
         tool_definitions=tuple(
             _deserialize_tool_definition(td) for td in data["tool_definitions"]
         ),

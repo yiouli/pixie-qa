@@ -158,8 +158,7 @@ class ObservationStore:
             )
         else:
             rows = await Observation.raw(
-                "SELECT * FROM observation "
-                "WHERE span_kind = {} ORDER BY started_at ASC",
+                "SELECT * FROM observation WHERE span_kind = {} ORDER BY started_at ASC",
                 span_kind,
             )
         return [deserialize_span(_row_to_dict(r)) for r in rows]
@@ -179,8 +178,7 @@ class ObservationStore:
             )
         else:
             rows = await Observation.raw(
-                "SELECT * FROM observation "
-                "WHERE error IS NOT NULL ORDER BY started_at ASC",
+                "SELECT * FROM observation WHERE error IS NOT NULL ORDER BY started_at ASC",
             )
         return [deserialize_span(_row_to_dict(r)) for r in rows]
 

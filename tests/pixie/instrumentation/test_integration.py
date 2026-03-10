@@ -65,7 +65,8 @@ class TestInitAndLLMSpan:
     def test_init_then_llm_span_delivered(
         self, recording_handler: RecordingHandler
     ) -> None:
-        px.init(recording_handler)
+        px.init()
+        px.add_handler(recording_handler)
         _inject_fake_llm_span(model="gpt-4")
         px.flush()
 
@@ -83,7 +84,8 @@ class TestLogObserveSpan:
     def test_log_delivers_observe_span(
         self, recording_handler: RecordingHandler
     ) -> None:
-        px.init(recording_handler)
+        px.init()
+        px.add_handler(recording_handler)
         with px.log(input="my question", name="qa") as span:
             span.set_output("my answer")
             span.set_metadata("source", "test")
@@ -105,7 +107,8 @@ class TestLLMInsideLog:
     def test_llm_span_parented_to_observe_span(
         self, recording_handler: RecordingHandler
     ) -> None:
-        px.init(recording_handler)
+        px.init()
+        px.add_handler(recording_handler)
 
         with px.log(input="q", name="parent_block") as span:
             # Get the current OTel span's context to use as parent
@@ -138,7 +141,8 @@ class TestFlush:
     def test_flush_processes_all_pending(
         self, recording_handler: RecordingHandler
     ) -> None:
-        px.init(recording_handler)
+        px.init()
+        px.add_handler(recording_handler)
 
         with px.log(input="q1"):
             pass
@@ -153,32 +157,52 @@ class TestFlush:
 
     def test_flush_without_init_returns_true(self) -> None:
         """Flush on uninitialized state should not error."""
-        # Reset state
-        px._state.delivery_queue = None
+        # State is reset by autouse fixture
         result = px.flush()
         assert result is True
 
 
-class TestReinitIdempotent:
-    """Tests for idempotent re-initialization."""
+class TestMultipleHandlers:
+    """Tests for add_handler/remove_handler with multiple handlers."""
 
-    def test_reinit_flushes_old_queue(self) -> None:
+    def test_multiple_handlers_receive_spans(self) -> None:
         handler1 = RecordingHandler()
         handler2 = RecordingHandler()
 
-        px.init(handler1)
+        px.init()
+        px.add_handler(handler1)
+        px.add_handler(handler2)
         with px.log(input="q1"):
             pass
-        # Re-init with new handler — should flush old
-        px.init(handler2)
+        px.flush()
+
+        # Both handlers should have received q1
+        assert len(handler1.observe_spans) == 1
+        assert handler1.observe_spans[0].input == "q1"
+        assert len(handler2.observe_spans) == 1
+        assert handler2.observe_spans[0].input == "q1"
+
+    def test_remove_handler_stops_delivery(self) -> None:
+        handler1 = RecordingHandler()
+        handler2 = RecordingHandler()
+
+        px.init()
+        px.add_handler(handler1)
+        px.add_handler(handler2)
+        with px.log(input="q1"):
+            pass
+        px.flush()
+
+        # Remove handler1
+        px.remove_handler(handler1)
         with px.log(input="q2"):
             pass
         px.flush()
 
-        # handler1 should have received q1 (flushed during re-init)
+        # handler1 should only have q1
         assert len(handler1.observe_spans) == 1
         assert handler1.observe_spans[0].input == "q1"
 
-        # handler2 should have received q2
-        assert len(handler2.observe_spans) == 1
-        assert handler2.observe_spans[0].input == "q2"
+        # handler2 should have both
+        assert len(handler2.observe_spans) == 2
+        assert handler2.observe_spans[1].input == "q2"

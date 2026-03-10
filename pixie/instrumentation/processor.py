@@ -77,13 +77,9 @@ class LLMSpanProcessor(SpanProcessor):
         duration_ms = (end_ns - start_ns) / 1e6
 
         # ── Provider / model
-        request_model = str(
-            attrs.get("llm.model_name") or attrs.get("gen_ai.request.model", "")
-        )
+        request_model = str(attrs.get("llm.model_name") or attrs.get("gen_ai.request.model", ""))
         response_model_raw = attrs.get("gen_ai.response.model")
-        response_model = (
-            str(response_model_raw) if response_model_raw is not None else None
-        )
+        response_model = str(response_model_raw) if response_model_raw is not None else None
         provider = str(attrs.get("gen_ai.system", "")) or _infer_provider(request_model)
         operation = "embedding" if span_kind == "EMBEDDING" else "chat"
 
@@ -102,9 +98,7 @@ class LLMSpanProcessor(SpanProcessor):
         request_top_p = _to_float_or_none(params.get("top_p"))
 
         # ── Response / error
-        response_id_raw = attrs.get("llm.response_id") or attrs.get(
-            "gen_ai.response.id"
-        )
+        response_id_raw = attrs.get("llm.response_id") or attrs.get("gen_ai.response.id")
         response_id = str(response_id_raw) if response_id_raw is not None else None
         output_type_raw = attrs.get("gen_ai.output.type")
         output_type = str(output_type_raw) if output_type_raw is not None else None
@@ -119,9 +113,7 @@ class LLMSpanProcessor(SpanProcessor):
         # ── Messages
         input_messages = _parse_input_messages(attrs)
         output_messages = _parse_output_messages(attrs)
-        finish_reasons = tuple(
-            msg.finish_reason for msg in output_messages if msg.finish_reason
-        )
+        finish_reasons = tuple(msg.finish_reason for msg in output_messages if msg.finish_reason)
 
         # ── Tool definitions
         tool_definitions = _parse_tool_definitions(attrs)
@@ -303,15 +295,11 @@ def _parse_input_messages(attrs: dict[str, Any]) -> list[Message]:
             content_key = f"{prefix}.content"
             content = str(attrs.get(content_key, ""))
             tool_call_id_raw = attrs.get(f"{prefix}.tool_call_id")
-            tool_call_id = (
-                str(tool_call_id_raw) if tool_call_id_raw is not None else None
-            )
+            tool_call_id = str(tool_call_id_raw) if tool_call_id_raw is not None else None
             tool_name_raw = attrs.get(f"{prefix}.name")
             tool_name = str(tool_name_raw) if tool_name_raw is not None else None
             messages.append(
-                ToolResultMessage(
-                    content=content, tool_call_id=tool_call_id, tool_name=tool_name
-                )
+                ToolResultMessage(content=content, tool_call_id=tool_call_id, tool_name=tool_name)
             )
 
         i += 1
@@ -335,9 +323,7 @@ def _parse_output_messages(attrs: dict[str, Any]) -> list[AssistantMessage]:
 
         # finish_reason is per-message in OpenInference
         finish_reason_raw = attrs.get(f"{prefix}.finish_reason")
-        finish_reason = (
-            str(finish_reason_raw) if finish_reason_raw is not None else None
-        )
+        finish_reason = str(finish_reason_raw) if finish_reason_raw is not None else None
 
         messages.append(
             AssistantMessage(
@@ -373,9 +359,7 @@ def _parse_tool_definitions(attrs: dict[str, Any]) -> list[ToolDefinition]:
             parameters = None
 
         tools.append(
-            ToolDefinition(
-                name=str(name), description=description, parameters=parameters
-            )
+            ToolDefinition(name=str(name), description=description, parameters=parameters)
         )
         i += 1
 
