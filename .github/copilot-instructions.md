@@ -417,6 +417,47 @@ uv run ruff check .              # No linting errors
 
 ---
 
+## Documentation and Changelog Requirements
+
+**Every code change must include corresponding documentation updates. Documentation is part of implementation, not a follow-up task.**
+
+### What to Keep Up to Date
+
+- **README.md**: Update when setup commands, features, dependencies, or project structure change.
+- **Module / API docstrings**: Update public function, class, and method docstrings whenever behavior, parameters, or return values change.
+- **Specs**: Update relevant files in `specs/` (for example `specs/instrumentation.md`) when architecture, data flow, or instrumentation behavior changes.
+
+### Changelog per Feature
+
+**Every non-trivial feature or bug fix must have a changelog entry.**
+
+1. Create or update a file under `changelogs/` named after the feature, e.g. `changelogs/span-processor-error-handling.md`.
+2. The file must include:
+    - **What changed** and why.
+    - **Files affected** (modules, tests, specs).
+    - **Migration notes** if any API behavior changed.
+3. Commit the changelog file together with the implementation.
+
+### Documentation Checklist (Before Every Commit)
+
+1. ✅ All new/changed public functions and classes have accurate docstrings.
+2. ✅ `README.md` reflects current commands, features, and structure.
+3. ✅ Relevant `specs/` docs are updated for architecture or behavior changes.
+4. ✅ A `changelogs/<feature>.md` file exists for each non-trivial change.
+
+### Automatic Documentation Updates After Every Change
+
+After each code change, immediately:
+
+1. Update docstrings in the same edit.
+2. Update `README.md` if setup, commands, or features changed.
+3. Update relevant `specs/` docs for design or behavior changes.
+4. Create/update a changelog file for non-trivial changes.
+
+Do not defer documentation work to the end of a task.
+
+---
+
 ## Error Handling Rules
 
 This project has strict error-handling conventions due to operating inside OTel pipelines and background threads:
@@ -438,7 +479,9 @@ This project has strict error-handling conventions due to operating inside OTel 
 2. ✅ Run `uv run pytest` — all tests must pass
 3. ✅ Run `uv run mypy pixie/` — zero type errors allowed
 4. ✅ Run `uv run ruff check .` — no linting errors
-5. ✅ Verify functionality works as expected
+5. ✅ Update docstrings / `README.md` / relevant `specs/` docs
+6. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
+7. ✅ Verify functionality works as expected
 
 **Development cycle:**
 
@@ -449,7 +492,8 @@ This project has strict error-handling conventions due to operating inside OTel 
 5. Implement feature (reuse existing code when possible)
 6. After each task: run tests and type check
 7. Run linting (`uv run ruff check .`)
-8. Fix any issues
-9. Commit
+8. Update docs and changelog for the task
+9. Fix any issues
+10. Commit
 
 Following these practices ensures high code quality, type safety, maintainability, and reliability.
