@@ -23,7 +23,7 @@ pixie/
     spans.py             # ObserveSpan, LLMSpan, message/content types
     handler.py           # InstrumentationHandler ABC
     context.py           # _SpanContext (mutable object yielded by log())
-    processor.py         # _LLMSpanProcessor (OTel SpanProcessor)
+    processor.py         # LLMSpanProcessor (OTel SpanProcessor)
     queue.py             # _DeliveryQueue (background worker thread)
     instrumentors.py     # auto-discovers and activates OpenInference instrumentors
     py.typed
@@ -445,6 +445,25 @@ uv run ruff check .              # No linting errors
 3. ✅ Relevant `specs/` docs are updated for architecture or behavior changes.
 4. ✅ A `changelogs/<feature>.md` file exists for each non-trivial change.
 
+### Hard Completion Gate (Non-Negotiable)
+
+For any non-trivial implementation, a task is **not complete** until all three artifacts exist and are updated in the same change set:
+
+1. `README.md` update (user-facing usage, setup, or feature summary)
+2. Relevant `specs/*.md` update (design/behavior/architecture)
+3. `changelogs/<feature>.md` entry (what changed, files, migration notes)
+
+If any of these are missing, the agent must continue working and add them before declaring completion.
+
+### New Module / Package Delivery Minimum
+
+When introducing a new module or subpackage, documentation must include:
+
+- A README section describing purpose and public API
+- A minimal runnable usage example
+- Testing / validation commands relevant to the module
+- A dedicated changelog entry for that module delivery
+
 ### Automatic Documentation Updates After Every Change
 
 After each code change, immediately:
@@ -462,7 +481,7 @@ Do not defer documentation work to the end of a task.
 
 This project has strict error-handling conventions due to operating inside OTel pipelines and background threads:
 
-1. **Never raise from `_LLMSpanProcessor.on_end()`** — entire body must be wrapped in try/except
+1. **Never raise from `LLMSpanProcessor.on_end()`** — entire body must be wrapped in try/except
 2. **Never raise from `_DeliveryQueue._worker()`** — each iteration must be wrapped
 3. **Never raise from `submit()`** — drop silently on full queue, increment counter
 4. **Handler method exceptions are silently swallowed** — the handler must not crash the delivery thread
