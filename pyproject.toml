@@ -1,0 +1,53 @@
+[project]
+name = "pixie"
+version = "0.1.0"
+description = "Automated quality assurance for AI applications"
+requires-python = ">=3.10"
+
+dependencies = [
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-api>=1.27.0",
+    "openinference-instrumentation>=0.1.44",
+]
+
+[project.optional-dependencies]
+openai = ["openinference-instrumentation-openai"]
+anthropic = ["openinference-instrumentation-anthropic"]
+langchain = ["openinference-instrumentation-langchain"]
+google = ["openinference-instrumentation-google-genai"]
+dspy = ["openinference-instrumentation-dspy"]
+all = [
+    "openinference-instrumentation-openai",
+    "openinference-instrumentation-anthropic",
+    "openinference-instrumentation-langchain",
+    "openinference-instrumentation-google-genai",
+    "openinference-instrumentation-dspy",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.10",
+    "ruff>=0.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["UP017"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
