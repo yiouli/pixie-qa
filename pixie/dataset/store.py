@@ -154,8 +154,7 @@ class DatasetStore:
         items = list(dataset.items)
         if index < 0 or index >= len(items):
             raise IndexError(
-                f"Index {index} out of range for dataset {name!r} "
-                f"with {len(items)} items"
+                f"Index {index} out of range for dataset {name!r} with {len(items)} items"
             )
         items.pop(index)
         updated = Dataset(name=dataset.name, items=tuple(items))

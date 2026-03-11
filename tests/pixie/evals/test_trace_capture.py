@@ -127,9 +127,7 @@ class TestMemoryTraceHandler:
         asyncio.run(handler.on_observe(_make_observe_span(span_id="a1", trace_id="t1")))
         asyncio.run(handler.on_observe(_make_observe_span(span_id="b1", trace_id="t2")))
         asyncio.run(
-            handler.on_llm(
-                _make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1")
-            )
+            handler.on_llm(_make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1"))
         )
 
         traces = handler.get_all_traces()

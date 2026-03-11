@@ -27,7 +27,7 @@ def last_llm_call(trace: list[ObservationNode]) -> Evaluable:
         trace: The trace tree (list of root ``ObservationNode`` instances).
 
     Returns:
-        An ``LLMSpanEval`` wrapping the most recently ended ``LLMSpan``.
+        An ``Evaluable`` wrapping the most recently ended ``LLMSpan``.
 
     Raises:
         ValueError: If no ``LLMSpan`` exists in the trace.

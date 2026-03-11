@@ -36,9 +36,7 @@ class TestSpanContextSetters:
 class TestSpanContextSnapshot:
     """Tests for _snapshot() producing correct frozen ObserveSpan."""
 
-    def test_snapshot_produces_observe_span(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_snapshot_produces_observe_span(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
         with px.log(input="hello", name="test_block") as span:
@@ -54,9 +52,7 @@ class TestSpanContextSnapshot:
         assert len(obs.span_id) == 16
         assert len(obs.trace_id) == 32
 
-    def test_snapshot_with_default_name(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_snapshot_with_default_name(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
         with px.log():
@@ -80,9 +76,7 @@ class TestSpanContextSnapshot:
 class TestSpanContextError:
     """Tests for exception handling inside log() blocks."""
 
-    def test_exception_sets_error_field(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_exception_sets_error_field(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
         with pytest.raises(ValueError, match="test error"), px.log(input="q"):

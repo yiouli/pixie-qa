@@ -59,14 +59,10 @@ class _HandlerRegistry(InstrumentationHandler):
         """Dispatch to all registered handlers concurrently, isolating exceptions."""
         with self._lock:
             snapshot = list(self._handlers)
-        await asyncio.gather(
-            *(h.on_llm(span) for h in snapshot), return_exceptions=True
-        )
+        await asyncio.gather(*(h.on_llm(span) for h in snapshot), return_exceptions=True)
 
     async def on_observe(self, span: ObserveSpan) -> None:
         """Dispatch to all registered handlers concurrently, isolating exceptions."""
         with self._lock:
             snapshot = list(self._handlers)
-        await asyncio.gather(
-            *(h.on_observe(span) for h in snapshot), return_exceptions=True
-        )
+        await asyncio.gather(*(h.on_observe(span) for h in snapshot), return_exceptions=True)

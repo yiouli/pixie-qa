@@ -102,9 +102,7 @@ async def assert_pass(
     *,
     evaluables: list[Evaluable] | None = None,
     passes: int = 1,
-    pass_criteria: (
-        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
-    ) = None,
+    pass_criteria: (Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Run evaluators against a runnable over multiple inputs and passes.
@@ -140,8 +138,7 @@ async def assert_pass(
     """
     if evaluables is not None and len(evaluables) != len(inputs):
         raise ValueError(
-            f"evaluables length ({len(evaluables)}) "
-            f"must match inputs length ({len(inputs)})"
+            f"evaluables length ({len(evaluables)}) must match inputs length ({len(inputs)})"
         )
 
     criteria = pass_criteria or ScoreThreshold()
@@ -153,10 +150,7 @@ async def assert_pass(
             if evaluables is not None:
                 # Use provided evaluable directly — skip trace capture
                 ev_item = evaluables[idx]
-                eval_coros = [
-                    evaluate(evaluator=ev, evaluable=ev_item)
-                    for ev in evaluators
-                ]
+                eval_coros = [evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators]
             else:
                 eval_coros = [
                     run_and_evaluate(

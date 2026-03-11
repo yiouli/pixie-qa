@@ -83,9 +83,7 @@ def _make_named_observe_span(name: str) -> ObserveSpan:
 class TestDeliveryQueueDispatch:
     """Tests for dispatching spans to correct handler methods."""
 
-    def test_llm_span_dispatched_to_on_llm(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_llm_span_dispatched_to_on_llm(self, recording_handler: RecordingHandler) -> None:
         q = _DeliveryQueue(recording_handler, maxsize=10)
         q.submit(_make_llm_span())
         q.flush()
@@ -201,9 +199,7 @@ class TestDeliveryQueueFireAndForget:
                 if span.name == "span1":
                     span1_started.set()
                     # Block span1 inside the event loop's thread-pool executor
-                    await asyncio.get_running_loop().run_in_executor(
-                        None, span1_release.wait
-                    )
+                    await asyncio.get_running_loop().run_in_executor(None, span1_release.wait)
                 elif span.name == "span2":
                     span2_started.set()
 
@@ -218,9 +214,9 @@ class TestDeliveryQueueFireAndForget:
         q.submit(_make_named_observe_span("span2"))
 
         # span2 must start processing WITHOUT waiting for span1 to release.
-        assert span2_started.wait(
-            timeout=2.0
-        ), "span2 did not start — worker likely blocked on span1's slow handler"
+        assert span2_started.wait(timeout=2.0), (
+            "span2 did not start — worker likely blocked on span1's slow handler"
+        )
 
         # Clean up: release span1 and drain the queue.
         span1_release.set()

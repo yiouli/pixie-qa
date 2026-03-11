@@ -89,7 +89,7 @@ from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
 
 from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import UNSET, Evaluable, _Unset
+from pixie.storage.evaluable import Evaluable, _Unset
 from pixie.storage.tree import ObservationNode
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
@@ -209,9 +209,7 @@ class AutoevalsAdapter:
                         kwargs[key] = evaluable.eval_metadata[key]
             kwargs.update(self._scorer_kwargs)
 
-            score = await self._scorer.eval_async(
-                output=output, expected=expected, **kwargs
-            )
+            score = await self._scorer.eval_async(output=output, expected=expected, **kwargs)
             return _score_to_evaluation(score)
         except Exception as exc:
             tb = _tb.format_exc()

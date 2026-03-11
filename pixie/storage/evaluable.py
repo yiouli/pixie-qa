@@ -11,8 +11,7 @@ from dataclasses import asdict
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic import JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from pixie.instrumentation.spans import (
     AssistantMessage,
@@ -56,6 +55,16 @@ class Evaluable(BaseModel):
     eval_metadata: dict[str, JsonValue] | None = None
     expected_output: JsonValue | _Unset = Field(default=UNSET)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_unset_sentinel(cls, data: Any) -> Any:
+        """Reconstruct ``_Unset`` from the serialised ``"UNSET"`` string."""
+        if isinstance(data, dict):
+            val = data.get("expected_output")
+            if val == "UNSET":
+                data = {**data, "expected_output": UNSET}
+        return data
+
 
 def as_evaluable(span: ObserveSpan | LLMSpan) -> Evaluable:
     """Build an ``Evaluable`` from a span.
@@ -76,6 +85,18 @@ def _observe_span_to_evaluable(span: ObserveSpan) -> Evaluable:
     )
 
 
+def _make_json_compatible(obj: Any) -> Any:
+    """Recursively convert dataclass-derived dicts to JSON-compatible values.
+
+    Converts tuples to lists so Pydantic's ``JsonValue`` validation passes.
+    """
+    if isinstance(obj, dict):
+        return {k: _make_json_compatible(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_compatible(item) for item in obj]
+    return obj
+
+
 def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
     # Extract text from last output message
     output_text: str | None = None
@@ -85,7 +106,7 @@ def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
         output_text = "".join(parts) if parts else None
 
     # Convert input_messages to JSON-compatible list of dicts
-    input_data: list[dict[str, Any]] = [asdict(msg) for msg in span.input_messages]
+    input_data: JsonValue = [_make_json_compatible(asdict(msg)) for msg in span.input_messages]
 
     metadata: dict[str, Any] = {
         "provider": span.provider,
@@ -98,7 +119,7 @@ def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
         "cache_creation_tokens": span.cache_creation_tokens,
         "finish_reasons": list(span.finish_reasons),
         "error_type": span.error_type,
-        "tool_definitions": [asdict(td) for td in span.tool_definitions],
+        "tool_definitions": [_make_json_compatible(asdict(td)) for td in span.tool_definitions],
     }
 
     return Evaluable(
