@@ -7,6 +7,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
+from pixie.evals.criteria import ScoreThreshold
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.trace_capture import capture_traces
 from pixie.storage.evaluable import Evaluable, as_evaluable
@@ -128,7 +129,7 @@ async def assert_pass(
     Raises:
         EvalAssertionError: When pass criteria are not met.
     """
-    criteria = pass_criteria or _default_pass_criteria
+    criteria = pass_criteria or ScoreThreshold()
     results: list[list[list[Evaluation]]] = []
 
     for _ in range(passes):

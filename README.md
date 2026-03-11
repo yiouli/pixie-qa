@@ -32,6 +32,16 @@ uv sync --extra all
 
 ## Quick Start
 
+### One-Line Storage Setup
+
+```python
+from pixie import enable_storage
+
+enable_storage()  # creates DB, registers handler — one line, everything works
+
+# Now any instrumented code automatically persists traces to SQLite
+```
+
 ### Instrumentation
 
 ```python
@@ -128,6 +138,7 @@ Data model types are exported from `pixie.instrumentation`, including `LLMSpan`,
 from pixie.evals import (
     Evaluation, evaluate, run_and_evaluate, assert_pass,
     capture_traces, MemoryTraceHandler, EvalAssertionError,
+    ScoreThreshold, last_llm_call, root,
 )
 from pixie.storage.evaluable import Evaluable
 from pixie.storage.tree import ObservationNode
@@ -140,6 +151,23 @@ from pixie.storage.tree import ObservationNode
 - `MemoryTraceHandler` — `InstrumentationHandler` that collects spans in-memory
 - `capture_traces()` — context manager that registers a handler and yields it
 - `EvalAssertionError` — raised when `assert_pass` fails; carries full results tensor
+- `ScoreThreshold(threshold=0.5, pct=1.0)` — configurable pass criteria for `assert_pass`
+- `last_llm_call(trace)` — extract the most recent `LLMSpan` from a trace as `Evaluable`
+- `root(trace)` — extract the first root span from a trace as `Evaluable`
+
+### Configuration
+
+All settings are read from `PIXIE_`-prefixed environment variables at call time:
+
+| Variable          | Default                 | Description               |
+| ----------------- | ----------------------- | ------------------------- |
+| `PIXIE_DB_PATH`   | `pixie_observations.db` | SQLite database file path |
+| `PIXIE_DB_ENGINE` | `sqlite`                | Database engine type      |
+
+```python
+from pixie.config import get_config
+config = get_config()  # reads env vars with defaults
+```
 
 **Example evaluator:**
 
@@ -156,7 +184,7 @@ async def exact_match(evaluable: Evaluable, *, trace=None) -> Evaluation:
 
 ```python
 import asyncio
-from pixie.evals import assert_pass, Evaluation
+from pixie.evals import assert_pass, Evaluation, ScoreThreshold, last_llm_call
 
 def my_app(question):
     import pixie.instrumentation as px
@@ -168,6 +196,25 @@ async def test_my_app():
         runnable=my_app,
         inputs=["What is 2+2?"],
         evaluators=[exact_match],
+    )
+
+# With custom pass criteria
+async def test_with_threshold():
+    await assert_pass(
+        runnable=my_app,
+        inputs=["q1", "q2", "q3"],
+        evaluators=[exact_match],
+        pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),
+        passes=3,
+    )
+
+# Evaluate last LLM call instead of root span
+async def test_llm_output():
+    await assert_pass(
+        runnable=my_app,
+        inputs=["What is 2+2?"],
+        evaluators=[exact_match],
+        from_trace=last_llm_call,
     )
 ```
 
@@ -200,6 +247,7 @@ uv run pytest tests/pixie/evals -v
 - Instrumentation spec: `specs/instrumentation.md`
 - Storage spec: `specs/storage.md`
 - Evals harness spec: `specs/evals-harness.md`
+- Usability improvements spec: `specs/usability-utils.md`
 - Change history: `changelogs/`
 
 ## Dev Setup (Skills)
