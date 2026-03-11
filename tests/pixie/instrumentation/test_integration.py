@@ -82,7 +82,7 @@ class TestLogObserveSpan:
     def test_log_delivers_observe_span(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log(input="my question", name="qa") as span:
+        with px.start_observation(input="my question", name="qa") as span:
             span.set_output("my answer")
             span.set_metadata("source", "test")
         px.flush()
@@ -104,7 +104,7 @@ class TestLLMInsideLog:
         px.init()
         px.add_handler(recording_handler)
 
-        with px.log(input="q", name="parent_block") as span:
+        with px.start_observation(input="q", name="parent_block") as span:
             # Get the current OTel span's context to use as parent
             otel_span = span._otel_span
             parent_ctx = otel_span.get_span_context()
@@ -136,9 +136,9 @@ class TestFlush:
         px.init()
         px.add_handler(recording_handler)
 
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
-        with px.log(input="q2"):
+        with px.start_observation(input="q2"):
             pass
         _inject_fake_llm_span()
 
@@ -164,7 +164,7 @@ class TestMultipleHandlers:
         px.init()
         px.add_handler(handler1)
         px.add_handler(handler2)
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
         px.flush()
 
@@ -181,13 +181,13 @@ class TestMultipleHandlers:
         px.init()
         px.add_handler(handler1)
         px.add_handler(handler2)
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
         px.flush()
 
         # Remove handler1
         px.remove_handler(handler1)
-        with px.log(input="q2"):
+        with px.start_observation(input="q2"):
             pass
         px.flush()
 

@@ -10,8 +10,9 @@ from typing import Any
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import Tracer, set_tracer_provider
+from pydantic import JsonValue
 
-from .context import _SpanContext
+from .context import ObservationContext
 from .handler import InstrumentationHandler, _HandlerRegistry
 from .instrumentors import _activate_instrumentors
 from .processor import LLMSpanProcessor
@@ -113,21 +114,23 @@ def remove_handler(handler: InstrumentationHandler) -> None:
 
 
 @contextmanager
-def log(
-    input: Any = None,
+def start_observation(
     *,
-    name: str | None = None,  # noqa: A002
-) -> Generator[_SpanContext, None, None]:
-    """Context manager that creates an OTel span and yields a mutable _SpanContext.
+    input: JsonValue,
+    name: str | None = None,
+) -> Generator[ObservationContext, None, None]:
+    """Context manager that creates an OTel span and yields a mutable ObservationContext.
 
     On exit, snapshots the context into a frozen ObserveSpan delivered to the handler.
     """
     if _state.tracer is None:
-        raise RuntimeError("pixie.instrumentation.init() must be called before log()")
+        raise RuntimeError(
+            "pixie.instrumentation.init() must be called before observe()"
+        )
     tracer = _state.tracer
     span_name = name or "observe"
     with tracer.start_as_current_span(span_name) as otel_span:
-        ctx = _SpanContext(otel_span=otel_span, input=input)
+        ctx = ObservationContext(otel_span=otel_span, input=input)
         try:
             yield ctx
         except Exception as e:
@@ -163,6 +166,6 @@ __all__ = [
     "add_handler",
     "flush",
     "init",
-    "log",
+    "start_observation",
     "remove_handler",
 ]

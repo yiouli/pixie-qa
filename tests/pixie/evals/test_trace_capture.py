@@ -153,7 +153,10 @@ class TestCaptureTraces:
 
     def test_captures_spans_from_log(self) -> None:
         """Spans produced inside the context manager are captured."""
-        with capture_traces() as handler, px.log(input="q", name="test") as span:
+        with (
+            capture_traces() as handler,
+            px.start_observation(input="q", name="test") as span,
+        ):
             span.set_output("a")
         assert len(handler.spans) == 1
         obs = handler.spans[0]
@@ -162,16 +165,16 @@ class TestCaptureTraces:
         assert obs.output == "a"
 
     def test_handler_accessible_after_context(self) -> None:
-        with capture_traces() as handler, px.log(input="q"):
+        with capture_traces() as handler, px.start_observation(input="q"):
             pass
         # Spans still accessible after exiting context
         assert len(handler.spans) == 1
 
     def test_spans_isolated_between_contexts(self) -> None:
-        with capture_traces() as h1, px.log(input="q1"):
+        with capture_traces() as h1, px.start_observation(input="q1"):
             pass
 
-        with capture_traces() as h2, px.log(input="q2"):
+        with capture_traces() as h2, px.start_observation(input="q2"):
             pass
 
         assert len(h1.spans) == 1
@@ -185,11 +188,11 @@ class TestCaptureTraces:
 
     def test_handler_removed_after_context(self) -> None:
         """After exiting capture_traces, the handler no longer receives spans."""
-        with capture_traces() as handler, px.log(input="inside"):
+        with capture_traces() as handler, px.start_observation(input="inside"):
             pass
 
         # Produce a span outside the context
-        with px.log(input="outside"):
+        with px.start_observation(input="outside"):
             pass
         px.flush()
 

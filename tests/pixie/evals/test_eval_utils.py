@@ -30,20 +30,20 @@ def _reset_instrumentation() -> None:
 
 def _sync_app(input: Any) -> None:  # noqa: A002
     """Sync application that produces an observe span."""
-    with px.log(input=input, name="app") as span:
+    with px.start_observation(input=input, name="app") as span:
         span.set_output(f"echo:{input}")
 
 
 async def _async_app(input: Any) -> None:  # noqa: A002
     """Async application that produces an observe span."""
-    with px.log(input=input, name="app") as span:
+    with px.start_observation(input=input, name="app") as span:
         span.set_output(f"echo:{input}")
 
 
 def _nested_app(input: Any) -> None:  # noqa: A002
     """Application that produces nested spans."""
-    with px.log(input=input, name="root") as span:
-        with px.log(input=input, name="generator") as child:
+    with px.start_observation(input=input, name="root") as span:
+        with px.start_observation(input=input, name="generator") as child:
             child.set_output("generated")
         span.set_output("final")
 

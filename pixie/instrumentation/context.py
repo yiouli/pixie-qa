@@ -19,7 +19,7 @@ def _extract_parent_span_id(otel_span: Span) -> str | None:
     return None
 
 
-class _SpanContext:
+class ObservationContext:
     """Mutable object yielded by log(). Users interact with this inside the with block.
 
     Not exported — users only need set_output() and set_metadata().

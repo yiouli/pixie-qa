@@ -16,7 +16,7 @@ class TestSpanContextSetters:
     def test_set_output(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log(input="q") as span:
+        with px.start_observation(input="q") as span:
             span.set_output("answer")
         px.flush()
         assert len(recording_handler.observe_spans) == 1
@@ -25,7 +25,7 @@ class TestSpanContextSetters:
     def test_set_metadata(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log() as span:
+        with px.start_observation() as span:
             span.set_metadata("k1", "v1")
             span.set_metadata("k2", 42)
         px.flush()
@@ -39,7 +39,7 @@ class TestSpanContextSnapshot:
     def test_snapshot_produces_observe_span(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log(input="hello", name="test_block") as span:
+        with px.start_observation(input="hello", name="test_block") as span:
             span.set_output("world")
         px.flush()
 
@@ -55,7 +55,7 @@ class TestSpanContextSnapshot:
     def test_snapshot_with_default_name(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log():
+        with px.start_observation():
             pass
         px.flush()
         obs = recording_handler.observe_spans[0]
@@ -64,7 +64,7 @@ class TestSpanContextSnapshot:
     def test_snapshot_timing(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log():
+        with px.start_observation():
             pass
         px.flush()
         obs = recording_handler.observe_spans[0]
@@ -79,7 +79,10 @@ class TestSpanContextError:
     def test_exception_sets_error_field(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with pytest.raises(ValueError, match="test error"), px.log(input="q"):
+        with (
+            pytest.raises(ValueError, match="test error"),
+            px.start_observation(input="q"),
+        ):
             raise ValueError("test error")
         px.flush()
         obs = recording_handler.observe_spans[0]
@@ -88,7 +91,7 @@ class TestSpanContextError:
     def test_exception_is_reraised(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with pytest.raises(RuntimeError), px.log():
+        with pytest.raises(RuntimeError), px.start_observation():
             raise RuntimeError("boom")
 
 
@@ -98,8 +101,8 @@ class TestSpanContextNesting:
     def test_nested_parent_span_id(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log(name="outer"):  # noqa: SIM117
-            with px.log(name="inner"):
+        with px.start_observation(name="outer"):  # noqa: SIM117
+            with px.start_observation(name="inner"):
                 pass
         px.flush()
 
