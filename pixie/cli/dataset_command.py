@@ -11,7 +11,6 @@ items:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import JsonValue
@@ -54,21 +53,7 @@ def dataset_list(
     - ``created_at``: file creation timestamp (ISO 8601)
     - ``updated_at``: file last-modified timestamp (ISO 8601)
     """
-    names = dataset_store.list()
-    rows: list[dict[str, Any]] = []
-    for name in names:
-        ds = dataset_store.get(name)
-        path = dataset_store._path_for(name)
-        stat = path.stat()
-        rows.append(
-            {
-                "name": ds.name,
-                "row_count": len(ds.items),
-                "created_at": _timestamp_to_iso(stat.st_ctime),
-                "updated_at": _timestamp_to_iso(stat.st_mtime),
-            }
-        )
-    return rows
+    return dataset_store.list_details()
 
 
 def format_dataset_table(rows: list[dict[str, Any]]) -> str:
@@ -206,8 +191,3 @@ async def _select_span(
         return matches[-1]
 
     raise ValueError(f"Unknown selection mode: {select!r}")
-
-
-def _timestamp_to_iso(ts: float) -> str:
-    """Convert a POSIX timestamp to an ISO 8601 string (UTC)."""
-    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
