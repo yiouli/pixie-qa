@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-import pixie.instrumentation as px
+import pixie.instrumentation.observation as px
 from pixie.instrumentation.handler import InstrumentationHandler
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 

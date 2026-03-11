@@ -19,10 +19,11 @@ pixie-qa is a Python package and coding-agent skill for automated quality assura
 pixie/
   __init__.py
   instrumentation/
-    __init__.py          # public API: init(), log(), flush()
+    __init__.py          # public API: init(), start_observation(), observe(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
     handler.py           # InstrumentationHandler ABC
-    context.py           # _SpanContext (mutable object yielded by log())
+    context.py           # ObservationContext (mutable object yielded by start_observation())
+    observe.py           # @observe decorator for automatic input/output capture
     processor.py         # LLMSpanProcessor (OTel SpanProcessor)
     queue.py             # _DeliveryQueue (background worker thread)
     instrumentors.py     # auto-discovers and activates OpenInference instrumentors
@@ -439,9 +440,9 @@ Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch
 
 1. Create or update a file under `changelogs/` named after the feature, e.g. `changelogs/span-processor-error-handling.md`.
 2. The file must include:
-    - **What changed** and why.
-    - **Files affected** (modules, tests, specs).
-    - **Migration notes** if any API behavior changed.
+   - **What changed** and why.
+   - **Files affected** (modules, tests, specs).
+   - **Migration notes** if any API behavior changed.
 3. Commit the changelog file together with the implementation.
 
 ### Documentation Checklist (Before Every Commit)
@@ -492,7 +493,7 @@ This project has strict error-handling conventions due to operating inside OTel 
 3. **Never raise from `submit()`** — drop silently on full queue, increment counter
 4. **Handler method exceptions are silently swallowed** — the handler must not crash the delivery thread
 5. **Malformed JSON in span attributes** — fall back to `{}` or `None`, never raise
-6. **`log()` block exceptions re-raised normally** after snapshotting the `error` field
+6. **`start_observation()` block exceptions re-raised normally** after snapshotting the `error` field
 
 ---
 

@@ -1,0 +1,7 @@
+- understand the app: how it runs, what are the expectations
+- determine eval criteria: evaluators and pass criteria
+- setup proper instruction for eval - confirm data are traced and properly formatted
+- build golden dataset
+  - separately
+  - from debugging sessions
+- run evals during development cycle

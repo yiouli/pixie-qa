@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 from opentelemetry.trace import SpanContext, StatusCode
 from opentelemetry.trace.status import Status
 
-import pixie.instrumentation as px
+import pixie.instrumentation.observation as px
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 
 from .conftest import RecordingHandler
@@ -60,9 +60,11 @@ def _inject_fake_llm_span(
 
 
 class TestInitAndLLMSpan:
-    """Tests for init() → fake LLM span → on_llm() called."""
+    """Tests for init() -> fake LLM span -> on_llm() called."""
 
-    def test_init_then_llm_span_delivered(self, recording_handler: RecordingHandler) -> None:
+    def test_init_then_llm_span_delivered(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
         _inject_fake_llm_span(model="gpt-4")
@@ -77,14 +79,16 @@ class TestInitAndLLMSpan:
 
 
 class TestLogObserveSpan:
-    """Tests for log() block → on_observe() called."""
+    """Tests for start_observation() block -> on_observe() called."""
 
-    def test_log_delivers_observe_span(self, recording_handler: RecordingHandler) -> None:
+    def test_log_delivers_observe_span(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.log(input="my question", name="qa") as span:
-            span.set_output("my answer")
-            span.set_metadata("source", "test")
+        with px.start_observation(input="my question", name="qa") as observation:
+            observation.set_output("my answer")
+            observation.set_metadata("source", "test")
         px.flush()
 
         assert len(recording_handler.observe_spans) == 1
@@ -98,22 +102,24 @@ class TestLogObserveSpan:
 
 
 class TestLLMInsideLog:
-    """Tests for LLM call inside log() → parent_span_id == observe_span.span_id."""
+    """Tests for LLM call inside start_observation() -> parent_span_id == observe_span.span_id."""
 
-    def test_llm_span_parented_to_observe_span(self, recording_handler: RecordingHandler) -> None:
+    def test_llm_span_parented_to_observe_span(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
 
-        with px.log(input="q", name="parent_block") as span:
+        with px.start_observation(input="q", name="parent_block") as observation:
             # Get the current OTel span's context to use as parent
-            otel_span = span._otel_span
+            otel_span = observation._otel_span
             parent_ctx = otel_span.get_span_context()
             _inject_fake_llm_span(
                 model="claude-3-opus",
                 parent_span_id=parent_ctx.span_id,
                 trace_id=parent_ctx.trace_id,
             )
-            span.set_output("a")
+            observation.set_output("a")
 
         px.flush()
 
@@ -132,13 +138,15 @@ class TestLLMInsideLog:
 class TestFlush:
     """Tests for flush()."""
 
-    def test_flush_processes_all_pending(self, recording_handler: RecordingHandler) -> None:
+    def test_flush_processes_all_pending(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
 
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
-        with px.log(input="q2"):
+        with px.start_observation(input="q2"):
             pass
         _inject_fake_llm_span()
 
@@ -164,7 +172,7 @@ class TestMultipleHandlers:
         px.init()
         px.add_handler(handler1)
         px.add_handler(handler2)
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
         px.flush()
 
@@ -181,13 +189,13 @@ class TestMultipleHandlers:
         px.init()
         px.add_handler(handler1)
         px.add_handler(handler2)
-        with px.log(input="q1"):
+        with px.start_observation(input="q1"):
             pass
         px.flush()
 
         # Remove handler1
         px.remove_handler(handler1)
-        with px.log(input="q2"):
+        with px.start_observation(input="q2"):
             pass
         px.flush()
 

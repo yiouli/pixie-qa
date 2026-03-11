@@ -11,6 +11,7 @@ dependencies = [
     "piccolo[sqlite]>=1.33.0",
     "autoevals>=0.1.0",
     "pydantic>=2.0",
+    "jsonpickle>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +52,10 @@ warn_unused_configs = true
 
 [[tool.mypy.overrides]]
 module = "autoevals.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jsonpickle.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
