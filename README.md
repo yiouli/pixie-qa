@@ -8,6 +8,7 @@ This repository provides:
 - **`pixie.storage`** — Persistence, querying, and tree assembly for observation traces
 - **`pixie.evals`** — Evaluation harness for LLM application testing
 - **`pixie.dataset`** — Named collections of evaluable items (JSON-file-backed CRUD)
+- **`pixie.cli`** — Command-line interface for dataset management and test execution
 
 ## Installation
 
@@ -353,8 +354,19 @@ store.delete("qa-golden-set")
 ### CLI
 
 ```bash
+# Run eval tests
 pixie-test [path] [-k filter] [-v]
+
+# Save a trace's root span to a new dataset
+pixie dataset create <name> --trace-id <trace_id>
+
+# Append a trace's root span to an existing dataset
+pixie dataset append <name> --trace-id <trace_id>
 ```
+
+Both dataset commands read from the observation store (configured via
+``PIXIE_DB_PATH``) and write to the dataset directory (configured via
+``PIXIE_DATASET_DIR``).
 
 ## Development
 
@@ -373,6 +385,7 @@ uv run pytest tests/pixie/instrumentation -v
 uv run pytest tests/pixie/observation_store -v
 uv run pytest tests/pixie/evals -v
 uv run pytest tests/pixie/dataset -v
+uv run pytest tests/pixie/cli -v
 ```
 
 ## Documentation
