@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from pixie.config import get_config
 from pixie.dataset.models import Dataset
@@ -104,6 +107,37 @@ class DatasetStore:
                 continue  # skip malformed files
         return names
 
+    def list_details(self) -> builtins.list[dict[str, Any]]:
+        """Return metadata for every stored dataset.
+
+        Each returned dict contains:
+
+        - ``name``: dataset name
+        - ``row_count``: number of evaluable items
+        - ``created_at``: file creation timestamp (ISO 8601, UTC)
+        - ``updated_at``: file last-modified timestamp (ISO 8601, UTC)
+
+        Returns an empty list if the directory does not exist.
+        """
+        if not self._dir.exists():
+            return []
+        rows: list[dict[str, Any]] = []
+        for p in sorted(self._dir.glob("*.json")):
+            try:
+                ds = self._read(p)
+                stat = p.stat()
+                rows.append(
+                    {
+                        "name": ds.name,
+                        "row_count": len(ds.items),
+                        "created_at": _timestamp_to_iso(stat.st_ctime),
+                        "updated_at": _timestamp_to_iso(stat.st_mtime),
+                    }
+                )
+            except Exception:
+                continue  # skip malformed files
+        return rows
+
     def delete(self, name: str) -> None:
         """Delete a dataset by name.
 
@@ -171,3 +205,8 @@ class DatasetStore:
     def _read(self, path: Path) -> Dataset:
         raw = json.loads(path.read_text(encoding="utf-8"))
         return Dataset.model_validate(raw)
+
+
+def _timestamp_to_iso(ts: float) -> str:
+    """Convert a POSIX timestamp to an ISO 8601 string (UTC)."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
