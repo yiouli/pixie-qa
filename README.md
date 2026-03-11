@@ -139,7 +139,7 @@ Data model types are exported from `pixie.instrumentation`, including `LLMSpan`,
 
 ```python
 from pixie.evals import (
-    Evaluation, evaluate, run_and_evaluate, assert_pass,
+    Evaluation, evaluate, run_and_evaluate, assert_pass, assert_dataset_pass,
     capture_traces, MemoryTraceHandler, EvalAssertionError,
     ScoreThreshold, last_llm_call, root,
 )
@@ -149,8 +149,9 @@ from pixie.storage.tree import ObservationNode
 
 - `Evaluation(score, reasoning, details={})` — frozen result of one evaluator run
 - `evaluate(evaluator, evaluable, *, trace=None)` — run one evaluator (sync or async)
-- `run_and_evaluate(evaluator, runnable, input, *, from_trace=None)` — run a callable, capture traces, evaluate
-- `assert_pass(runnable, inputs, evaluators, *, evaluables=None, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `run_and_evaluate(evaluator, runnable, eval_input, *, expected_output=..., from_trace=None)` — run a callable, capture traces, evaluate. `expected_output` is merged into the span-derived evaluable when provided.
+- `assert_pass(runnable, eval_inputs, evaluators, *, evaluables=None, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `assert_dataset_pass(runnable, dataset_name, evaluators, *, dataset_dir=None, passes=1, pass_criteria=None, from_trace=None)` — load a dataset by name and run `assert_pass` with its items
 - `MemoryTraceHandler` — `InstrumentationHandler` that collects spans in-memory
 - `capture_traces()` — context manager that registers a handler and yields it
 - `EvalAssertionError` — raised when `assert_pass` fails; carries full results tensor
@@ -257,7 +258,7 @@ async def exact_match(evaluable: Evaluable, *, trace=None) -> Evaluation:
 
 ```python
 import asyncio
-from pixie.evals import assert_pass, Evaluation, ScoreThreshold, last_llm_call
+from pixie.evals import assert_pass, assert_dataset_pass, Evaluation, ScoreThreshold, last_llm_call
 from pixie.storage.evaluable import Evaluable
 
 def my_app(question):
@@ -268,7 +269,7 @@ def my_app(question):
 async def test_my_app():
     await assert_pass(
         runnable=my_app,
-        inputs=["What is 2+2?"],
+        eval_inputs=["What is 2+2?"],
         evaluators=[exact_match],
     )
 
@@ -280,7 +281,7 @@ async def test_with_expected():
     ]
     await assert_pass(
         runnable=my_app,
-        inputs=[item.eval_input for item in items],
+        eval_inputs=[item.eval_input for item in items],
         evaluators=[FactualityEval()],
         evaluables=items,
     )
@@ -289,7 +290,7 @@ async def test_with_expected():
 async def test_with_threshold():
     await assert_pass(
         runnable=my_app,
-        inputs=["q1", "q2", "q3"],
+        eval_inputs=["q1", "q2", "q3"],
         evaluators=[exact_match],
         pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),
         passes=3,
@@ -299,7 +300,7 @@ async def test_with_threshold():
 async def test_llm_output():
     await assert_pass(
         runnable=my_app,
-        inputs=["What is 2+2?"],
+        eval_inputs=["What is 2+2?"],
         evaluators=[exact_match],
         from_trace=last_llm_call,
     )
@@ -309,6 +310,7 @@ async def test_llm_output():
 
 ```python
 from pixie.dataset import Dataset, DatasetStore
+from pixie.evals import assert_dataset_pass
 from pixie.storage.evaluable import Evaluable
 
 store = DatasetStore()
@@ -322,11 +324,18 @@ ds = store.create("qa-golden-set", items=[
 # Append more items
 store.append("qa-golden-set", Evaluable(eval_input="Hello", expected_output="Hi"))
 
-# Load and use with eval harness
+# Use assert_dataset_pass — loads dataset, maps to inputs/evaluables, evaluates
+await assert_dataset_pass(
+    runnable=my_qa_app,
+    dataset_name="qa-golden-set",
+    evaluators=[FactualityEval()],
+)
+
+# Or manually load and use with assert_pass
 ds = store.get("qa-golden-set")
 await assert_pass(
     runnable=my_qa_app,
-    inputs=[item.eval_input for item in ds.items],
+    eval_inputs=[item.eval_input for item in ds.items],
     evaluators=[FactualityEval()],
     evaluables=list(ds.items),
 )

@@ -16,9 +16,15 @@ The `_Unset` enum sentinel distinguishes "expected output was never set" from "e
 
 **Removed classes**: `ObserveSpanEval` and `LLMSpanEval` adapter classes. The `as_evaluable()` factory now returns `Evaluable` model instances directly.
 
-**Removed parameters**: `expected_output` / `expected_outputs` parameters removed from `evaluate()`, `run_and_evaluate()`, `assert_pass()`, and `AutoevalsAdapter.__call__()`. Evaluators now read `evaluable.expected_output` directly.
+**Removed parameters**: `expected_output` / `expected_outputs` parameters removed from `evaluate()`, `assert_pass()`, and `AutoevalsAdapter.__call__()`. Evaluators now read `evaluable.expected_output` directly.
+
+**Retained parameter**: `run_and_evaluate()` keeps `expected_output` as an optional parameter — span-derived evaluables never carry expected values, so this parameter lets callers inject the reference value into the evaluable before evaluation.
+
+**Renamed parameters**: `input` → `eval_input` in `run_and_evaluate()`, `inputs` → `eval_inputs` in `assert_pass()` to match `Evaluable` field naming.
 
 **New parameter**: `assert_pass()` gains an `evaluables: list[Evaluable] | None` parameter. When provided, evaluables are used directly (each carries its own `expected_output`).
+
+**New function**: `assert_dataset_pass(runnable, dataset_name, evaluators, ...)` — loads a dataset by name, maps items to `eval_inputs` and `evaluables`, then calls `assert_pass`.
 
 ### Dataset Storage
 
@@ -78,7 +84,8 @@ Added `pydantic>=2.0` as a runtime dependency.
 This is a **breaking change**:
 
 1. **Custom evaluators**: Any evaluator accepting `expected_output` as a kwarg must be updated to read `evaluable.expected_output` instead.
-2. **`evaluate()` / `run_and_evaluate()`**: Remove `expected_output` kwarg. Set `expected_output` on the `Evaluable` instance instead.
-3. **`assert_pass()`**: Remove `expected_outputs` kwarg. Use `evaluables` parameter with `Evaluable` items that have `expected_output` set.
-4. **`ObserveSpanEval` / `LLMSpanEval`**: These classes no longer exist. Use `as_evaluable()` or construct `Evaluable` directly.
-5. **`Evaluable` type checking**: `Evaluable` is no longer a Protocol — it's a Pydantic `BaseModel`. `isinstance()` checks will still work, but duck typing won't.
+2. **`evaluate()`**: Remove `expected_output` kwarg. Set `expected_output` on the `Evaluable` instance instead.
+3. **`run_and_evaluate()`**: `input` parameter renamed to `eval_input`. `expected_output` is still available as a kwarg and is merged into the span-derived evaluable.
+4. **`assert_pass()`**: `inputs` parameter renamed to `eval_inputs`. Remove `expected_outputs` kwarg. Use `evaluables` parameter with `Evaluable` items that have `expected_output` set, or use `assert_dataset_pass()`.
+5. **`ObserveSpanEval` / `LLMSpanEval`**: These classes no longer exist. Use `as_evaluable()` or construct `Evaluable` directly.
+6. **`Evaluable` type checking**: `Evaluable` is no longer a Protocol — it's a Pydantic `BaseModel`. `isinstance()` checks will still work, but duck typing won't.
