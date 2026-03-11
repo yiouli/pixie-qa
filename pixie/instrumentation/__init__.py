@@ -43,7 +43,7 @@ __all__ = [
     "add_handler",
     "flush",
     "init",
-    "observation",
+    "observe",
     "start_observation",
     "remove_handler",
 ]
