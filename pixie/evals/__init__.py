@@ -6,6 +6,7 @@ Public API:
     - ``evaluate`` — run one evaluator against one evaluable
     - ``run_and_evaluate`` — evaluate spans from a MemoryTraceHandler
     - ``assert_pass`` — batch evaluation with pass/fail criteria
+    - ``assert_dataset_pass`` — load a dataset and run assert_pass
     - ``EvalAssertionError`` — raised when assert_pass fails
     - ``capture_traces`` — context manager for in-memory trace capture
     - ``MemoryTraceHandler`` — InstrumentationHandler that collects spans
@@ -38,7 +39,12 @@ Pre-made evaluators (autoevals adapters):
 """
 
 from pixie.evals.criteria import ScoreThreshold
-from pixie.evals.eval_utils import EvalAssertionError, assert_pass, run_and_evaluate
+from pixie.evals.eval_utils import (
+    EvalAssertionError,
+    assert_dataset_pass,
+    assert_pass,
+    run_and_evaluate,
+)
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
 from pixie.evals.scorers import (
     AnswerCorrectnessEval,
@@ -95,6 +101,7 @@ __all__ = [
     "SummaryEval",
     "TranslationEval",
     "ValidJSONEval",
+    "assert_dataset_pass",
     "assert_pass",
     "capture_traces",
     "evaluate",

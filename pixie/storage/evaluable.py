@@ -1,8 +1,17 @@
-"""Evaluable protocol and span adapters for uniform evaluator access."""
+"""Evaluable model and span-to-evaluable conversion.
+
+``Evaluable`` is a frozen Pydantic ``BaseModel`` that serves as the uniform
+data carrier for evaluators.  The ``_Unset`` sentinel distinguishes *"expected
+output was never provided"* from *"expected output is explicitly None"*.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from dataclasses import asdict
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from pixie.instrumentation.spans import (
     AssistantMessage,
@@ -12,88 +21,109 @@ from pixie.instrumentation.spans import (
 )
 
 
-@runtime_checkable
-class Evaluable(Protocol):
-    """Uniform interface for evaluators to extract data from either span type."""
+class _Unset(Enum):
+    """Sentinel to distinguish 'not provided' from ``None``."""
 
-    @property
-    def eval_input(self) -> Any:
-        """The primary input to the observed operation."""
-        ...  # pragma: no cover
-
-    @property
-    def eval_output(self) -> Any:
-        """The primary output of the observed operation."""
-        ...  # pragma: no cover
-
-    @property
-    def eval_metadata(self) -> dict[str, Any]:
-        """Supplementary metadata about the observed operation."""
-        ...  # pragma: no cover
+    UNSET = "UNSET"
 
 
-class ObserveSpanEval:
-    """Adapter wrapping an ``ObserveSpan`` to satisfy ``Evaluable``."""
-
-    def __init__(self, span: ObserveSpan) -> None:
-        self._span = span
-
-    @property
-    def eval_input(self) -> Any:
-        """Return ``span.input``."""
-        return self._span.input
-
-    @property
-    def eval_output(self) -> Any:
-        """Return ``span.output``."""
-        return self._span.output
-
-    @property
-    def eval_metadata(self) -> dict[str, Any]:
-        """Return ``span.metadata``."""
-        return self._span.metadata
+UNSET = _Unset.UNSET
+"""Sentinel value: field was never set (as opposed to explicitly ``None``)."""
 
 
-class LLMSpanEval:
-    """Adapter wrapping an ``LLMSpan`` to satisfy ``Evaluable``."""
+class Evaluable(BaseModel):
+    """Uniform data carrier for evaluators.
 
-    def __init__(self, span: LLMSpan) -> None:
-        self._span = span
+    All fields use Pydantic ``JsonValue`` to guarantee JSON
+    round-trip fidelity.  ``expected_output`` uses a union with the
+    ``_Unset`` sentinel so callers can distinguish *"expected output
+    was not provided"* from *"expected output is explicitly None"*.
 
-    @property
-    def eval_input(self) -> tuple[Any, ...]:
-        """Return the full ``input_messages`` tuple."""
-        return self._span.input_messages
+    Attributes:
+        eval_input: The primary input to the observed operation.
+        eval_output: The primary output of the observed operation.
+        eval_metadata: Supplementary metadata (``None`` when absent).
+        expected_output: The expected/reference output for evaluation.
+            Defaults to ``UNSET`` (not provided). May be explicitly
+            set to ``None`` to indicate "there is no expected output".
+    """
 
-    @property
-    def eval_output(self) -> str | None:
-        """Extract text from the last output message, or ``None``."""
-        if not self._span.output_messages:
-            return None
-        last: AssistantMessage = self._span.output_messages[-1]
-        parts = [p.text for p in last.content if isinstance(p, TextContent)]
-        return "".join(parts) if parts else None
+    model_config = ConfigDict(frozen=True)
 
-    @property
-    def eval_metadata(self) -> dict[str, Any]:
-        """Return LLM-specific metadata dict."""
-        return {
-            "provider": self._span.provider,
-            "request_model": self._span.request_model,
-            "response_model": self._span.response_model,
-            "operation": self._span.operation,
-            "input_tokens": self._span.input_tokens,
-            "output_tokens": self._span.output_tokens,
-            "cache_read_tokens": self._span.cache_read_tokens,
-            "cache_creation_tokens": self._span.cache_creation_tokens,
-            "finish_reasons": self._span.finish_reasons,
-            "error_type": self._span.error_type,
-            "tool_definitions": self._span.tool_definitions,
-        }
+    eval_input: JsonValue = None
+    eval_output: JsonValue = None
+    eval_metadata: dict[str, JsonValue] | None = None
+    expected_output: JsonValue | _Unset = Field(default=UNSET)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_unset_sentinel(cls, data: Any) -> Any:
+        """Reconstruct ``_Unset`` from the serialised ``"UNSET"`` string."""
+        if isinstance(data, dict):
+            val = data.get("expected_output")
+            if val == "UNSET":
+                data = {**data, "expected_output": UNSET}
+        return data
 
 
 def as_evaluable(span: ObserveSpan | LLMSpan) -> Evaluable:
-    """Return the appropriate ``Evaluable`` adapter for *span*."""
+    """Build an ``Evaluable`` from a span.
+
+    ``expected_output`` is left as ``UNSET`` — span data never carries
+    expected values.
+    """
     if isinstance(span, LLMSpan):
-        return LLMSpanEval(span)
-    return ObserveSpanEval(span)
+        return _llm_span_to_evaluable(span)
+    return _observe_span_to_evaluable(span)
+
+
+def _observe_span_to_evaluable(span: ObserveSpan) -> Evaluable:
+    return Evaluable(
+        eval_input=span.input,
+        eval_output=span.output,
+        eval_metadata=span.metadata if span.metadata else None,
+    )
+
+
+def _make_json_compatible(obj: Any) -> Any:
+    """Recursively convert dataclass-derived dicts to JSON-compatible values.
+
+    Converts tuples to lists so Pydantic's ``JsonValue`` validation passes.
+    """
+    if isinstance(obj, dict):
+        return {k: _make_json_compatible(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_compatible(item) for item in obj]
+    return obj
+
+
+def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
+    # Extract text from last output message
+    output_text: str | None = None
+    if span.output_messages:
+        last: AssistantMessage = span.output_messages[-1]
+        parts = [p.text for p in last.content if isinstance(p, TextContent)]
+        output_text = "".join(parts) if parts else None
+
+    # Convert input_messages to JSON-compatible list of dicts
+    input_data: JsonValue = [_make_json_compatible(asdict(msg)) for msg in span.input_messages]
+
+    metadata: dict[str, Any] = {
+        "provider": span.provider,
+        "request_model": span.request_model,
+        "response_model": span.response_model,
+        "operation": span.operation,
+        "input_tokens": span.input_tokens,
+        "output_tokens": span.output_tokens,
+        "cache_read_tokens": span.cache_read_tokens,
+        "cache_creation_tokens": span.cache_creation_tokens,
+        "finish_reasons": list(span.finish_reasons),
+        "error_type": span.error_type,
+        "tool_definitions": [_make_json_compatible(asdict(td)) for td in span.tool_definitions],
+    }
+
+    return Evaluable(
+        eval_input=input_data,
+        eval_output=output_text,
+        eval_metadata=metadata,
+    )

@@ -1,5 +1,10 @@
 # Expected Output in Eval Signatures — Implementation Spec
 
+> **Superseded by `specs/dataset-management.md`.** The separate `expected_output`
+> parameter approach has been replaced: `expected_output` is now a field on the
+> `Evaluable` Pydantic model, and has been removed from all evaluation function
+> signatures.
+
 ## Overview
 
 Add an optional `expected_output` parameter to the pixie evaluation function signatures so users can supply expected values directly in their eval tests rather than embedding them only inside evaluator constructors or evaluable metadata.

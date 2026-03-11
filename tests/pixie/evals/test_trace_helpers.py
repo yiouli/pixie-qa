@@ -8,7 +8,7 @@ import pytest
 
 from pixie.evals.trace_helpers import last_llm_call, root
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
-from pixie.storage.evaluable import LLMSpanEval, ObserveSpanEval
+from pixie.storage.evaluable import Evaluable
 from pixie.storage.tree import ObservationNode
 
 
@@ -92,7 +92,8 @@ class TestLastLlmCall:
         ]
 
         result = last_llm_call(trace)
-        assert isinstance(result, LLMSpanEval)
+        assert isinstance(result, Evaluable)
+        assert result.eval_metadata is not None
         assert result.eval_metadata["request_model"] == "late"
 
     def test_raises_value_error_when_no_llm_span(self) -> None:
@@ -108,24 +109,21 @@ class TestLastLlmCall:
 
         obs = _make_observe_span(span_id="root")
         llm_early = _make_llm_span(span_id="llm1", parent_span_id="root", ended_at=t1)
-        inner_obs = _make_observe_span(
-            name="inner", span_id="inner", parent_span_id="root"
-        )
+        inner_obs = _make_observe_span(name="inner", span_id="inner", parent_span_id="root")
         llm_late = _make_llm_span(
             span_id="llm2", parent_span_id="inner", ended_at=t2, request_model="nested"
         )
 
         # Build nested tree: root -> [llm_early, inner_obs -> [llm_late]]
-        inner_node = ObservationNode(
-            span=inner_obs, children=[ObservationNode(span=llm_late)]
-        )
+        inner_node = ObservationNode(span=inner_obs, children=[ObservationNode(span=llm_late)])
         root_node = ObservationNode(
             span=obs, children=[ObservationNode(span=llm_early), inner_node]
         )
         trace = [root_node]
 
         result = last_llm_call(trace)
-        assert isinstance(result, LLMSpanEval)
+        assert isinstance(result, Evaluable)
+        assert result.eval_metadata is not None
         assert result.eval_metadata["request_model"] == "nested"
 
     def test_raises_on_empty_trace(self) -> None:
@@ -141,7 +139,7 @@ class TestRoot:
         trace = [ObservationNode(span=obs)]
 
         result = root(trace)
-        assert isinstance(result, ObserveSpanEval)
+        assert isinstance(result, Evaluable)
         assert result.eval_input == "hello"
 
     def test_returns_llm_span_evaluable_when_root_is_llm(self) -> None:
@@ -149,7 +147,7 @@ class TestRoot:
         trace = [ObservationNode(span=llm)]
 
         result = root(trace)
-        assert isinstance(result, LLMSpanEval)
+        assert isinstance(result, Evaluable)
 
     def test_raises_value_error_on_empty_trace(self) -> None:
         with pytest.raises(ValueError, match="Trace is empty"):

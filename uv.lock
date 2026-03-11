@@ -691,6 +691,7 @@ dependencies = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
     { name = "piccolo", extra = ["sqlite"] },
+    { name = "pydantic" },
 ]
 
 [package.optional-dependencies]
@@ -742,6 +743,7 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = ">=1.27.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.27.0" },
     { name = "piccolo", extras = ["sqlite"], specifier = ">=1.33.0" },
+    { name = "pydantic", specifier = ">=2.0" },
 ]
 provides-extras = ["openai", "anthropic", "langchain", "google", "dspy", "all"]
 

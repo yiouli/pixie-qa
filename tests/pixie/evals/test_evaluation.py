@@ -10,36 +10,6 @@ from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.storage.evaluable import Evaluable
 from pixie.storage.tree import ObservationNode
 
-# ── Helpers ──────────────────────────────────────────────────────────────
-
-
-class _StubEvaluable:
-    """Minimal Evaluable for testing."""
-
-    def __init__(
-        self,
-        *,
-        eval_input: Any = "in",
-        eval_output: Any = "out",
-        eval_metadata: dict[str, Any] | None = None,
-    ) -> None:
-        self._input = eval_input
-        self._output = eval_output
-        self._metadata = eval_metadata or {}
-
-    @property
-    def eval_input(self) -> Any:
-        return self._input
-
-    @property
-    def eval_output(self) -> Any:
-        return self._output
-
-    @property
-    def eval_metadata(self) -> dict[str, Any]:
-        return self._metadata
-
-
 # ── Evaluation dataclass tests ───────────────────────────────────────────
 
 
@@ -85,7 +55,7 @@ class TestEvaluate:
         ) -> Evaluation:
             return Evaluation(score=0.9, reasoning="async works")
 
-        result = await evaluate(my_eval, _StubEvaluable())
+        result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
         assert result.score == 0.9
         assert result.reasoning == "async works"
 
@@ -98,7 +68,7 @@ class TestEvaluate:
         ) -> Evaluation:
             return Evaluation(score=0.7, reasoning="sync works")
 
-        result = await evaluate(my_eval, _StubEvaluable())
+        result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
         assert result.score == 0.7
         assert result.reasoning == "sync works"
 
@@ -111,7 +81,7 @@ class TestEvaluate:
         ) -> Evaluation:
             raise ValueError("boom")
 
-        result = await evaluate(failing_eval, _StubEvaluable())
+        result = await evaluate(failing_eval, Evaluable())
         assert result.score == 0.0
         assert "boom" in result.reasoning
         assert result.details.get("error") == "ValueError"
@@ -126,7 +96,7 @@ class TestEvaluate:
         ) -> Evaluation:
             return Evaluation(score=1.5, reasoning="too high")
 
-        result = await evaluate(over_score, _StubEvaluable())
+        result = await evaluate(over_score, Evaluable())
         assert result.score == 1.0
 
     @pytest.mark.asyncio
@@ -138,7 +108,7 @@ class TestEvaluate:
         ) -> Evaluation:
             return Evaluation(score=-0.3, reasoning="too low")
 
-        result = await evaluate(under_score, _StubEvaluable())
+        result = await evaluate(under_score, Evaluable())
         assert result.score == 0.0
 
     @pytest.mark.asyncio
@@ -153,7 +123,7 @@ class TestEvaluate:
             received_trace.append(trace)
             return Evaluation(score=1.0, reasoning="ok")
 
-        await evaluate(trace_eval, _StubEvaluable(), trace=[])
+        await evaluate(trace_eval, Evaluable(), trace=[])
         assert received_trace == [[]]
 
     @pytest.mark.asyncio
@@ -167,7 +137,7 @@ class TestEvaluate:
             ) -> Evaluation:
                 return Evaluation(score=0.6, reasoning="class eval")
 
-        result = await evaluate(MyEval(), _StubEvaluable())
+        result = await evaluate(MyEval(), Evaluable())
         assert result.score == 0.6
         assert result.reasoning == "class eval"
 
@@ -184,57 +154,24 @@ class TestEvaluate:
 
         await evaluate(
             check_data,
-            _StubEvaluable(eval_input="hello", eval_output="world"),
+            Evaluable(eval_input="hello", eval_output="world"),
         )
 
     @pytest.mark.asyncio
-    async def test_expected_output_forwarded_to_evaluator(self) -> None:
-        """evaluate() passes expected_output kwarg to the evaluator."""
+    async def test_expected_output_accessible_on_evaluable(self) -> None:
+        """Evaluator can read expected_output from the evaluable directly."""
         received: list[Any] = []
 
         async def capture_eval(
             evaluable: Evaluable,
             *,
-            expected_output: Any = None,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(expected_output)
+            received.append(evaluable.expected_output)
             return Evaluation(score=1.0, reasoning="ok")
 
-        await evaluate(capture_eval, _StubEvaluable(), expected_output="ground truth")
+        await evaluate(
+            capture_eval,
+            Evaluable(expected_output="ground truth"),
+        )
         assert received == ["ground truth"]
-
-    @pytest.mark.asyncio
-    async def test_expected_output_none_by_default(self) -> None:
-        """When expected_output is not provided, evaluator gets None."""
-        received: list[Any] = []
-
-        async def capture_eval(
-            evaluable: Evaluable,
-            *,
-            expected_output: Any = None,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
-            received.append(expected_output)
-            return Evaluation(score=1.0, reasoning="ok")
-
-        await evaluate(capture_eval, _StubEvaluable())
-        assert received == [None]
-
-    @pytest.mark.asyncio
-    async def test_expected_output_works_with_sync_evaluator(self) -> None:
-        """Sync evaluators also receive expected_output correctly."""
-        received: list[Any] = []
-
-        def sync_eval(
-            evaluable: Evaluable,
-            *,
-            expected_output: Any = None,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
-            received.append(expected_output)
-            return Evaluation(score=1.0, reasoning="sync ok")
-
-        result = await evaluate(sync_eval, _StubEvaluable(), expected_output="expected")
-        assert result.score == 1.0
-        assert received == ["expected"]

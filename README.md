@@ -7,6 +7,7 @@ This repository provides:
 - **`pixie.instrumentation`** — Typed span capture from OpenInference / OpenTelemetry
 - **`pixie.storage`** — Persistence, querying, and tree assembly for observation traces
 - **`pixie.evals`** — Evaluation harness for LLM application testing
+- **`pixie.dataset`** — Named collections of evaluable items (JSON-file-backed CRUD)
 
 ## Installation
 
@@ -130,13 +131,15 @@ Data model types are exported from `pixie.instrumentation`, including `LLMSpan`,
   - `list_traces(limit, offset)` — trace summaries
 - `ObservationNode` — tree wrapper with `find()`, `find_by_type()`, `to_text()`
 - `build_tree(spans)` — assemble flat spans into a tree
-- `Evaluable` protocol with `ObserveSpanEval`, `LLMSpanEval`, `as_evaluable()`
+- `Evaluable` — Pydantic ``BaseModel`` with `eval_input`, `eval_output`, `eval_metadata`, `expected_output`
+- `UNSET` sentinel — distinguishes "not set" from `None` for `expected_output`
+- `as_evaluable(span)` — convert a span to an `Evaluable`
 
 ### Evaluation Harness
 
 ```python
 from pixie.evals import (
-    Evaluation, evaluate, run_and_evaluate, assert_pass,
+    Evaluation, evaluate, run_and_evaluate, assert_pass, assert_dataset_pass,
     capture_traces, MemoryTraceHandler, EvalAssertionError,
     ScoreThreshold, last_llm_call, root,
 )
@@ -145,9 +148,10 @@ from pixie.storage.tree import ObservationNode
 ```
 
 - `Evaluation(score, reasoning, details={})` — frozen result of one evaluator run
-- `evaluate(evaluator, evaluable, *, expected_output=None, trace=None)` — run one evaluator (sync or async)
-- `run_and_evaluate(evaluator, runnable, input, *, expected_output=None, from_trace=None)` — run a callable, capture traces, evaluate
-- `assert_pass(runnable, inputs, evaluators, *, expected_outputs=None, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `evaluate(evaluator, evaluable, *, trace=None)` — run one evaluator (sync or async)
+- `run_and_evaluate(evaluator, runnable, eval_input, *, expected_output=..., from_trace=None)` — run a callable, capture traces, evaluate. `expected_output` is merged into the span-derived evaluable when provided.
+- `assert_pass(runnable, eval_inputs, evaluators, *, evaluables=None, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `assert_dataset_pass(runnable, dataset_name, evaluators, *, dataset_dir=None, passes=1, pass_criteria=None, from_trace=None)` — load a dataset by name and run `assert_pass` with its items
 - `MemoryTraceHandler` — `InstrumentationHandler` that collects spans in-memory
 - `capture_traces()` — context manager that registers a handler and yields it
 - `EvalAssertionError` — raised when `assert_pass` fails; carries full results tensor
@@ -228,10 +232,11 @@ print(result.reasoning)  # CoT rationale from the LLM judge
 
 All settings are read from `PIXIE_`-prefixed environment variables at call time:
 
-| Variable          | Default                 | Description               |
-| ----------------- | ----------------------- | ------------------------- |
-| `PIXIE_DB_PATH`   | `pixie_observations.db` | SQLite database file path |
-| `PIXIE_DB_ENGINE` | `sqlite`                | Database engine type      |
+| Variable            | Default                 | Description                         |
+| ------------------- | ----------------------- | ----------------------------------- |
+| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path           |
+| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine type                |
+| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files    |
 
 ```python
 from pixie.config import get_config
@@ -253,7 +258,8 @@ async def exact_match(evaluable: Evaluable, *, trace=None) -> Evaluation:
 
 ```python
 import asyncio
-from pixie.evals import assert_pass, Evaluation, ScoreThreshold, last_llm_call
+from pixie.evals import assert_pass, assert_dataset_pass, Evaluation, ScoreThreshold, last_llm_call
+from pixie.storage.evaluable import Evaluable
 
 def my_app(question):
     import pixie.instrumentation as px
@@ -263,24 +269,28 @@ def my_app(question):
 async def test_my_app():
     await assert_pass(
         runnable=my_app,
-        inputs=["What is 2+2?"],
+        eval_inputs=["What is 2+2?"],
         evaluators=[exact_match],
     )
 
-# With expected outputs
+# With expected outputs via evaluables
 async def test_with_expected():
+    items = [
+        Evaluable(eval_input="What is 2+2?", expected_output="4"),
+        Evaluable(eval_input="Capital of France?", expected_output="Paris"),
+    ]
     await assert_pass(
         runnable=my_app,
-        inputs=["What is 2+2?", "Capital of France?"],
-        expected_outputs=["4", "Paris"],
+        eval_inputs=[item.eval_input for item in items],
         evaluators=[FactualityEval()],
+        evaluables=items,
     )
 
 # With custom pass criteria
 async def test_with_threshold():
     await assert_pass(
         runnable=my_app,
-        inputs=["q1", "q2", "q3"],
+        eval_inputs=["q1", "q2", "q3"],
         evaluators=[exact_match],
         pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),
         passes=3,
@@ -290,10 +300,54 @@ async def test_with_threshold():
 async def test_llm_output():
     await assert_pass(
         runnable=my_app,
-        inputs=["What is 2+2?"],
+        eval_inputs=["What is 2+2?"],
         evaluators=[exact_match],
         from_trace=last_llm_call,
     )
+```
+
+### Dataset Management
+
+```python
+from pixie.dataset import Dataset, DatasetStore
+from pixie.evals import assert_dataset_pass
+from pixie.storage.evaluable import Evaluable
+
+store = DatasetStore()
+
+# Create a dataset with test cases
+ds = store.create("qa-golden-set", items=[
+    Evaluable(eval_input="What is 2+2?", expected_output="4"),
+    Evaluable(eval_input="Capital of France?", expected_output="Paris"),
+])
+
+# Append more items
+store.append("qa-golden-set", Evaluable(eval_input="Hello", expected_output="Hi"))
+
+# Use assert_dataset_pass — loads dataset, maps to inputs/evaluables, evaluates
+await assert_dataset_pass(
+    runnable=my_qa_app,
+    dataset_name="qa-golden-set",
+    evaluators=[FactualityEval()],
+)
+
+# Or manually load and use with assert_pass
+ds = store.get("qa-golden-set")
+await assert_pass(
+    runnable=my_qa_app,
+    eval_inputs=[item.eval_input for item in ds.items],
+    evaluators=[FactualityEval()],
+    evaluables=list(ds.items),
+)
+
+# List all datasets
+names = store.list()  # ["qa-golden-set"]
+
+# Remove an item by index
+store.remove("qa-golden-set", index=2)
+
+# Delete a dataset
+store.delete("qa-golden-set")
 ```
 
 ### CLI
@@ -318,6 +372,7 @@ Run module-specific tests:
 uv run pytest tests/pixie/instrumentation -v
 uv run pytest tests/pixie/observation_store -v
 uv run pytest tests/pixie/evals -v
+uv run pytest tests/pixie/dataset -v
 ```
 
 ## Documentation
@@ -327,6 +382,7 @@ uv run pytest tests/pixie/evals -v
 - Evals harness spec: `specs/evals-harness.md`
 - Autoevals adapters spec: `specs/autoevals-adapters.md`
 - Usability improvements spec: `specs/usability-utils.md`
+- Dataset management spec: `specs/dataset-management.md`
 - Change history: `changelogs/`
 
 ## Dev Setup (Skills)

@@ -89,7 +89,7 @@ from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
 
 from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable
+from pixie.storage.evaluable import Evaluable, _Unset
 from pixie.storage.tree import ObservationNode
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
@@ -177,39 +177,39 @@ class AutoevalsAdapter:
         self,
         evaluable: Evaluable,
         *,
-        expected_output: Any = None,
         trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         """Run the wrapped scorer and return a pixie ``Evaluation``.
 
         Expected-value resolution priority (highest to lowest):
-            1. *expected_output* passed at call time (from ``evaluate()``).
+            1. ``evaluable.expected_output`` (if not ``UNSET``).
             2. Constructor-provided ``expected``.
-            3. ``evaluable.eval_metadata[expected_key]``.
+            3. ``evaluable.eval_metadata[expected_key]`` (if metadata is not ``None``).
         """
         try:
             output = evaluable.eval_output
 
-            # Resolve expected — call-time > constructor > metadata
-            if expected_output is not None:
-                expected = expected_output
+            # Resolve expected — evaluable > constructor > metadata
+            if not isinstance(evaluable.expected_output, _Unset):
+                expected = evaluable.expected_output
             elif self._expected is not _UNSET:
                 expected = self._expected
-            else:
+            elif evaluable.eval_metadata is not None:
                 expected = evaluable.eval_metadata.get(self._expected_key)
+            else:
+                expected = None
 
             # Build kwargs
             kwargs: dict[str, Any] = {}
             if self._input_key is not None:
                 kwargs[self._input_key] = evaluable.eval_input
-            for key in self._extra_metadata_keys:
-                if key in evaluable.eval_metadata:
-                    kwargs[key] = evaluable.eval_metadata[key]
+            if evaluable.eval_metadata is not None:
+                for key in self._extra_metadata_keys:
+                    if key in evaluable.eval_metadata:
+                        kwargs[key] = evaluable.eval_metadata[key]
             kwargs.update(self._scorer_kwargs)
 
-            score = await self._scorer.eval_async(
-                output=output, expected=expected, **kwargs
-            )
+            score = await self._scorer.eval_async(output=output, expected=expected, **kwargs)
             return _score_to_evaluation(score)
         except Exception as exc:
             tb = _tb.format_exc()
