@@ -267,7 +267,9 @@ class TestAutoevalsAdapterCall:
     @pytest.mark.asyncio
     async def test_extra_metadata_keys_missing_silently_skipped(self) -> None:
         scorer = FakeScorer()
-        adapter = AutoevalsAdapter(scorer, input_key=None, extra_metadata_keys=("context",))
+        adapter = AutoevalsAdapter(
+            scorer, input_key=None, extra_metadata_keys=("context",)
+        )
         evaluable = FakeEvaluable(_metadata={})
 
         await adapter(evaluable)
