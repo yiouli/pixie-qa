@@ -145,15 +145,84 @@ from pixie.storage.tree import ObservationNode
 ```
 
 - `Evaluation(score, reasoning, details={})` — frozen result of one evaluator run
-- `evaluate(evaluator, evaluable, *, trace=None)` — run one evaluator (sync or async)
-- `run_and_evaluate(evaluator, runnable, input, *, from_trace=None)` — run a callable, capture traces, evaluate
-- `assert_pass(runnable, inputs, evaluators, *, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
+- `evaluate(evaluator, evaluable, *, expected_output=None, trace=None)` — run one evaluator (sync or async)
+- `run_and_evaluate(evaluator, runnable, input, *, expected_output=None, from_trace=None)` — run a callable, capture traces, evaluate
+- `assert_pass(runnable, inputs, evaluators, *, expected_outputs=None, passes=1, pass_criteria=None, from_trace=None)` — batch evaluation with pass/fail
 - `MemoryTraceHandler` — `InstrumentationHandler` that collects spans in-memory
 - `capture_traces()` — context manager that registers a handler and yields it
 - `EvalAssertionError` — raised when `assert_pass` fails; carries full results tensor
 - `ScoreThreshold(threshold=0.5, pct=1.0)` — configurable pass criteria for `assert_pass`
 - `last_llm_call(trace)` — extract the most recent `LLMSpan` from a trace as `Evaluable`
 - `root(trace)` — extract the first root span from a trace as `Evaluable`
+
+### Pre-made Evaluators (autoevals adapters)
+
+Built on top of the [autoevals](https://github.com/braintrustdata/autoevals) package. Each wraps an autoevals `Scorer` and returns a pixie `Evaluator` callable.
+
+```python
+from pixie.evals import (
+    AutoevalsAdapter,
+    LevenshteinMatch, ExactMatchEval, NumericDiffEval,
+    JSONDiffEval, ValidJSONEval, ListContainsEval,
+    EmbeddingSimilarityEval,
+    FactualityEval, ClosedQAEval, BattleEval,
+    HumorEval, SecurityEval, SqlEval,
+    SummaryEval, TranslationEval, PossibleEval,
+    ModerationEval,
+    ContextRelevancyEval, FaithfulnessEval,
+    AnswerRelevancyEval, AnswerCorrectnessEval,
+)
+```
+
+**Heuristic (no LLM required):**
+
+- `LevenshteinMatch(expected=...)` — edit-distance string similarity
+- `ExactMatchEval(expected=...)` — exact value comparison
+- `NumericDiffEval(expected=...)` — normalised numeric difference
+- `JSONDiffEval(expected=...)` — structural JSON comparison
+- `ValidJSONEval(schema=...)` — JSON syntax / schema validation
+- `ListContainsEval(expected=...)` — list overlap
+
+**LLM-as-judge (require OpenAI or proxy):**
+
+- `FactualityEval(expected=..., model=..., client=...)` — factual accuracy
+- `ClosedQAEval(expected=..., model=..., client=...)` — closed-book QA
+- `BattleEval(expected=..., model=..., client=...)` — head-to-head comparison
+- `HumorEval(model=..., client=...)` — humor detection
+- `SecurityEval(model=..., client=...)` — security vulnerability check
+- `SqlEval(expected=..., model=..., client=...)` — SQL equivalence
+- `SummaryEval(expected=..., model=..., client=...)` — summarisation quality
+- `TranslationEval(expected=..., language=..., model=..., client=...)` — translation quality
+- `PossibleEval(model=..., client=...)` — feasibility check
+
+**Other:**
+
+- `EmbeddingSimilarityEval(expected=..., prefix=..., model=..., client=...)` — embedding similarity
+- `ModerationEval(threshold=..., client=...)` — content moderation
+- `ContextRelevancyEval(expected=..., client=...)` — RAGAS context relevancy
+- `FaithfulnessEval(client=...)` — RAGAS faithfulness
+- `AnswerRelevancyEval(client=...)` — RAGAS answer relevancy
+- `AnswerCorrectnessEval(expected=..., client=...)` — RAGAS answer correctness
+
+**Generic adapter for any autoevals scorer:**
+
+- `AutoevalsAdapter(scorer, *, expected=..., input_key=..., extra_metadata_keys=(...,))` — wraps any autoevals `Scorer`
+
+**Example:**
+
+```python
+from pixie.evals import evaluate, LevenshteinMatch, FactualityEval
+
+# Heuristic — no LLM needed
+evaluator = LevenshteinMatch(expected="hello world")
+result = await evaluate(evaluator, evaluable)
+print(result.score)  # e.g. 0.91
+
+# LLM-as-judge
+evaluator = FactualityEval(expected="Paris is the capital of France")
+result = await evaluate(evaluator, evaluable)
+print(result.reasoning)  # CoT rationale from the LLM judge
+```
 
 ### Configuration
 
@@ -196,6 +265,15 @@ async def test_my_app():
         runnable=my_app,
         inputs=["What is 2+2?"],
         evaluators=[exact_match],
+    )
+
+# With expected outputs
+async def test_with_expected():
+    await assert_pass(
+        runnable=my_app,
+        inputs=["What is 2+2?", "Capital of France?"],
+        expected_outputs=["4", "Paris"],
+        evaluators=[FactualityEval()],
     )
 
 # With custom pass criteria
@@ -247,6 +325,7 @@ uv run pytest tests/pixie/evals -v
 - Instrumentation spec: `specs/instrumentation.md`
 - Storage spec: `specs/storage.md`
 - Evals harness spec: `specs/evals-harness.md`
+- Autoevals adapters spec: `specs/autoevals-adapters.md`
 - Usability improvements spec: `specs/usability-utils.md`
 - Change history: `changelogs/`
 

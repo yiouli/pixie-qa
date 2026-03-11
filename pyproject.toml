@@ -9,6 +9,7 @@ dependencies = [
     "opentelemetry-api>=1.27.0",
     "openinference-instrumentation>=0.1.44",
     "piccolo[sqlite]>=1.33.0",
+    "autoevals>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +46,19 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "autoevals.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pixie.evals.scorers"
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+# autoevals has no py.typed; subclassing its types yields spurious [misc] errors
+module = "tests.pixie.evals.test_scorers"
+disable_error_code = ["import-untyped", "misc"]
 
 [tool.ruff]
 target-version = "py311"

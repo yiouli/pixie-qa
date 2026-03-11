@@ -226,7 +226,7 @@ def recording_handler() -> RecordingHandler:
 
 ## Type Safety Requirements
 
-This project uses Python type hints with strict type checking via mypy.
+This project uses Python type hints with strict type checking via **both mypy and Pylance**. Both must be clean because they use different inference engines and can catch different classes of errors. Pylance in particular will catch type mismatches with third-party libraries that mypy may miss when those libraries lack `py.typed` markers.
 
 ### 1. Always Run Type Checking
 
@@ -238,7 +238,9 @@ uv run mypy tests/pixie/         # Type check tests
 uv run mypy .                    # Type check entire project
 ```
 
-Run this command after making changes to ensure type safety.
+Also **check Pylance diagnostics** in VS Code — use the Problems panel or the Pylance language server. Zero errors in both mypy and Pylance are required before committing.
+
+Run these commands after making changes to ensure type safety.
 
 ### 2. Type Annotation Rules
 
@@ -346,6 +348,8 @@ uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
 ```
 
+Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch type mismatches that mypy misses for untyped third-party packages).
+
 ---
 
 ## Incremental Development
@@ -358,10 +362,12 @@ uv run ruff check .              # No linting errors
 2. **Before starting each task**:
    - Run `uv run pytest` — ensure existing tests pass
    - Run `uv run mypy pixie/` — ensure no type errors
+   - Check Pylance Problems panel — ensure no Pylance errors
 3. **Implement one small task**
 4. **After completing each task**:
    - Run `uv run pytest` — verify tests still pass
    - Run `uv run mypy pixie/` — verify no new type errors
+   - Check Pylance Problems panel — verify no new Pylance errors
    - Fix any issues before moving to next task
 5. **Repeat** for each task
 
@@ -497,10 +503,11 @@ This project has strict error-handling conventions due to operating inside OTel 
 1. ✅ Write/update tests in `tests/pixie/` for your changes
 2. ✅ Run `uv run pytest` — all tests must pass
 3. ✅ Run `uv run mypy pixie/` — zero type errors allowed
-4. ✅ Run `uv run ruff check .` — no linting errors
-5. ✅ Update docstrings / `README.md` / relevant `specs/` docs
-6. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
-7. ✅ Verify functionality works as expected
+4. ✅ Check Pylance Problems panel — zero Pylance errors allowed
+5. ✅ Run `uv run ruff check .` — no linting errors
+6. ✅ Update docstrings / `README.md` / relevant `specs/` docs
+7. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
+8. ✅ Verify functionality works as expected
 
 **Development cycle:**
 

@@ -280,3 +280,134 @@ class TestAssertPass:
             inputs=["q1"],
             evaluators=[_score_half],
         )
+
+
+# ── expected_output tests ─────────────────────────────────────────────────
+
+
+class TestRunAndEvaluateExpectedOutput:
+    """Tests for expected_output parameter in run_and_evaluate()."""
+
+    @pytest.mark.asyncio
+    async def test_expected_output_forwarded(self) -> None:
+        """expected_output is forwarded to the evaluator."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await run_and_evaluate(
+            evaluator=capture_eval,
+            runnable=_sync_app,
+            input="hello",
+            expected_output="expected_val",
+        )
+        assert received == ["expected_val"]
+
+    @pytest.mark.asyncio
+    async def test_expected_output_none_by_default(self) -> None:
+        """Without expected_output, evaluator receives None."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await run_and_evaluate(
+            evaluator=capture_eval,
+            runnable=_sync_app,
+            input="hello",
+        )
+        assert received == [None]
+
+
+class TestAssertPassExpectedOutputs:
+    """Tests for expected_outputs parameter in assert_pass()."""
+
+    @pytest.mark.asyncio
+    async def test_expected_outputs_zipped_with_inputs(self) -> None:
+        """Each input gets its corresponding expected_output."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await assert_pass(
+            runnable=_sync_app,
+            inputs=["q1", "q2"],
+            evaluators=[capture_eval],
+            expected_outputs=["e1", "e2"],
+        )
+        assert received == ["e1", "e2"]
+
+    @pytest.mark.asyncio
+    async def test_expected_outputs_none_by_default(self) -> None:
+        """Without expected_outputs, all expected_output values are None."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await assert_pass(
+            runnable=_sync_app,
+            inputs=["q1", "q2"],
+            evaluators=[capture_eval],
+        )
+        assert received == [None, None]
+
+    @pytest.mark.asyncio
+    async def test_expected_outputs_length_mismatch_raises(self) -> None:
+        """ValueError when len(expected_outputs) != len(inputs)."""
+        with pytest.raises(ValueError, match="expected_outputs.*length"):
+            await assert_pass(
+                runnable=_sync_app,
+                inputs=["q1", "q2"],
+                evaluators=[_always_pass],
+                expected_outputs=["e1"],
+            )
+
+    @pytest.mark.asyncio
+    async def test_expected_outputs_with_multiple_passes(self) -> None:
+        """expected_outputs are forwarded in each pass."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await assert_pass(
+            runnable=_sync_app,
+            inputs=["q1"],
+            evaluators=[capture_eval],
+            expected_outputs=["e1"],
+            passes=2,
+        )
+        assert received == ["e1", "e1"]

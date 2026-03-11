@@ -186,3 +186,55 @@ class TestEvaluate:
             check_data,
             _StubEvaluable(eval_input="hello", eval_output="world"),
         )
+
+    @pytest.mark.asyncio
+    async def test_expected_output_forwarded_to_evaluator(self) -> None:
+        """evaluate() passes expected_output kwarg to the evaluator."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await evaluate(capture_eval, _StubEvaluable(), expected_output="ground truth")
+        assert received == ["ground truth"]
+
+    @pytest.mark.asyncio
+    async def test_expected_output_none_by_default(self) -> None:
+        """When expected_output is not provided, evaluator gets None."""
+        received: list[Any] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await evaluate(capture_eval, _StubEvaluable())
+        assert received == [None]
+
+    @pytest.mark.asyncio
+    async def test_expected_output_works_with_sync_evaluator(self) -> None:
+        """Sync evaluators also receive expected_output correctly."""
+        received: list[Any] = []
+
+        def sync_eval(
+            evaluable: Evaluable,
+            *,
+            expected_output: Any = None,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(expected_output)
+            return Evaluation(score=1.0, reasoning="sync ok")
+
+        result = await evaluate(sync_eval, _StubEvaluable(), expected_output="expected")
+        assert result.score == 1.0
+        assert received == ["expected"]

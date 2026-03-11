@@ -101,6 +101,7 @@ async def evaluate(
     evaluator: Evaluator,
     evaluable: Evaluable,
     *,
+    expected_output: Any = None,
     trace: list[ObservationNode] | None = None,
 ) -> Evaluation:
 ```
@@ -108,7 +109,7 @@ async def evaluate(
 **Behavior:**
 
 1. If `evaluator` is a sync callable (not a coroutine function), wrap it with `asyncio.to_thread`.
-2. Call the evaluator with `evaluable` and `trace`.
+2. Call the evaluator with `evaluable` and `trace`. If `expected_output` is not `None`, also pass it as a keyword argument.
 3. Validate the returned `Evaluation`: clamp `score` to [0.0, 1.0], ensure `reasoning` is a non-empty string.
 4. If the evaluator raises an exception, return an `Evaluation` with `score=0.0`, `reasoning` set to the exception message, and `details={"error": type(ex).__name__, "traceback": ...}`.
 5. Return the `Evaluation`.
@@ -129,6 +130,7 @@ async def run_and_evaluate(
     runnable: Callable,
     input: Any,
     *,
+    expected_output: Any = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> Evaluation:
 ```
@@ -142,7 +144,7 @@ async def run_and_evaluate(
 5. Determine the evaluable:
    - If `from_trace` is provided, call `from_trace(trace_tree)` to get the `Evaluable`. This lets the user select a specific span for evaluation (e.g., the last LLM call, a specific component by name).
    - If `from_trace` is None, use the root observation span. Wrap it with `as_evaluable()`.
-6. Call `evaluate(evaluator, evaluable, trace=trace_tree)`.
+6. Call `evaluate(evaluator, evaluable, expected_output=expected_output, trace=trace_tree)`.
 7. Tear down the in-memory trace handler.
 8. Return the `Evaluation`.
 
@@ -175,6 +177,7 @@ async def assert_pass(
     inputs: list[Any],
     evaluators: list[Evaluator],
     *,
+    expected_outputs: list[Any] | None = None,
     passes: int = 1,
     pass_criteria: Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
@@ -186,6 +189,7 @@ async def assert_pass(
 - `runnable` — the application function to test.
 - `inputs` — list of inputs, each passed to `runnable`.
 - `evaluators` — list of evaluators to run against each input's result.
+- `expected_outputs` — optional list of expected values, one per input. Must have the same length as `inputs` when provided. Each value is forwarded as `expected_output` to `run_and_evaluate`.
 - `passes` — how many times to run the entire test matrix. Useful for non-deterministic LLM outputs where you want statistical confidence. Default 1.
 - `pass_criteria` — a function that receives the full results tensor and returns `(passed: bool, message: str)`. If None, use the default criteria (see below).
 - `from_trace` — optional span selector, passed through to `run_and_evaluate`.

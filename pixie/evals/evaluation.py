@@ -44,6 +44,7 @@ class Evaluator(Protocol):
         self,
         evaluable: Evaluable,
         *,
+        expected_output: Any = None,
         trace: list[ObservationNode] | None = None,
     ) -> Evaluation: ...
 
@@ -63,22 +64,35 @@ async def evaluate(
     evaluator: Callable[..., Any],
     evaluable: Evaluable,
     *,
+    expected_output: Any = None,
     trace: list[ObservationNode] | None = None,
 ) -> Evaluation:
     """Run a single evaluator against a single evaluable.
 
     Behavior:
         1. If *evaluator* is sync, wrap via ``asyncio.to_thread``.
-        2. Call evaluator with *evaluable* and *trace*.
+        2. Call evaluator with *evaluable*, *expected_output*, and *trace*.
         3. Clamp returned ``score`` to [0.0, 1.0].
         4. If evaluator raises, return ``Evaluation(score=0.0, ...)`` with
            error details.
+
+    Args:
+        evaluator: An evaluator callable (sync or async).
+        evaluable: The data to evaluate.
+        expected_output: Optional expected value forwarded to the evaluator.
+        trace: Optional trace tree forwarded to the evaluator.
     """
     try:
+        # Build extra kwargs — only include expected_output when provided
+        # to stay backward-compatible with evaluators that don't declare it.
+        extra_kwargs: dict[str, Any] = {"trace": trace}
+        if expected_output is not None:
+            extra_kwargs["expected_output"] = expected_output
+
         if _is_async_callable(evaluator):
-            result: Evaluation = await evaluator(evaluable, trace=trace)
+            result: Evaluation = await evaluator(evaluable, **extra_kwargs)
         else:
-            result = await asyncio.to_thread(evaluator, evaluable, trace=trace)
+            result = await asyncio.to_thread(evaluator, evaluable, **extra_kwargs)
     except Exception as exc:
         tb = traceback.format_exc()
         return Evaluation(
