@@ -2,31 +2,36 @@
 
 ## What Changed
 
-Added two CLI commands under `pixie dataset` for saving span data from the
-observation store to datasets:
+Rewrote the `pixie dataset` CLI commands to match the intended design:
 
-- **`pixie dataset create <name> --trace-id <id>`** — creates a new dataset
-  containing the root span of the given trace, converted to an `Evaluable` item.
-- **`pixie dataset append <name> --trace-id <id>`** — appends the root span of
-  the given trace as an `Evaluable` item to an existing dataset.
+- **`pixie dataset create <name>`** — creates a new empty dataset (no longer
+  requires `--trace-id`).
+- **`pixie dataset list`** — lists all datasets in a CLI table showing name,
+  row count, created date-time, and updated date-time.
+- **`pixie dataset save <name>`** — gets the latest trace from the observation
+  store, selects a span from it, and saves it as an evaluable item to the
+  named dataset. Supports:
+  - `--select {root,last_llm_call,by_name}` — span selection mode (default: root)
+  - `--span-name NAME` — required when `--select=by_name`
+  - `--expected-output` — reads JSON from stdin (supports piping)
+  - `--notes TEXT` — attaches notes to the evaluable's metadata
 
-A new `pixie` entry point is registered in `pyproject.toml`, providing
-top-level subcommand routing via `pixie.cli.main`.
+Removed the old `pixie dataset append` command (replaced by `dataset save`).
 
 ## Files Affected
 
 - `pixie/cli/__init__.py` — updated docstring
-- `pixie/cli/main.py` — **new** — main CLI entry point with argparse subcommands
-- `pixie/cli/dataset_command.py` — **new** — `dataset_create()` and `dataset_append()` async functions
-- `pyproject.toml` — added `pixie` script entry point
-- `tests/pixie/cli/__init__.py` — **new** — test package marker
-- `tests/pixie/cli/test_dataset_command.py` — **new** — unit tests for dataset commands
-- `tests/pixie/cli/test_main.py` — **new** — integration tests for the CLI entry point
-- `README.md` — documented new CLI commands
+- `pixie/cli/main.py` — rewritten argparse with create, list, save subcommands
+- `pixie/cli/dataset_command.py` — rewritten with dataset_create, dataset_list,
+  dataset_save, format_dataset_table functions
+- `tests/pixie/cli/test_dataset_command.py` — rewritten with 20 unit tests
+- `tests/pixie/cli/test_main.py` — rewritten with 11 integration tests
+- `README.md` — updated CLI documentation
 - `changelogs/cli-dataset-commands.md` — this file
 
 ## Migration Notes
 
-- No breaking changes. The existing `pixie-test` entry point remains unchanged.
-- A new `pixie` CLI entry point is now available. Use `pixie dataset create`
-  and `pixie dataset append` to manage datasets from the command line.
+- **Breaking**: `pixie dataset create` no longer accepts `--trace-id`. It now
+  creates an empty dataset. Use `pixie dataset save` to add items.
+- **Breaking**: `pixie dataset append` has been removed. Use
+  `pixie dataset save <name>` instead, which automatically uses the latest trace.

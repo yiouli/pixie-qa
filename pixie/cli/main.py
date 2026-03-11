@@ -2,8 +2,10 @@
 
 Usage::
 
-    pixie dataset create <name> --trace-id <trace_id>
-    pixie dataset append <name> --trace-id <trace_id>
+    pixie dataset create <name>
+    pixie dataset list
+    pixie dataset save <name> [--select MODE] [--span-name NAME]
+                               [--expected-output] [--notes TEXT]
 
 Reads spans from the observation store (SQLite, configured via ``PIXIE_DB_PATH``)
 and writes evaluable items to the dataset store (JSON files, configured via
@@ -14,13 +16,22 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
+from typing import TextIO
 
 from piccolo.engine.sqlite import SQLiteEngine
+from pydantic import JsonValue
 
-from pixie.cli.dataset_command import dataset_append, dataset_create
+from pixie.cli.dataset_command import (
+    dataset_create,
+    dataset_list,
+    dataset_save,
+    format_dataset_table,
+)
 from pixie.config import get_config
 from pixie.dataset.store import DatasetStore
+from pixie.storage.evaluable import UNSET, _Unset
 from pixie.storage.store import ObservationStore
 
 
@@ -38,60 +49,96 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="dataset_action", help="Dataset actions"
     )
 
-    # pixie dataset create <name> --trace-id <id>
+    # pixie dataset create <name>
     create_parser = dataset_sub.add_parser(
-        "create", help="Create a new dataset from a trace's root span"
+        "create", help="Create a new empty dataset"
     )
     create_parser.add_argument("name", help="Name for the new dataset")
-    create_parser.add_argument(
-        "--trace-id", required=True, help="Trace ID whose root span to save"
-    )
 
-    # pixie dataset append <name> --trace-id <id>
-    append_parser = dataset_sub.add_parser(
-        "append", help="Append a trace's root span to an existing dataset"
+    # pixie dataset list
+    dataset_sub.add_parser("list", help="List all datasets")
+
+    # pixie dataset save <name> [options]
+    save_parser = dataset_sub.add_parser(
+        "save",
+        help="Save a span from the latest trace to a dataset",
     )
-    append_parser.add_argument("name", help="Name of the existing dataset")
-    append_parser.add_argument(
-        "--trace-id", required=True, help="Trace ID whose root span to save"
+    save_parser.add_argument("name", help="Name of the dataset to save to")
+    save_parser.add_argument(
+        "--select",
+        choices=["root", "last_llm_call", "by_name"],
+        default="root",
+        help="How to select the span from the trace (default: root)",
+    )
+    save_parser.add_argument(
+        "--span-name",
+        default=None,
+        help="Span name to match (required when --select=by_name)",
+    )
+    save_parser.add_argument(
+        "--expected-output",
+        action="store_true",
+        default=False,
+        help="Read expected output JSON from stdin",
+    )
+    save_parser.add_argument(
+        "--notes",
+        default=None,
+        help="Optional notes to attach to the evaluable metadata",
     )
 
     return parser
 
 
-async def _run_dataset_create(name: str, trace_id: str) -> None:
-    """Set up stores and run dataset_create."""
+def _run_dataset_create(name: str) -> None:
+    """Run dataset_create."""
+    ds_store = DatasetStore()
+    dataset = dataset_create(name=name, dataset_store=ds_store)
+    print(f"Created dataset {dataset.name!r}.")  # noqa: T201
+
+
+def _run_dataset_list() -> None:
+    """Run dataset_list and print the table."""
+    ds_store = DatasetStore()
+    rows = dataset_list(dataset_store=ds_store)
+    print(format_dataset_table(rows))  # noqa: T201
+
+
+def _run_dataset_save(
+    name: str,
+    select: str,
+    span_name: str | None,
+    expected_output_flag: bool,
+    notes: str | None,
+    stdin: TextIO | None = None,
+) -> None:
+    """Set up stores and run dataset_save."""
     config = get_config()
     engine = SQLiteEngine(path=config.db_path)
     obs_store = ObservationStore(engine=engine)
     ds_store = DatasetStore()
 
-    dataset = await dataset_create(
-        name=name,
-        trace_id=trace_id,
-        observation_store=obs_store,
-        dataset_store=ds_store,
+    expected: JsonValue | _Unset = UNSET
+    if expected_output_flag:
+        source = stdin if stdin is not None else sys.stdin
+        raw = source.read().strip()
+        if not raw:
+            raise ValueError("--expected-output flag set but no JSON provided on stdin.")
+        expected = json.loads(raw)
+
+    dataset = asyncio.run(
+        dataset_save(
+            name=name,
+            observation_store=obs_store,
+            dataset_store=ds_store,
+            select=select,
+            span_name=span_name,
+            expected_output=expected,
+            notes=notes,
+        )
     )
     print(  # noqa: T201
-        f"Created dataset {dataset.name!r} with {len(dataset.items)} item(s)."
-    )
-
-
-async def _run_dataset_append(name: str, trace_id: str) -> None:
-    """Set up stores and run dataset_append."""
-    config = get_config()
-    engine = SQLiteEngine(path=config.db_path)
-    obs_store = ObservationStore(engine=engine)
-    ds_store = DatasetStore()
-
-    dataset = await dataset_append(
-        name=name,
-        trace_id=trace_id,
-        observation_store=obs_store,
-        dataset_store=ds_store,
-    )
-    print(  # noqa: T201
-        f"Appended to dataset {dataset.name!r} — now {len(dataset.items)} item(s)."
+        f"Saved to dataset {dataset.name!r} — now {len(dataset.items)} item(s)."
     )
 
 
@@ -118,10 +165,23 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             if args.dataset_action == "create":
-                asyncio.run(_run_dataset_create(args.name, args.trace_id))
-            elif args.dataset_action == "append":
-                asyncio.run(_run_dataset_append(args.name, args.trace_id))
-        except (ValueError, FileExistsError, FileNotFoundError) as exc:
+                _run_dataset_create(args.name)
+            elif args.dataset_action == "list":
+                _run_dataset_list()
+            elif args.dataset_action == "save":
+                _run_dataset_save(
+                    name=args.name,
+                    select=args.select,
+                    span_name=args.span_name,
+                    expected_output_flag=args.expected_output,
+                    notes=args.notes,
+                )
+        except (
+            ValueError,
+            FileExistsError,
+            FileNotFoundError,
+            json.JSONDecodeError,
+        ) as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             return 1
 

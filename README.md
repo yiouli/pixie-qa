@@ -357,14 +357,21 @@ store.delete("qa-golden-set")
 # Run eval tests
 pixie-test [path] [-k filter] [-v]
 
-# Save a trace's root span to a new dataset
-pixie dataset create <name> --trace-id <trace_id>
+# Create an empty dataset
+pixie dataset create <name>
 
-# Append a trace's root span to an existing dataset
-pixie dataset append <name> --trace-id <trace_id>
+# List all datasets
+pixie dataset list
+
+# Save a span from the latest trace to a dataset
+pixie dataset save <name>                                     # root span (default)
+pixie dataset save <name> --select last_llm_call              # last LLM call
+pixie dataset save <name> --select by_name --span-name <name> # span by name
+pixie dataset save <name> --notes "some note"                 # add notes to metadata
+echo '"expected"' | pixie dataset save <name> --expected-output  # pipe expected output
 ```
 
-Both dataset commands read from the observation store (configured via
+Dataset commands read from the observation store (configured via
 ``PIXIE_DB_PATH``) and write to the dataset directory (configured via
 ``PIXIE_DATASET_DIR``).
 
