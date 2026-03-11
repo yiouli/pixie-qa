@@ -1,5 +1,11 @@
 # Observation Storage Module — Implementation Spec
 
+> **Note:** The `Evaluable` protocol described in section 1 has been superseded by
+> `specs/dataset-management.md`. `Evaluable` is now a Pydantic `BaseModel` with an
+> `expected_output` field and `_Unset` sentinel. The adapter classes `ObserveSpanEval`
+> and `LLMSpanEval` have been removed; `as_evaluable()` now returns `Evaluable`
+> model instances directly.
+
 ## Overview
 
 A storage module for persisting and querying LLM application execution traces. A trace represents a single app execution (production or eval). Each trace contains observations (function/component invocations) forming a parent-child tree. Storage is backed by Piccolo ORM with SQLite as the default engine.
