@@ -1,0 +1,192 @@
+"""``pixie`` CLI entry point — top-level command with subcommand routing.
+
+Usage::
+
+    pixie dataset create <name>
+    pixie dataset list
+    pixie dataset save <name> [--select MODE] [--span-name NAME]
+                               [--expected-output] [--notes TEXT]
+
+Reads spans from the observation store (SQLite, configured via ``PIXIE_DB_PATH``)
+and writes evaluable items to the dataset store (JSON files, configured via
+``PIXIE_DATASET_DIR``).
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+from typing import TextIO
+
+from piccolo.engine.sqlite import SQLiteEngine
+from pydantic import JsonValue
+
+from pixie.cli.dataset_command import (
+    dataset_create,
+    dataset_list,
+    dataset_save,
+    format_dataset_table,
+)
+from pixie.config import get_config
+from pixie.dataset.store import DatasetStore
+from pixie.storage.evaluable import UNSET, _Unset
+from pixie.storage.store import ObservationStore
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the top-level argument parser with subcommands."""
+    parser = argparse.ArgumentParser(
+        prog="pixie",
+        description="Pixie — automated quality assurance for AI applications",
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # -- pixie dataset -------------------------------------------------------
+    dataset_parser = subparsers.add_parser("dataset", help="Dataset management commands")
+    dataset_sub = dataset_parser.add_subparsers(
+        dest="dataset_action", help="Dataset actions"
+    )
+
+    # pixie dataset create <name>
+    create_parser = dataset_sub.add_parser(
+        "create", help="Create a new empty dataset"
+    )
+    create_parser.add_argument("name", help="Name for the new dataset")
+
+    # pixie dataset list
+    dataset_sub.add_parser("list", help="List all datasets")
+
+    # pixie dataset save <name> [options]
+    save_parser = dataset_sub.add_parser(
+        "save",
+        help="Save a span from the latest trace to a dataset",
+    )
+    save_parser.add_argument("name", help="Name of the dataset to save to")
+    save_parser.add_argument(
+        "--select",
+        choices=["root", "last_llm_call", "by_name"],
+        default="root",
+        help="How to select the span from the trace (default: root)",
+    )
+    save_parser.add_argument(
+        "--span-name",
+        default=None,
+        help="Span name to match (required when --select=by_name)",
+    )
+    save_parser.add_argument(
+        "--expected-output",
+        action="store_true",
+        default=False,
+        help="Read expected output JSON from stdin",
+    )
+    save_parser.add_argument(
+        "--notes",
+        default=None,
+        help="Optional notes to attach to the evaluable metadata",
+    )
+
+    return parser
+
+
+def _run_dataset_create(name: str) -> None:
+    """Run dataset_create."""
+    ds_store = DatasetStore()
+    dataset = dataset_create(name=name, dataset_store=ds_store)
+    print(f"Created dataset {dataset.name!r}.")  # noqa: T201
+
+
+def _run_dataset_list() -> None:
+    """Run dataset_list and print the table."""
+    ds_store = DatasetStore()
+    rows = dataset_list(dataset_store=ds_store)
+    print(format_dataset_table(rows))  # noqa: T201
+
+
+def _run_dataset_save(
+    name: str,
+    select: str,
+    span_name: str | None,
+    expected_output_flag: bool,
+    notes: str | None,
+    stdin: TextIO | None = None,
+) -> None:
+    """Set up stores and run dataset_save."""
+    config = get_config()
+    engine = SQLiteEngine(path=config.db_path)
+    obs_store = ObservationStore(engine=engine)
+    ds_store = DatasetStore()
+
+    expected: JsonValue | _Unset = UNSET
+    if expected_output_flag:
+        source = stdin if stdin is not None else sys.stdin
+        raw = source.read().strip()
+        if not raw:
+            raise ValueError("--expected-output flag set but no JSON provided on stdin.")
+        expected = json.loads(raw)
+
+    dataset = asyncio.run(
+        dataset_save(
+            name=name,
+            observation_store=obs_store,
+            dataset_store=ds_store,
+            select=select,
+            span_name=span_name,
+            expected_output=expected,
+            notes=notes,
+        )
+    )
+    print(  # noqa: T201
+        f"Saved to dataset {dataset.name!r} — now {len(dataset.items)} item(s)."
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point for the ``pixie`` command.
+
+    Args:
+        argv: Command-line arguments. Defaults to ``sys.argv[1:]``.
+
+    Returns:
+        Exit code: 0 on success, 1 on error.
+    """
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if args.command is None:
+        parser.print_help()
+        return 1
+
+    if args.command == "dataset":
+        if args.dataset_action is None:
+            parser.parse_args(["dataset", "--help"])
+            return 1
+
+        try:
+            if args.dataset_action == "create":
+                _run_dataset_create(args.name)
+            elif args.dataset_action == "list":
+                _run_dataset_list()
+            elif args.dataset_action == "save":
+                _run_dataset_save(
+                    name=args.name,
+                    select=args.select,
+                    span_name=args.span_name,
+                    expected_output_flag=args.expected_output,
+                    notes=args.notes,
+                )
+        except (
+            ValueError,
+            FileExistsError,
+            FileNotFoundError,
+            json.JSONDecodeError,
+        ) as exc:
+            print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
+            return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

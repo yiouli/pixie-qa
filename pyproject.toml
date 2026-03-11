@@ -36,6 +36,7 @@ dev = [
 ]
 
 [project.scripts]
+pixie = "pixie.cli.main:main"
 pixie-test = "pixie.cli.test_command:main"
 
 [build-system]

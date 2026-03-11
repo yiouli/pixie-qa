@@ -113,6 +113,38 @@ class TestList:
         assert names == ["valid"]
 
 
+class TestListDetails:
+    """Tests for DatasetStore.list_details()."""
+
+    def test_returns_metadata(self, store: DatasetStore) -> None:
+        store.create("alpha")
+        rows = store.list_details()
+        assert len(rows) == 1
+        assert rows[0]["name"] == "alpha"
+        assert rows[0]["row_count"] == 0
+        assert "created_at" in rows[0]
+        assert "updated_at" in rows[0]
+
+    def test_row_count(self, store: DatasetStore) -> None:
+        store.create("items", items=[
+            Evaluable(eval_input="q1"),
+            Evaluable(eval_input="q2"),
+        ])
+        rows = store.list_details()
+        assert rows[0]["row_count"] == 2
+
+    def test_empty_when_dir_missing(self, tmp_path: Path) -> None:
+        s = DatasetStore(dataset_dir=tmp_path / "nope")
+        assert s.list_details() == []
+
+    def test_skips_malformed_files(self, store: DatasetStore, tmp_path: Path) -> None:
+        store.create("valid")
+        (tmp_path / "bad.json").write_text("not json{{{", encoding="utf-8")
+        rows = store.list_details()
+        assert len(rows) == 1
+        assert rows[0]["name"] == "valid"
+
+
 class TestDelete:
     """Tests for DatasetStore.delete()."""
 
