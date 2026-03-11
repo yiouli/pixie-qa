@@ -10,6 +10,7 @@ dependencies = [
     "openinference-instrumentation>=0.1.44",
     "piccolo[sqlite]>=1.33.0",
     "autoevals>=0.1.0",
+    "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]

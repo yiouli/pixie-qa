@@ -7,7 +7,7 @@ and :func:`~pixie.evals.eval_utils.assert_pass`.
 from __future__ import annotations
 
 from pixie.instrumentation.spans import LLMSpan
-from pixie.storage.evaluable import Evaluable, LLMSpanEval, as_evaluable
+from pixie.storage.evaluable import Evaluable, as_evaluable
 from pixie.storage.tree import ObservationNode
 
 
@@ -37,7 +37,7 @@ def last_llm_call(trace: list[ObservationNode]) -> Evaluable:
     if not llm_nodes:
         raise ValueError("No LLMSpan found in the trace")
     llm_nodes.sort(key=lambda n: n.span.ended_at, reverse=True)
-    return LLMSpanEval(llm_nodes[0].span)  # type: ignore[arg-type]
+    return as_evaluable(llm_nodes[0].span)
 
 
 def root(trace: list[ObservationNode]) -> Evaluable:

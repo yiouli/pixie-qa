@@ -44,7 +44,6 @@ async def run_and_evaluate(
     runnable: Callable[..., Any],
     input: Any,  # noqa: A002
     *,
-    expected_output: Any = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> Evaluation:
     """Run *runnable(input)* while capturing traces, then evaluate.
@@ -66,7 +65,6 @@ async def run_and_evaluate(
         evaluator: An evaluator callable (sync or async).
         runnable: The application function to test.
         input: The single input passed to *runnable*.
-        expected_output: Optional expected value forwarded to the evaluator.
         from_trace: Optional callable to select a specific span from
             the trace tree for evaluation.
 
@@ -94,9 +92,7 @@ async def run_and_evaluate(
         root_node = trace_tree[0]
         evaluable = as_evaluable(root_node.span)
 
-    return await evaluate(
-        evaluator, evaluable, expected_output=expected_output, trace=trace_tree
-    )
+    return await evaluate(evaluator, evaluable, trace=trace_tree)
 
 
 async def assert_pass(
@@ -104,7 +100,7 @@ async def assert_pass(
     inputs: list[Any],
     evaluators: list[Callable[..., Any]],
     *,
-    expected_outputs: list[Any] | None = None,
+    evaluables: list[Evaluable] | None = None,
     passes: int = 1,
     pass_criteria: (
         Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
@@ -121,11 +117,16 @@ async def assert_pass(
     If the pass criteria are not met, raises :class:`EvalAssertionError`
     carrying the tensor.
 
+    When ``evaluables`` is provided, each item is used directly as the
+    evaluable for the corresponding input (it already carries its own
+    ``expected_output``).  When ``evaluables`` is ``None``, the evaluable
+    is constructed from the captured trace as before.
+
     Args:
         runnable: The application function to test.
         inputs: List of inputs, each passed to *runnable*.
         evaluators: List of evaluator callables.
-        expected_outputs: Optional list of expected values, one per input.
+        evaluables: Optional list of ``Evaluable`` items, one per input.
             Must have the same length as *inputs* when provided.
         passes: How many times to run the entire test matrix.
         pass_criteria: Receives the results tensor, returns
@@ -135,11 +136,11 @@ async def assert_pass(
 
     Raises:
         EvalAssertionError: When pass criteria are not met.
-        ValueError: When *expected_outputs* length does not match *inputs*.
+        ValueError: When *evaluables* length does not match *inputs*.
     """
-    if expected_outputs is not None and len(expected_outputs) != len(inputs):
+    if evaluables is not None and len(evaluables) != len(inputs):
         raise ValueError(
-            f"expected_outputs length ({len(expected_outputs)}) "
+            f"evaluables length ({len(evaluables)}) "
             f"must match inputs length ({len(inputs)})"
         )
 
@@ -149,17 +150,23 @@ async def assert_pass(
     for _ in range(passes):
         pass_results: list[list[Evaluation]] = []
         for idx, inp in enumerate(inputs):
-            exp_out = expected_outputs[idx] if expected_outputs is not None else None
-            eval_coros = [
-                run_and_evaluate(
-                    evaluator=ev,
-                    runnable=runnable,
-                    input=inp,
-                    expected_output=exp_out,
-                    from_trace=from_trace,
-                )
-                for ev in evaluators
-            ]
+            if evaluables is not None:
+                # Use provided evaluable directly — skip trace capture
+                ev_item = evaluables[idx]
+                eval_coros = [
+                    evaluate(evaluator=ev, evaluable=ev_item)
+                    for ev in evaluators
+                ]
+            else:
+                eval_coros = [
+                    run_and_evaluate(
+                        evaluator=ev,
+                        runnable=runnable,
+                        input=inp,
+                        from_trace=from_trace,
+                    )
+                    for ev in evaluators
+                ]
             input_evals = list(await asyncio.gather(*eval_coros))
             pass_results.append(input_evals)
         results.append(pass_results)
