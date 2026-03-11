@@ -36,31 +36,11 @@ from pixie.evals.scorers import (
     ValidJSONEval,
     _score_to_evaluation,
 )
+from pixie.storage.evaluable import Evaluable
 
 # ---------------------------------------------------------------------------
 # Helpers / Fixtures
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class FakeEvaluable:
-    """Minimal Evaluable-compatible stub for tests."""
-
-    _input: Any = "test input"
-    _output: Any = "test output"
-    _metadata: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def eval_input(self) -> Any:
-        return self._input
-
-    @property
-    def eval_output(self) -> Any:
-        return self._output
-
-    @property
-    def eval_metadata(self) -> dict[str, Any]:
-        return self._metadata
 
 
 @dataclass
@@ -79,15 +59,11 @@ class FakeScorer(_AEScorer):
         self._return_score = return_score or FakeScore()
         self.last_call_kwargs: dict[str, Any] = {}
 
-    def _run_eval_sync(
-        self, output: Any, expected: Any = None, **kwargs: Any
-    ) -> _AEScore:
+    def _run_eval_sync(self, output: Any, expected: Any = None, **kwargs: Any) -> _AEScore:
         self.last_call_kwargs = {"output": output, "expected": expected, **kwargs}
         return self._return_score
 
-    async def _run_eval_async(
-        self, output: Any, expected: Any = None, **kwargs: Any
-    ) -> _AEScore:
+    async def _run_eval_async(self, output: Any, expected: Any = None, **kwargs: Any) -> _AEScore:
         self.last_call_kwargs = {"output": output, "expected": expected, **kwargs}
         return self._return_score
 
@@ -95,14 +71,10 @@ class FakeScorer(_AEScorer):
 class RaisingScorer(_AEScorer):
     """A scorer that always raises on evaluation."""
 
-    def _run_eval_sync(
-        self, output: Any, expected: Any = None, **kwargs: Any
-    ) -> _AEScore:
+    def _run_eval_sync(self, output: Any, expected: Any = None, **kwargs: Any) -> _AEScore:
         raise ValueError("scorer exploded")
 
-    async def _run_eval_async(
-        self, output: Any, expected: Any = None, **kwargs: Any
-    ) -> _AEScore:
+    async def _run_eval_async(self, output: Any, expected: Any = None, **kwargs: Any) -> _AEScore:
         raise ValueError("scorer exploded")
 
 
@@ -165,7 +137,7 @@ class TestAutoevalsAdapterCall:
     async def test_output_from_evaluable(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None)
-        evaluable = FakeEvaluable(_output="hello world")
+        evaluable = Evaluable(eval_output="hello world")
 
         await adapter(evaluable)
 
@@ -175,7 +147,7 @@ class TestAutoevalsAdapterCall:
     async def test_fixed_expected_passed_to_scorer(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, expected="ground truth", input_key=None)
-        evaluable = FakeEvaluable()
+        evaluable = Evaluable()
 
         await adapter(evaluable)
 
@@ -185,7 +157,7 @@ class TestAutoevalsAdapterCall:
     async def test_expected_from_metadata(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None)
-        evaluable = FakeEvaluable(_metadata={"expected": "from meta"})
+        evaluable = Evaluable(eval_metadata={"expected": "from meta"})
 
         await adapter(evaluable)
 
@@ -195,7 +167,7 @@ class TestAutoevalsAdapterCall:
     async def test_expected_none_when_not_available(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None)
-        evaluable = FakeEvaluable()
+        evaluable = Evaluable()
 
         await adapter(evaluable)
 
@@ -205,7 +177,7 @@ class TestAutoevalsAdapterCall:
     async def test_custom_expected_key(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, expected_key="reference", input_key=None)
-        evaluable = FakeEvaluable(_metadata={"reference": "ref value"})
+        evaluable = Evaluable(eval_metadata={"reference": "ref value"})
 
         await adapter(evaluable)
 
@@ -215,7 +187,7 @@ class TestAutoevalsAdapterCall:
     async def test_input_key_default(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer)
-        evaluable = FakeEvaluable(_input="my question")
+        evaluable = Evaluable(eval_input="my question")
 
         await adapter(evaluable)
 
@@ -225,7 +197,7 @@ class TestAutoevalsAdapterCall:
     async def test_input_key_custom(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key="instructions")
-        evaluable = FakeEvaluable(_input="sort this")
+        evaluable = Evaluable(eval_input="sort this")
 
         await adapter(evaluable)
 
@@ -236,7 +208,7 @@ class TestAutoevalsAdapterCall:
     async def test_input_key_none_skips_input(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None)
-        evaluable = FakeEvaluable(_input="ignored")
+        evaluable = Evaluable(eval_input="ignored")
 
         await adapter(evaluable)
 
@@ -250,8 +222,8 @@ class TestAutoevalsAdapterCall:
             input_key=None,
             extra_metadata_keys=("context", "criteria"),
         )
-        evaluable = FakeEvaluable(
-            _metadata={
+        evaluable = Evaluable(
+            eval_metadata={
                 "context": "some context",
                 "criteria": "be concise",
                 "other": "ignored",
@@ -267,10 +239,8 @@ class TestAutoevalsAdapterCall:
     @pytest.mark.asyncio
     async def test_extra_metadata_keys_missing_silently_skipped(self) -> None:
         scorer = FakeScorer()
-        adapter = AutoevalsAdapter(
-            scorer, input_key=None, extra_metadata_keys=("context",)
-        )
-        evaluable = FakeEvaluable(_metadata={})
+        adapter = AutoevalsAdapter(scorer, input_key=None, extra_metadata_keys=("context",))
+        evaluable = Evaluable(eval_metadata={})
 
         await adapter(evaluable)
 
@@ -280,7 +250,7 @@ class TestAutoevalsAdapterCall:
     async def test_scorer_kwargs_forwarded(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None, language="Spanish")
-        evaluable = FakeEvaluable()
+        evaluable = Evaluable()
 
         await adapter(evaluable)
 
@@ -292,7 +262,7 @@ class TestAutoevalsAdapterCall:
         scorer = FakeScorer(return_score=score)
         adapter = AutoevalsAdapter(scorer, input_key=None)
 
-        result = await adapter(FakeEvaluable())
+        result = await adapter(Evaluable())
 
         assert isinstance(result, Evaluation)
         assert result.score == 0.9
@@ -302,7 +272,7 @@ class TestAutoevalsAdapterCall:
     async def test_scorer_exception_returns_zero_score(self) -> None:
         adapter = AutoevalsAdapter(RaisingScorer(), input_key=None)
 
-        result = await adapter(FakeEvaluable())
+        result = await adapter(Evaluable())
 
         assert result.score == 0.0
         assert "scorer exploded" in result.reasoning
@@ -313,42 +283,48 @@ class TestAutoevalsAdapterCall:
     async def test_fixed_expected_overrides_metadata(self) -> None:
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, expected="fixed", input_key=None)
-        evaluable = FakeEvaluable(_metadata={"expected": "from meta"})
+        evaluable = Evaluable(eval_metadata={"expected": "from meta"})
 
         await adapter(evaluable)
 
         assert scorer.last_call_kwargs["expected"] == "fixed"
 
     @pytest.mark.asyncio
-    async def test_expected_output_kwarg_overrides_all(self) -> None:
-        """Call-time expected_output takes highest priority."""
+    async def test_evaluable_expected_output_overrides_all(self) -> None:
+        """evaluable.expected_output takes highest priority."""
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, expected="fixed", input_key=None)
-        evaluable = FakeEvaluable(_metadata={"expected": "from meta"})
+        evaluable = Evaluable(
+            eval_metadata={"expected": "from meta"},
+            expected_output="from-evaluable",
+        )
 
-        await adapter(evaluable, expected_output="call-time")
+        await adapter(evaluable)
 
-        assert scorer.last_call_kwargs["expected"] == "call-time"
+        assert scorer.last_call_kwargs["expected"] == "from-evaluable"
 
     @pytest.mark.asyncio
-    async def test_expected_output_kwarg_overrides_metadata(self) -> None:
-        """Call-time expected_output takes priority over metadata."""
+    async def test_evaluable_expected_output_overrides_metadata(self) -> None:
+        """evaluable.expected_output takes priority over metadata."""
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, input_key=None)
-        evaluable = FakeEvaluable(_metadata={"expected": "from meta"})
+        evaluable = Evaluable(
+            eval_metadata={"expected": "from meta"},
+            expected_output="from-evaluable",
+        )
 
-        await adapter(evaluable, expected_output="call-time")
+        await adapter(evaluable)
 
-        assert scorer.last_call_kwargs["expected"] == "call-time"
+        assert scorer.last_call_kwargs["expected"] == "from-evaluable"
 
     @pytest.mark.asyncio
-    async def test_expected_output_none_falls_through(self) -> None:
-        """When expected_output is None, constructor/metadata still used."""
+    async def test_unset_expected_output_falls_through(self) -> None:
+        """When expected_output is UNSET, constructor/metadata still used."""
         scorer = FakeScorer()
         adapter = AutoevalsAdapter(scorer, expected="fixed", input_key=None)
-        evaluable = FakeEvaluable()
+        evaluable = Evaluable()  # expected_output defaults to UNSET
 
-        await adapter(evaluable, expected_output=None)
+        await adapter(evaluable)
 
         assert scorer.last_call_kwargs["expected"] == "fixed"
 
@@ -377,7 +353,7 @@ class TestLevenshteinMatch:
 
             evaluator = LevenshteinMatch()
             result = await evaluator(
-                FakeEvaluable(_output="hello wrld"), expected_output="hello world"
+                Evaluable(eval_output="hello wrld", expected_output="hello world"),
             )
 
             mock_instance.eval_async.assert_awaited_once()
@@ -461,8 +437,11 @@ class TestFactualityEval:
 
             evaluator = FactualityEval()
             result = await evaluator(
-                FakeEvaluable(_input="Q?", _output="Paris is the capital"),
-                expected_output="Paris is the capital",
+                Evaluable(
+                    eval_input="Q?",
+                    eval_output="Paris is the capital",
+                    expected_output="Paris is the capital",
+                ),
             )
 
             call_kwargs = mock_instance.eval_async.call_args.kwargs

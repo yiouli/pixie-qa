@@ -1,5 +1,10 @@
 # Eval Test Harness — Implementation Spec
 
+> **Note:** The `expected_output` / `expected_outputs` parameters described in the
+> evaluation function signatures have been superseded by `specs/dataset-management.md`.
+> `expected_output` is now embedded directly in the `Evaluable` model. Evaluators read
+> `evaluable.expected_output` instead of receiving it as a kwarg.
+
 ## Overview
 
 A pytest-style test discovery and runner for LLM application evaluation. Users define test functions, run them via `pixie test`, and use framework-provided `evaluate` / `assert_pass` functions instead of `assert` statements. The runner sets up in-memory trace capture automatically, so evaluators have access to full execution traces without any production instrumentation dependency.

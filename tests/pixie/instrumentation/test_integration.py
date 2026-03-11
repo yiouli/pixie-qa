@@ -62,9 +62,7 @@ def _inject_fake_llm_span(
 class TestInitAndLLMSpan:
     """Tests for init() → fake LLM span → on_llm() called."""
 
-    def test_init_then_llm_span_delivered(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_init_then_llm_span_delivered(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
         _inject_fake_llm_span(model="gpt-4")
@@ -81,9 +79,7 @@ class TestInitAndLLMSpan:
 class TestLogObserveSpan:
     """Tests for log() block → on_observe() called."""
 
-    def test_log_delivers_observe_span(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_log_delivers_observe_span(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
         with px.log(input="my question", name="qa") as span:
@@ -104,9 +100,7 @@ class TestLogObserveSpan:
 class TestLLMInsideLog:
     """Tests for LLM call inside log() → parent_span_id == observe_span.span_id."""
 
-    def test_llm_span_parented_to_observe_span(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_llm_span_parented_to_observe_span(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
 
@@ -138,9 +132,7 @@ class TestLLMInsideLog:
 class TestFlush:
     """Tests for flush()."""
 
-    def test_flush_processes_all_pending(
-        self, recording_handler: RecordingHandler
-    ) -> None:
+    def test_flush_processes_all_pending(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
 

@@ -98,9 +98,7 @@ def add_handler(handler: InstrumentationHandler) -> None:
     registered; each receives every span.
     """
     if _state.registry is None:
-        raise RuntimeError(
-            "pixie.instrumentation.init() must be called before add_handler()"
-        )
+        raise RuntimeError("pixie.instrumentation.init() must be called before add_handler()")
     _state.registry.add(handler)
 
 
@@ -110,9 +108,7 @@ def remove_handler(handler: InstrumentationHandler) -> None:
     Raises ``ValueError`` if *handler* was not registered.
     """
     if _state.registry is None:
-        raise RuntimeError(
-            "pixie.instrumentation.init() must be called before remove_handler()"
-        )
+        raise RuntimeError("pixie.instrumentation.init() must be called before remove_handler()")
     _state.registry.remove(handler)
 
 

@@ -1,4 +1,4 @@
-"""Higher-level eval utilities: run_and_evaluate, assert_pass, EvalAssertionError."""
+"""Higher-level eval utilities: run_and_evaluate, assert_pass, assert_dataset_pass."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.trace_capture import capture_traces
 from pixie.storage.evaluable import Evaluable, as_evaluable
 from pixie.storage.tree import ObservationNode, build_tree
+
+# Private sentinel — distinguishes "caller did not pass expected_output" from None.
+_UNSET_SENTINEL: Any = object()
 
 
 class EvalAssertionError(AssertionError):
@@ -42,17 +45,17 @@ def _default_pass_criteria(
 async def run_and_evaluate(
     evaluator: Callable[..., Any],
     runnable: Callable[..., Any],
-    input: Any,  # noqa: A002
+    eval_input: Any,
     *,
-    expected_output: Any = None,
+    expected_output: Any = _UNSET_SENTINEL,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> Evaluation:
-    """Run *runnable(input)* while capturing traces, then evaluate.
+    """Run *runnable(eval_input)* while capturing traces, then evaluate.
 
     1. Initialises instrumentation (no-op if already done) and registers
        an in-memory trace handler scoped to this call.
-    2. Calls ``runnable(input)`` — async runnables are awaited, sync ones
-       are run via ``asyncio.to_thread``.
+    2. Calls ``runnable(eval_input)`` — async runnables are awaited, sync
+       ones are run via ``asyncio.to_thread``.
     3. Flushes the delivery queue so all spans reach the handler.
     4. Builds the trace tree and determines the evaluable:
 
@@ -60,13 +63,18 @@ async def run_and_evaluate(
          span to evaluate.
        - Otherwise the root observation span is used.
 
-    5. Runs the evaluator and returns the ``Evaluation``.
+    5. If *expected_output* is provided, merges it into the evaluable
+       (span-derived evaluables never carry expected values).
+    6. Runs the evaluator and returns the ``Evaluation``.
 
     Args:
         evaluator: An evaluator callable (sync or async).
         runnable: The application function to test.
-        input: The single input passed to *runnable*.
-        expected_output: Optional expected value forwarded to the evaluator.
+        eval_input: The single input passed to *runnable*.
+        expected_output: Optional expected value merged into the
+            evaluable.  Span-derived evaluables always have
+            ``expected_output=UNSET``; this parameter lets callers
+            inject the reference value.
         from_trace: Optional callable to select a specific span from
             the trace tree for evaluation.
 
@@ -78,9 +86,9 @@ async def run_and_evaluate(
     """
     with capture_traces() as handler:
         if inspect.iscoroutinefunction(runnable):
-            await runnable(input)
+            await runnable(eval_input)
         else:
-            await asyncio.to_thread(runnable, input)
+            await asyncio.to_thread(runnable, eval_input)
 
     # capture_traces flushes on exit, so handler.spans is populated
     if not handler.spans:
@@ -94,21 +102,26 @@ async def run_and_evaluate(
         root_node = trace_tree[0]
         evaluable = as_evaluable(root_node.span)
 
-    return await evaluate(
-        evaluator, evaluable, expected_output=expected_output, trace=trace_tree
-    )
+    # Merge expected_output into the span-derived evaluable when provided
+    if expected_output is not _UNSET_SENTINEL:
+        evaluable = Evaluable(
+            eval_input=evaluable.eval_input,
+            eval_output=evaluable.eval_output,
+            eval_metadata=evaluable.eval_metadata,
+            expected_output=expected_output,
+        )
+
+    return await evaluate(evaluator, evaluable, trace=trace_tree)
 
 
 async def assert_pass(
     runnable: Callable[..., Any],
-    inputs: list[Any],
+    eval_inputs: list[Any],
     evaluators: list[Callable[..., Any]],
     *,
-    expected_outputs: list[Any] | None = None,
+    evaluables: list[Evaluable] | None = None,
     passes: int = 1,
-    pass_criteria: (
-        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
-    ) = None,
+    pass_criteria: (Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Run evaluators against a runnable over multiple inputs and passes.
@@ -117,16 +130,21 @@ async def assert_pass(
     evaluator.  Evaluators for a single input are run concurrently via
     ``asyncio.gather``.  Inputs within a pass are run sequentially.
 
-    The full results tensor has shape ``[passes][inputs][evaluators]``.
+    The full results tensor has shape ``[passes][eval_inputs][evaluators]``.
     If the pass criteria are not met, raises :class:`EvalAssertionError`
     carrying the tensor.
 
+    When ``evaluables`` is provided, each item is used directly as the
+    evaluable for the corresponding input (it already carries its own
+    ``expected_output``).  When ``evaluables`` is ``None``, the evaluable
+    is constructed from the captured trace as before.
+
     Args:
         runnable: The application function to test.
-        inputs: List of inputs, each passed to *runnable*.
+        eval_inputs: List of inputs, each passed to *runnable*.
         evaluators: List of evaluator callables.
-        expected_outputs: Optional list of expected values, one per input.
-            Must have the same length as *inputs* when provided.
+        evaluables: Optional list of ``Evaluable`` items, one per input.
+            Must have the same length as *eval_inputs* when provided.
         passes: How many times to run the entire test matrix.
         pass_criteria: Receives the results tensor, returns
             ``(passed, message)``.  Defaults to "every score >= 0.5".
@@ -135,12 +153,12 @@ async def assert_pass(
 
     Raises:
         EvalAssertionError: When pass criteria are not met.
-        ValueError: When *expected_outputs* length does not match *inputs*.
+        ValueError: When *evaluables* length does not match *eval_inputs*.
     """
-    if expected_outputs is not None and len(expected_outputs) != len(inputs):
+    if evaluables is not None and len(evaluables) != len(eval_inputs):
         raise ValueError(
-            f"expected_outputs length ({len(expected_outputs)}) "
-            f"must match inputs length ({len(inputs)})"
+            f"evaluables length ({len(evaluables)}) "
+            f"must match eval_inputs length ({len(eval_inputs)})"
         )
 
     criteria = pass_criteria or ScoreThreshold()
@@ -148,18 +166,21 @@ async def assert_pass(
 
     for _ in range(passes):
         pass_results: list[list[Evaluation]] = []
-        for idx, inp in enumerate(inputs):
-            exp_out = expected_outputs[idx] if expected_outputs is not None else None
-            eval_coros = [
-                run_and_evaluate(
-                    evaluator=ev,
-                    runnable=runnable,
-                    input=inp,
-                    expected_output=exp_out,
-                    from_trace=from_trace,
-                )
-                for ev in evaluators
-            ]
+        for idx, inp in enumerate(eval_inputs):
+            if evaluables is not None:
+                # Use provided evaluable directly — skip trace capture
+                ev_item = evaluables[idx]
+                eval_coros = [evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators]
+            else:
+                eval_coros = [
+                    run_and_evaluate(
+                        evaluator=ev,
+                        runnable=runnable,
+                        eval_input=inp,
+                        from_trace=from_trace,
+                    )
+                    for ev in evaluators
+                ]
             input_evals = list(await asyncio.gather(*eval_coros))
             pass_results.append(input_evals)
         results.append(pass_results)
@@ -167,3 +188,57 @@ async def assert_pass(
     passed, message = criteria(results)
     if not passed:
         raise EvalAssertionError(message, results=results)
+
+
+async def assert_dataset_pass(
+    runnable: Callable[..., Any],
+    dataset_name: str,
+    evaluators: list[Callable[..., Any]],
+    *,
+    dataset_dir: str | None = None,
+    passes: int = 1,
+    pass_criteria: (Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None) = None,
+    from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
+) -> None:
+    """Load a dataset by name, then run ``assert_pass`` with its items.
+
+    This is a convenience wrapper that:
+
+    1. Loads the dataset from the ``DatasetStore``.
+    2. Extracts ``eval_input`` from each item as the runnable inputs.
+    3. Uses the full ``Evaluable`` items (which carry ``expected_output``)
+       as the evaluables.
+    4. Delegates to ``assert_pass``.
+
+    Args:
+        runnable: The application function to test.
+        dataset_name: Name of the dataset to load.
+        evaluators: List of evaluator callables.
+        dataset_dir: Override directory for the dataset store.
+            When ``None``, reads from ``PixieConfig.dataset_dir``.
+        passes: How many times to run the entire test matrix.
+        pass_criteria: Receives the results tensor, returns
+            ``(passed, message)``.
+        from_trace: Optional span selector forwarded to
+            ``assert_pass``.
+
+    Raises:
+        FileNotFoundError: If no dataset with *dataset_name* exists.
+        EvalAssertionError: When pass criteria are not met.
+    """
+    from pixie.dataset.store import DatasetStore
+
+    store = DatasetStore(dataset_dir=dataset_dir)
+    dataset = store.get(dataset_name)
+    items = list(dataset.items)
+    eval_inputs = [item.eval_input for item in items]
+
+    await assert_pass(
+        runnable=runnable,
+        eval_inputs=eval_inputs,
+        evaluators=evaluators,
+        evaluables=items,
+        passes=passes,
+        pass_criteria=pass_criteria,
+        from_trace=from_trace,
+    )

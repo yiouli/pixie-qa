@@ -13,14 +13,21 @@ class TestGetConfigDefaults:
     def test_default_db_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("PIXIE_DB_PATH", raising=False)
         monkeypatch.delenv("PIXIE_DB_ENGINE", raising=False)
+        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
         config = get_config()
         assert config.db_path == "pixie_observations.db"
 
     def test_default_db_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("PIXIE_DB_PATH", raising=False)
         monkeypatch.delenv("PIXIE_DB_ENGINE", raising=False)
+        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
         config = get_config()
         assert config.db_engine == "sqlite"
+
+    def test_default_dataset_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
+        config = get_config()
+        assert config.dataset_dir == "pixie_datasets"
 
 
 class TestGetConfigEnvOverrides:
@@ -35,6 +42,11 @@ class TestGetConfigEnvOverrides:
         monkeypatch.setenv("PIXIE_DB_ENGINE", "postgres")
         config = get_config()
         assert config.db_engine == "postgres"
+
+    def test_reads_pixie_dataset_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PIXIE_DATASET_DIR", "/tmp/my-datasets")
+        config = get_config()
+        assert config.dataset_dir == "/tmp/my-datasets"
 
 
 class TestPixieConfigFrozen:
