@@ -5,8 +5,8 @@
 `pixie.instrumentation` is a lightweight Python sub-package that:
 
 1. Wraps LLM provider calls using **OpenInference** and delivers typed `LLMSpan` objects to a handler.
-2. Provides a `log()` context manager for wrapping arbitrary code blocks into `ObserveSpan` objects, carrying user-defined inputs, outputs, and metadata.
-3. Associates the two via standard OTel trace context: LLM calls made _inside_ a `log()` block are children in the same trace, so `LLMSpan.parent_span_id == ObserveSpan.span_id`.
+2. Provides a `start_observation()` context manager (and an `@observe` decorator) for wrapping arbitrary code blocks into `ObserveSpan` objects, carrying user-defined inputs, outputs, and metadata.
+3. Associates the two via standard OTel trace context: LLM calls made _inside_ a `start_observation()` block are children in the same trace, so `LLMSpan.parent_span_id == ObserveSpan.span_id`.
 
 Users call `pixie.instrumentation.init(handler)` once at startup.
 
@@ -35,10 +35,11 @@ Validation snapshot at delivery time:
 ```
 pixie/
 └── instrumentation/
-    ├── __init__.py        # public API: init(), log()
+    ├── __init__.py        # public API: init(), start_observation(), observe()
     ├── spans.py           # ObserveSpan, LLMSpan, and all message/content types
     ├── handler.py         # InstrumentationHandler abstract base class
-    ├── context.py         # _SpanContext — the mutable object yielded by log()
+    ├── context.py         # ObservationContext — mutable object yielded by start_observation()
+    ├── observe.py         # @observe decorator for automatic input/output capture
     ├── processor.py       # LLMSpanProcessor (OpenInference span attrs → LLMSpan)
     ├── queue.py           # _DeliveryQueue (background worker thread)
     ├── instrumentors.py   # auto-discovers and activates OpenInference instrumentors
@@ -208,7 +209,7 @@ class LLMSpan:
 
 ### `ObserveSpan` — a user-defined instrumented block
 
-Produced when a `log()` context manager block exits.
+Produced when a `start_observation()` context manager block exits.
 
 ```python
 @dataclass(frozen=True)
@@ -225,7 +226,7 @@ class ObserveSpan:
 
     # ── User-defined fields ───────────────────────────────────────────────────
     name: str | None                          # optional label for the block
-    input: Any                                # value passed to log(input=...)
+    input: Any                                # value passed to start_observation(input=...)
     output: Any                               # value set via span.set_output(...)
     metadata: dict                            # accumulated via span.set_metadata(k, v)
     error: str | None                         # exception type if block raised, else None
@@ -250,7 +251,7 @@ Initializes the instrumentation sub-package. Truly idempotent — calling `init(
 2. Set env vars before instrumentors load
 3. Create `_HandlerRegistry` and `_DeliveryQueue(registry, queue_size)`
 4. Set up `TracerProvider` with `LLMSpanProcessor(delivery_queue)`
-5. Store a module-level `_tracer` from this provider for use by `log()`
+5. Store a module-level `_tracer` from this provider for use by `start_observation()`
 6. Set as global tracer provider
 7. Call `_activate_instrumentors()`
 
@@ -270,17 +271,17 @@ Internal fan-out handler that dispatches to all registered handlers. Thread-safe
 
 ---
 
-### `log(input=None, *, name=None) -> contextmanager[_SpanContext]`
+### `start_observation(input, *, name=None) -> contextmanager[ObservationContext]`
 
-Context manager. Creates an OTel span, yields a mutable `_SpanContext`, and on exit snapshots it into an `ObserveSpan` delivered to the handler.
+Context manager. Creates an OTel span, yields a mutable `ObservationContext`, and on exit snapshots it into an `ObserveSpan` delivered to the handler. `input` is a required keyword-only argument of type `JsonValue`. When `init()` has not been called, `start_observation()` is a no-op: it yields a dummy context whose methods do nothing.
 
 ```python
 @contextmanager
-def log(input: Any = None, *, name: str | None = None):
+def start_observation(input: JsonValue, *, name: str | None = None):
     tracer = _state.tracer
     span_name = name or "observe"
     with tracer.start_as_current_span(span_name) as otel_span:
-        ctx = _SpanContext(otel_span=otel_span, input=input)
+        ctx = ObservationContext(otel_span=otel_span, input=input)
         try:
             yield ctx
         except Exception as e:
@@ -291,18 +292,22 @@ def log(input: Any = None, *, name: str | None = None):
             _state.delivery_queue.submit(observe_span)
 ```
 
-`_SpanContext` is the mutable object users interact with inside the block. It is never delivered directly — `_snapshot()` produces the final frozen `ObserveSpan`.
+`ObservationContext` is the mutable object users interact with inside the block. It is never delivered directly — `_snapshot()` produces the final frozen `ObserveSpan`.
 
 The OTel span created here becomes the **parent** of any LLM spans initiated inside the block, so `LLMSpan.parent_span_id == ObserveSpan.span_id` naturally via OTel context propagation.
 
+### `@observe` decorator
+
+The `@observe` decorator (defined in `pixie/instrumentation/observe.py`) provides automatic input/output capture for decorated functions. It wraps the function body in a `start_observation()` context, using the function arguments as `input` and the return value as `output`.
+
 ---
 
-## `_SpanContext` (`pixie/instrumentation/context.py`)
+## `ObservationContext` (`pixie/instrumentation/context.py`)
 
-The mutable object yielded by `log()`. Users interact with this inside the `with` block.
+The mutable object yielded by `start_observation()`. Users interact with this inside the `with` block.
 
 ```python
-class _SpanContext:
+class ObservationContext:
     def __init__(self, otel_span, input: Any):
         self._otel_span = otel_span
         self._input = input
@@ -337,7 +342,7 @@ class _SpanContext:
         )
 ```
 
-**Design note:** `_SpanContext` is intentionally not exported. Users only need to know about `set_output()` and `set_metadata()`. The frozen `ObserveSpan` delivered to the handler is the public type.
+**Design note:** `ObservationContext` is the public type yielded to users. Users only need to know about `set_output()` and `set_metadata()`. The frozen `ObserveSpan` delivered to the handler is the public type.
 
 ---
 
@@ -355,7 +360,7 @@ class InstrumentationHandler:
         """
 
     async def on_observe(self, span: ObserveSpan) -> None:
-        """Called when a log() block completes.
+        """Called when a start_observation() block completes.
         Default: no-op. Override to capture eval-relevant data.
         Exceptions are caught and suppressed.
         """
@@ -363,7 +368,7 @@ class InstrumentationHandler:
 
 Both methods are **async** optional overrides — a handler only implementing `on_llm` is valid, and vice versa. Because they are coroutines, handlers may perform I/O (e.g. HTTP calls, DB writes) without blocking the delivery pipeline.
 
-**Association pattern:** LLM calls made inside a `log()` block will have `llm_span.parent_span_id == observe_span.span_id` and the same `trace_id`. Join in storage on these keys.
+**Association pattern:** LLM calls made inside a `start_observation()` block will have `llm_span.parent_span_id == observe_span.span_id` and the same `trace_id`. Join in storage on these keys.
 
 ---
 
@@ -596,7 +601,7 @@ _state = _State()
 3. Never raise from `submit()` — drop silently on full queue
 4. Handler coroutine exceptions are silently swallowed — collected via `return_exceptions=True` in `asyncio.gather`
 5. Malformed JSON in span attributes — fall back to `{}` or `None`, never raise
-6. `log()` block exceptions re-raised normally after snapshotting `error` field
+6. `start_observation()` block exceptions re-raised normally after snapshotting `error` field
 
 ---
 
@@ -613,7 +618,7 @@ _state = _State()
 - `set_output()` and `set_metadata()` update state correctly
 - `_snapshot()` produces correct frozen `ObserveSpan`
 - Exception inside `with` block → `error` field set, exception re-raised
-- Nesting: `log()` inside `log()` → inner `parent_span_id` == outer `span_id`
+- Nesting: `start_observation()` inside `start_observation()` → inner `parent_span_id` == outer `span_id`
 
 ### `test_handler.py`
 
@@ -641,8 +646,8 @@ _state = _State()
 ### `test_integration.py`
 
 - `init()` + `add_handler(handler)` → fake LLM span → `on_llm()` called with correct `LLMSpan`
-- `log(input=...)` block → `on_observe()` called with correct `ObserveSpan`
-- LLM call inside `log()` block → `llm_span.parent_span_id == observe_span.span_id`
+- `start_observation(input=...)` block → `on_observe()` called with correct `ObserveSpan`
+- LLM call inside `start_observation()` block → `llm_span.parent_span_id == observe_span.span_id`
 - `flush()` → all pending spans delivered before flush returns
 - Multiple handlers: `add_handler(h1)` + `add_handler(h2)` → both receive every span
 - `remove_handler(h1)` → h1 no longer receives spans, h2 still does
@@ -687,10 +692,10 @@ px.add_handler(MyHandler())
 from anthropic import Anthropic
 client = Anthropic()
 
-with px.log(input=user_query, name="answer_question") as span:
+with px.start_observation(input=user_query, name="answer_question") as observation:
     # retrieve context, run the LLM call
     docs = retriever.get(user_query)
-    span.set_metadata("retrieved_docs", docs)
+    observation.set_metadata("retrieved_docs", docs)
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
@@ -698,8 +703,8 @@ with px.log(input=user_query, name="answer_question") as span:
         messages=[{"role": "user", "content": user_query}]
     )
     answer = response.content[0].text
-    span.set_output(answer)
-    span.set_metadata("retrieval_count", len(docs))
+    observation.set_output(answer)
+    observation.set_metadata("retrieval_count", len(docs))
 
 # After the block:
 # on_observe() called with ObserveSpan(input=user_query, output=answer, ...)

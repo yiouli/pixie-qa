@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-import pixie.instrumentation as px
+import pixie.instrumentation.observation as px
 from pixie.evals.trace_capture import MemoryTraceHandler, capture_traces
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 
@@ -127,7 +127,9 @@ class TestMemoryTraceHandler:
         asyncio.run(handler.on_observe(_make_observe_span(span_id="a1", trace_id="t1")))
         asyncio.run(handler.on_observe(_make_observe_span(span_id="b1", trace_id="t2")))
         asyncio.run(
-            handler.on_llm(_make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1"))
+            handler.on_llm(
+                _make_llm_span(span_id="a2", trace_id="t1", parent_span_id="a1")
+            )
         )
 
         traces = handler.get_all_traces()
@@ -155,9 +157,9 @@ class TestCaptureTraces:
         """Spans produced inside the context manager are captured."""
         with (
             capture_traces() as handler,
-            px.start_observation(input="q", name="test") as span,
+            px.start_observation(input="q", name="test") as observation,
         ):
-            span.set_output("a")
+            observation.set_output("a")
         assert len(handler.spans) == 1
         obs = handler.spans[0]
         assert isinstance(obs, ObserveSpan)

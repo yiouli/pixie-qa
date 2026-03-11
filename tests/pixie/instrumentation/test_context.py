@@ -1,4 +1,4 @@
-"""Tests for pixie.instrumentation.context — _SpanContext."""
+"""Tests for pixie.instrumentation.context — ObservationContext."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ class TestSpanContextSetters:
     def test_set_output(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation(input="q") as span:
-            span.set_output("answer")
+        with px.start_observation(input="q") as observation:
+            observation.set_output("answer")
         px.flush()
         assert len(recording_handler.observe_spans) == 1
         assert recording_handler.observe_spans[0].output == "answer"
@@ -25,9 +25,9 @@ class TestSpanContextSetters:
     def test_set_metadata(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation() as span:
-            span.set_metadata("k1", "v1")
-            span.set_metadata("k2", 42)
+        with px.start_observation(input=None) as observation:
+            observation.set_metadata("k1", "v1")
+            observation.set_metadata("k2", 42)
         px.flush()
         obs = recording_handler.observe_spans[0]
         assert obs.metadata == {"k1": "v1", "k2": 42}
@@ -36,11 +36,13 @@ class TestSpanContextSetters:
 class TestSpanContextSnapshot:
     """Tests for _snapshot() producing correct frozen ObserveSpan."""
 
-    def test_snapshot_produces_observe_span(self, recording_handler: RecordingHandler) -> None:
+    def test_snapshot_produces_observe_span(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation(input="hello", name="test_block") as span:
-            span.set_output("world")
+        with px.start_observation(input="hello", name="test_block") as observation:
+            observation.set_output("world")
         px.flush()
 
         obs = recording_handler.observe_spans[0]
@@ -52,10 +54,12 @@ class TestSpanContextSnapshot:
         assert len(obs.span_id) == 16
         assert len(obs.trace_id) == 32
 
-    def test_snapshot_with_default_name(self, recording_handler: RecordingHandler) -> None:
+    def test_snapshot_with_default_name(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation():
+        with px.start_observation(input=None):
             pass
         px.flush()
         obs = recording_handler.observe_spans[0]
@@ -64,7 +68,7 @@ class TestSpanContextSnapshot:
     def test_snapshot_timing(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation():
+        with px.start_observation(input=None):
             pass
         px.flush()
         obs = recording_handler.observe_spans[0]
@@ -74,9 +78,11 @@ class TestSpanContextSnapshot:
 
 
 class TestSpanContextError:
-    """Tests for exception handling inside log() blocks."""
+    """Tests for exception handling inside start_observation() blocks."""
 
-    def test_exception_sets_error_field(self, recording_handler: RecordingHandler) -> None:
+    def test_exception_sets_error_field(
+        self, recording_handler: RecordingHandler
+    ) -> None:
         px.init()
         px.add_handler(recording_handler)
         with (
@@ -91,18 +97,18 @@ class TestSpanContextError:
     def test_exception_is_reraised(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with pytest.raises(RuntimeError), px.start_observation():
+        with pytest.raises(RuntimeError), px.start_observation(input=None):
             raise RuntimeError("boom")
 
 
 class TestSpanContextNesting:
-    """Tests for nesting log() blocks."""
+    """Tests for nesting start_observation() blocks."""
 
     def test_nested_parent_span_id(self, recording_handler: RecordingHandler) -> None:
         px.init()
         px.add_handler(recording_handler)
-        with px.start_observation(name="outer"):  # noqa: SIM117
-            with px.start_observation(name="inner"):
+        with px.start_observation(input=None, name="outer"):  # noqa: SIM117
+            with px.start_observation(input=None, name="inner"):
                 pass
         px.flush()
 
@@ -116,3 +122,36 @@ class TestSpanContextNesting:
         assert inner_obs.parent_span_id == outer_obs.span_id
         # They share the same trace_id
         assert inner_obs.trace_id == outer_obs.trace_id
+
+
+class TestNoOpContext:
+    """Tests for no-op behavior when init() has not been called."""
+
+    def test_start_observation_without_init_yields_noop(self) -> None:
+        """start_observation() should not raise when init() not called."""
+        # Do NOT call px.init()
+        with px.start_observation(input="hello") as observation:
+            observation.set_output("world")
+            observation.set_metadata("key", "value")
+        # No error, no span captured — just a no-op
+
+    def test_noop_context_set_output_is_silent(self) -> None:
+        with px.start_observation(input="q") as observation:
+            observation.set_output("a")
+        # No crash, no side effects
+
+    def test_noop_context_set_metadata_is_silent(self) -> None:
+        with px.start_observation(input="q") as observation:
+            observation.set_metadata("k", "v")
+        # No crash, no side effects
+
+    def test_noop_context_exception_still_propagates(self) -> None:
+        """Exceptions inside the block should still propagate normally."""
+        with pytest.raises(ValueError, match="boom"), px.start_observation(input="q"):
+            raise ValueError("boom")
+
+    def test_noop_does_not_submit_to_queue(self) -> None:
+        """No span should be submitted when tracing is not initialized."""
+        with px.start_observation(input="q") as observation:
+            observation.set_output("a")
+        # State has no delivery queue — nothing to check, just no crash

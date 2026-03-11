@@ -62,10 +62,10 @@ class PrintHandler(InstrumentationHandler):
 px.init()  # capture_content=True by default
 px.add_handler(PrintHandler())
 
-with px.log(input="What is the capital of France?", name="qa") as span:
+with px.start_observation(input="What is the capital of France?", name="qa") as observation:
 	answer = "Paris"
-	span.set_output(answer)
-	span.set_metadata("source", "demo")
+	observation.set_output(answer)
+	observation.set_metadata("source", "demo")
 
 px.flush()
 ```
@@ -113,7 +113,8 @@ asyncio.run(main())
 - `init(*, capture_content=True, queue_size=1000)` — initialize OTel pipeline (idempotent); content capture on by default
 - `add_handler(handler)` — register a handler to receive spans
 - `remove_handler(handler)` — unregister a handler
-- `log(input=None, *, name=None)` — context manager for observe spans
+- `start_observation(*, input, name=None)` — context manager for observe spans
+- `observe(name=None)` — decorator for wrapping functions as observe spans
 - `flush(timeout_seconds=5.0)` — drain the delivery queue
 
 Data model types are exported from `pixie.instrumentation`, including `LLMSpan`, `ObserveSpan`, and message/content/tool types.
@@ -132,7 +133,7 @@ Data model types are exported from `pixie.instrumentation`, including `LLMSpan`,
   - `list_traces(limit, offset)` — trace summaries
 - `ObservationNode` — tree wrapper with `find()`, `find_by_type()`, `to_text()`
 - `build_tree(spans)` — assemble flat spans into a tree
-- `Evaluable` — Pydantic ``BaseModel`` with `eval_input`, `eval_output`, `eval_metadata`, `expected_output`
+- `Evaluable` — Pydantic `BaseModel` with `eval_input`, `eval_output`, `eval_metadata`, `expected_output`
 - `UNSET` sentinel — distinguishes "not set" from `None` for `expected_output`
 - `as_evaluable(span)` — convert a span to an `Evaluable`
 
@@ -233,11 +234,11 @@ print(result.reasoning)  # CoT rationale from the LLM judge
 
 All settings are read from `PIXIE_`-prefixed environment variables at call time:
 
-| Variable            | Default                 | Description                         |
-| ------------------- | ----------------------- | ----------------------------------- |
-| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path           |
-| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine type                |
-| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files    |
+| Variable            | Default                 | Description                      |
+| ------------------- | ----------------------- | -------------------------------- |
+| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path        |
+| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine type             |
+| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files |
 
 ```python
 from pixie.config import get_config
@@ -264,8 +265,8 @@ from pixie.storage.evaluable import Evaluable
 
 def my_app(question):
     import pixie.instrumentation as px
-    with px.log(input=question, name="qa") as span:
-        span.set_output("expected")
+    with px.start_observation(input=question, name="qa") as observation:
+        observation.set_output("expected")
 
 async def test_my_app():
     await assert_pass(
@@ -372,8 +373,8 @@ echo '"expected"' | pixie dataset save <name> --expected-output  # pipe expected
 ```
 
 Dataset commands read from the observation store (configured via
-``PIXIE_DB_PATH``) and write to the dataset directory (configured via
-``PIXIE_DATASET_DIR``).
+`PIXIE_DB_PATH`) and write to the dataset directory (configured via
+`PIXIE_DATASET_DIR`).
 
 ## Development
 

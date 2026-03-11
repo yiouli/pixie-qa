@@ -1,4 +1,4 @@
-"""_SpanContext — the mutable object yielded by log()."""
+"""ObservationContext — the mutable object yielded by start_observation()."""
 
 from __future__ import annotations
 
@@ -20,8 +20,9 @@ def _extract_parent_span_id(otel_span: Span) -> str | None:
 
 
 class ObservationContext:
-    """Mutable object yielded by log(). Users interact with this inside the with block.
+    """Mutable object yielded by start_observation().
 
+    Users interact with this inside the with block.
     Not exported — users only need set_output() and set_metadata().
     The frozen ObserveSpan delivered to the handler is the public type.
     """
@@ -59,3 +60,27 @@ class ObservationContext:
             metadata=dict(self._metadata),
             error=self._error,
         )
+
+
+class _NoOpObservationContext(ObservationContext):
+    """No-op observation context used when tracing is not initialized.
+
+    All mutator methods are silent no-ops. No OTel span is created,
+    no ObserveSpan is submitted.
+    """
+
+    def __init__(self) -> None:
+        # Do NOT call super().__init__() — no OTel span exists
+        self._input: Any = None
+        self._output: Any = None
+        self._metadata: dict[str, Any] = {}
+        self._error: str | None = None
+
+    def set_output(self, value: Any) -> None:
+        pass  # silent no-op
+
+    def set_metadata(self, key: str, value: Any) -> None:
+        pass  # silent no-op
+
+    def _snapshot(self) -> None:  # type: ignore[override]
+        return None  # no span to produce

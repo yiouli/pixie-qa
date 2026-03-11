@@ -222,6 +222,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jsonpickle"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/a6/d07afcfdef402900229bcca795f80506b207af13a838d4d99ad45abf530c/jsonpickle-4.1.1.tar.gz", hash = "sha256:f86e18f13e2b96c1c1eede0b7b90095bbb61d99fedc14813c44dc2f361dbbae1", size = 316885, upload-time = "2025-06-02T20:36:11.57Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/73/04df8a6fa66d43a9fd45c30f283cc4afff17da671886e451d52af60bdc7e/jsonpickle-4.1.1-py3-none-any.whl", hash = "sha256:bb141da6057898aa2438ff268362b126826c812a1721e31cf08a6e142910dc91", size = 47125, upload-time = "2025-06-02T20:36:08.647Z" },
+]
+
+[[package]]
 name = "jsonschema"
 version = "4.26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -687,6 +696,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "autoevals" },
+    { name = "jsonpickle" },
     { name = "openinference-instrumentation" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
@@ -729,6 +739,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "autoevals", specifier = ">=0.1.0" },
+    { name = "jsonpickle", specifier = ">=4.0.0" },
     { name = "openinference-instrumentation", specifier = ">=0.1.44" },
     { name = "openinference-instrumentation-anthropic", marker = "extra == 'all'" },
     { name = "openinference-instrumentation-anthropic", marker = "extra == 'anthropic'" },

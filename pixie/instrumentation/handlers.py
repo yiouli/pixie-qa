@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import contextlib
 
-import pixie.instrumentation as px
 from pixie.config import get_config
 from pixie.instrumentation.handler import InstrumentationHandler
+from pixie.instrumentation.observation import add_handler, init
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 from pixie.storage.store import ObservationStore
 
@@ -69,10 +69,10 @@ def enable_storage() -> StorageHandler:
 
     import asyncio
 
-    px.init()
+    init()
 
     handler = asyncio.run(_setup_storage())
-    px.add_handler(handler)
+    add_handler(handler)
     _storage_handler = handler
     return handler
 
