@@ -12,21 +12,20 @@ All settings read from environment variables at call time:
 
 ---
 
-## Instrumentation API (`pixie.instrumentation` / `pixie`)
+## Instrumentation API (`pixie`)
 
 ```python
-from pixie import enable_storage          # one-liner setup
-import pixie.instrumentation as px        # full API
+from pixie import enable_storage, observe, start_observation, flush, init, add_handler
 ```
 
 | Function / Decorator | Signature | Notes |
 |---|---|---|
 | `enable_storage()` | `() → StorageHandler` | Idempotent. Creates DB, registers handler. Call at app startup. |
-| `px.init()` | `(*, capture_content=True, queue_size=1000) → None` | Called internally by `enable_storage`. Idempotent. |
-| `px.observe` | `(name=None) → decorator` | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
-| `px.start_observation` | `(*, input, name=None) → ContextManager[ObservationContext]` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside. |
-| `px.flush` | `(timeout_seconds=5.0) → bool` | Drains the queue. Call after a run before using CLI commands. |
-| `px.add_handler` | `(handler) → None` | Register a custom handler (must call `px.init()` first). |
+| `init()` | `(*, capture_content=True, queue_size=1000) → None` | Called internally by `enable_storage`. Idempotent. |
+| `observe` | `(name=None) → decorator` | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
+| `start_observation` | `(*, input, name=None) → ContextManager[ObservationContext]` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside. |
+| `flush` | `(timeout_seconds=5.0) → bool` | Drains the queue. Call after a run before using CLI commands. |
+| `add_handler` | `(handler) → None` | Register a custom handler (must call `init()` first). |
 
 ---
 
@@ -53,10 +52,10 @@ pixie-test [path] [-k filter_substring] [-v]
 
 ---
 
-## Eval Harness (`pixie.evals`)
+## Eval Harness (`pixie`)
 
 ```python
-from pixie.evals import (
+from pixie import (
     assert_dataset_pass, assert_pass, run_and_evaluate, evaluate,
     EvalAssertionError, Evaluation, ScoreThreshold,
     capture_traces, MemoryTraceHandler,
@@ -130,8 +129,7 @@ from pixie.evals import (
 ### Custom evaluator template
 
 ```python
-from pixie.evals import Evaluation
-from pixie.storage.evaluable import Evaluable
+from pixie import Evaluation, Evaluable
 
 async def my_evaluator(evaluable: Evaluable, *, trace=None) -> Evaluation:
     # evaluable.eval_input  — what was passed to the observed function
@@ -146,8 +144,7 @@ async def my_evaluator(evaluable: Evaluable, *, trace=None) -> Evaluation:
 ## Dataset Python API
 
 ```python
-from pixie.dataset.store import DatasetStore
-from pixie.storage.evaluable import Evaluable
+from pixie import DatasetStore, Evaluable
 
 store = DatasetStore()                               # reads PIXIE_DATASET_DIR
 store.create("my-dataset")                          # create empty
@@ -162,7 +159,7 @@ store.delete("my-dataset")                          # delete entirely
 **`Evaluable` fields:**
 - `eval_input`: the input (what `@observe` captured as function kwargs)
 - `eval_output`: the output (return value of the observed function)
-- `eval_metadata`: dict of extra info (trace_id, provider, token counts, etc.)
+- `eval_metadata`: dict of extra info (trace_id, span_id, provider, token counts, etc.) — always includes `trace_id` and `span_id`
 - `expected_output`: reference answer for comparison (`UNSET` if not provided)
 
 ---
@@ -170,7 +167,7 @@ store.delete("my-dataset")                          # delete entirely
 ## ObservationStore Python API
 
 ```python
-from pixie.storage.store import ObservationStore
+from pixie import ObservationStore
 
 store = ObservationStore()   # reads PIXIE_DB_PATH
 await store.create_tables()

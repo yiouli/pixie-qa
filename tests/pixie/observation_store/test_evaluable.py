@@ -104,15 +104,31 @@ class TestAsEvaluableObserveSpan:
 
     def test_eval_metadata_from_observe_span(self, sample_observe_span: ObserveSpan) -> None:
         result = as_evaluable(sample_observe_span)
-        assert result.eval_metadata == {"env": "test"}
+        assert result.eval_metadata is not None
+        assert result.eval_metadata["env"] == "test"
+
+    def test_trace_id_in_observe_span_metadata(self, sample_observe_span: ObserveSpan) -> None:
+        result = as_evaluable(sample_observe_span)
+        assert result.eval_metadata is not None
+        assert result.eval_metadata["trace_id"] == "bbbb0000000000000000000000000001"
+
+    def test_span_id_in_observe_span_metadata(self, sample_observe_span: ObserveSpan) -> None:
+        result = as_evaluable(sample_observe_span)
+        assert result.eval_metadata is not None
+        assert result.eval_metadata["span_id"] == "aaaa000000000001"
 
     def test_expected_output_is_unset(self, sample_observe_span: ObserveSpan) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.expected_output is UNSET
 
-    def test_empty_metadata_gives_none(self, sample_observe_span_none_io: ObserveSpan) -> None:
+    def test_empty_metadata_gives_trace_ids_only(
+        self,
+        sample_observe_span_none_io: ObserveSpan,
+    ) -> None:
         result = as_evaluable(sample_observe_span_none_io)
-        assert result.eval_metadata is None
+        assert result.eval_metadata is not None
+        assert "trace_id" in result.eval_metadata
+        assert "span_id" in result.eval_metadata
 
 
 class TestAsEvaluableLLMSpan:
@@ -145,6 +161,16 @@ class TestAsEvaluableLLMSpan:
         assert meta["operation"] == "chat"
         assert meta["input_tokens"] == 150
         assert meta["output_tokens"] == 42
+
+    def test_trace_id_in_llm_span_metadata(self, sample_llm_span: LLMSpan) -> None:
+        result = as_evaluable(sample_llm_span)
+        assert result.eval_metadata is not None
+        assert result.eval_metadata["trace_id"] == "bbbb0000000000000000000000000001"
+
+    def test_span_id_in_llm_span_metadata(self, sample_llm_span: LLMSpan) -> None:
+        result = as_evaluable(sample_llm_span)
+        assert result.eval_metadata is not None
+        assert result.eval_metadata["span_id"] == "aaaa000000000002"
 
     def test_expected_output_is_unset(self, sample_llm_span: LLMSpan) -> None:
         result = as_evaluable(sample_llm_span)

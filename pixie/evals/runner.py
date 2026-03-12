@@ -62,6 +62,12 @@ def discover_tests(
 
     Returns:
         List of ``TestCase`` objects sorted by name.
+
+    Raises:
+        ImportError: If a test file cannot be imported (syntax errors,
+            missing dependencies, bad imports).  This ensures import
+            failures are loud rather than silently producing "no tests
+            collected".
     """
     target = Path(path)
     test_files: list[Path] = []
@@ -76,8 +82,6 @@ def discover_tests(
     cases: list[TestCase] = []
     for fpath in test_files:
         module = _load_module(fpath)
-        if module is None:
-            continue
         for attr_name in dir(module):
             if not attr_name.startswith("test_"):
                 continue
@@ -96,19 +100,22 @@ def discover_tests(
 
 
 def _load_module(path: Path) -> Any:
-    """Dynamically load a Python module from *path*."""
+    """Dynamically load a Python module from *path*.
+
+    Raises:
+        ImportError: If the module cannot be loaded (syntax errors,
+            missing dependencies, etc.).  Errors propagate so callers
+            see clear diagnostics instead of silent "no tests collected".
+    """
     module_name = f"_pixie_test_{path.stem}_{id(path)}"
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
-        return None
+        raise ImportError(f"Cannot create module spec for {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    try:
-        loader = spec.loader
-        assert loader is not None  # guarded above
-        loader.exec_module(module)
-    except Exception:
-        return None
+    loader = spec.loader
+    assert loader is not None  # guarded above
+    loader.exec_module(module)
     return module
 
 
@@ -149,9 +156,13 @@ def _run_single(case: TestCase) -> EvalTestResult:
 def format_results(results: list[EvalTestResult], *, verbose: bool = False) -> str:
     """Format test results as a human-readable string.
 
+    Failure and error messages are **always** shown so problems are
+    immediately visible.  The *verbose* flag controls additional detail
+    (e.g. full tracebacks).
+
     Args:
         results: List of ``EvalTestResult`` objects.
-        verbose: If True, include failure details.
+        verbose: If True, include full tracebacks for errors.
 
     Returns:
         Formatted results string.
@@ -165,9 +176,14 @@ def format_results(results: list[EvalTestResult], *, verbose: bool = False) -> s
             lines.append(f"{r.name} \u2713")
         elif r.status in ("failed", "error"):
             lines.append(f"{r.name} \u2717")
-            if verbose and r.message:
-                for msg_line in r.message.split("\n"):
-                    lines.append(f"  {msg_line}")
+            if r.message:
+                # Always show at least the first line of the message
+                msg_lines = r.message.strip().split("\n")
+                if verbose:
+                    for msg_line in msg_lines:
+                        lines.append(f"  {msg_line}")
+                else:
+                    lines.append(f"  {msg_lines[0]}")
 
     lines.append("")
     n_passed = sum(1 for r in results if r.status == "passed")

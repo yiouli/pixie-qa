@@ -54,23 +54,28 @@ Claude will read your code, instrument it, build a dataset from a few real runs,
 
 Here is a quick summary of what Claude does end-to-end:
 
-```
+```python
 # Claude instruments your app entry point
-from pixie import enable_storage
+from pixie import enable_storage, observe
+
 enable_storage()              # one line: creates DB, registers handler
 
 # Claude adds @observe on the function to test
-import pixie.instrumentation as px
-
-@px.observe(name="answer_question")
+@observe(name="answer_question")
 def answer_question(question: str) -> str:
     ...
+```
 
+```bash
 # After running the app with a few real inputs:
 pixie dataset create qa-golden-set
 pixie dataset save qa-golden-set
+```
 
+```python
 # Claude writes tests/test_qa.py with:
+from pixie import assert_dataset_pass, FactualityEval, ScoreThreshold
+
 async def test_factuality():
     await assert_dataset_pass(
         runnable=runnable,
@@ -78,10 +83,14 @@ async def test_factuality():
         evaluators=[FactualityEval()],
         pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),
     )
+```
 
+```bash
 # Then runs:
 pixie-test -v
 ```
+
+All symbols are importable from the top-level `pixie` package — no need for submodule paths.
 
 ## Repository Structure
 

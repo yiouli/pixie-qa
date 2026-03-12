@@ -5,7 +5,14 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-from pixie.evals.runner import discover_tests, run_tests
+import pytest
+
+from pixie.evals.runner import (
+    EvalTestResult,
+    discover_tests,
+    format_results,
+    run_tests,
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -236,3 +243,82 @@ class TestRunTests:
 
         results = run_tests(discover_tests(str(tmp_path)))
         assert all(r.status == "passed" for r in results)
+
+
+# ── Import error propagation tests ──────────────────────────────────────
+
+
+class TestDiscoverTestsImportErrors:
+    """Tests for loud import error reporting in discover_tests()."""
+
+    def test_import_error_propagates(self, tmp_path: Path) -> None:
+        """Import errors must propagate, not silently skip."""
+        _write_test_file(
+            tmp_path,
+            "test_bad.py",
+            """\
+            import nonexistent_package_xyz
+            def test_never_reached(): pass
+        """,
+        )
+
+        with pytest.raises(ModuleNotFoundError):
+            discover_tests(str(tmp_path))
+
+    def test_syntax_error_propagates(self, tmp_path: Path) -> None:
+        """Syntax errors in test files must propagate."""
+        p = tmp_path / "test_syntax.py"
+        p.write_text("def test_broken(\n")
+
+        with pytest.raises(SyntaxError):
+            discover_tests(str(tmp_path))
+
+
+# ── format_results tests ────────────────────────────────────────────────
+
+
+class TestFormatResults:
+    """Tests for format_results()."""
+
+    def test_always_shows_error_message(self) -> None:
+        """Error messages must appear even without verbose flag."""
+        results = [
+            EvalTestResult(name="test_a", status="error", message="Missing API key"),
+        ]
+        output = format_results(results, verbose=False)
+        assert "Missing API key" in output
+
+    def test_always_shows_failure_message(self) -> None:
+        """Failure messages must appear even without verbose flag."""
+        results = [
+            EvalTestResult(name="test_b", status="failed", message="expected 1 got 2"),
+        ]
+        output = format_results(results, verbose=False)
+        assert "expected 1 got 2" in output
+
+    def test_verbose_shows_full_traceback(self) -> None:
+        """Verbose mode shows all lines of multi-line message."""
+        msg = "RuntimeError: boom\n  File test.py, line 1\n  in test_x"
+        results = [
+            EvalTestResult(name="test_c", status="error", message=msg),
+        ]
+        output = format_results(results, verbose=True)
+        assert "RuntimeError: boom" in output
+        assert "File test.py, line 1" in output
+        assert "in test_x" in output
+
+    def test_non_verbose_shows_first_line_only(self) -> None:
+        """Non-verbose mode shows first line of multi-line message."""
+        msg = "RuntimeError: boom\n  File test.py, line 1\n  in test_x"
+        results = [
+            EvalTestResult(name="test_c", status="error", message=msg),
+        ]
+        output = format_results(results, verbose=False)
+        assert "RuntimeError: boom" in output
+        assert "File test.py, line 1" not in output
+
+    def test_passed_tests_show_checkmark(self) -> None:
+        results = [EvalTestResult(name="test_ok", status="passed")]
+        output = format_results(results)
+        assert "\u2713" in output
+        assert "1 passed" in output

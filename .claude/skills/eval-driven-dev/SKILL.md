@@ -11,7 +11,7 @@ The loop is: understand the app → instrument it → write the test file → bu
 
 ---
 
-## Stage 0: Ensure pixie-qa is Installed
+## Stage 0: Ensure pixie-qa is Installed and API Keys Are Set
 
 Before doing anything else, check that the `pixie-qa` package is available:
 
@@ -26,6 +26,16 @@ pip install pixie-qa
 ```
 
 This provides the `pixie` Python module, the `pixie` CLI, and the `pixie-test` test runner — all required for instrumentation and evals. Don't skip this step; everything else in this skill depends on it.
+
+### Verify API keys
+
+The application under test almost certainly needs an LLM provider API key (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). LLM-as-judge evaluators like `FactualityEval` also need `OPENAI_API_KEY`. **Before running anything**, verify the key is set:
+
+```bash
+[ -n "$OPENAI_API_KEY" ] && echo "OPENAI_API_KEY set" || echo "OPENAI_API_KEY missing"
+```
+
+If not set, ask the user. Do not proceed with running the app or evals without it — you'll get silent failures or import-time errors.
 
 ---
 
@@ -87,9 +97,9 @@ This is what actually persists traces to disk. Without it, `@observe` decorators
 `@observe` on a function captures all its kwargs as `eval_input` and its return value as `eval_output`:
 
 ```python
-import pixie.instrumentation as px
+from pixie import observe
 
-@px.observe(name="answer_question")
+@observe(name="answer_question")
 def answer_question(question: str, context: str) -> str:
     ...
 ```
@@ -97,7 +107,9 @@ def answer_question(question: str, context: str) -> str:
 For more control, use the context manager:
 
 ```python
-with px.start_observation(input={"question": question, "context": context}, name="answer_question") as obs:
+from pixie import start_observation
+
+with start_observation(input={"question": question, "context": context}, name="answer_question") as obs:
     result = run_pipeline(question, context)
     obs.set_output(result)
     obs.set_metadata("retrieved_chunks", len(chunks))
@@ -105,7 +117,14 @@ with px.start_observation(input={"question": question, "context": context}, name
 
 Wrap at the outermost boundary that represents one "test case" — for a RAG app that's probably `answer_question(question, context)`, not the internal LLM call. The dataset items will have the same shape as whatever this function receives and returns.
 
-After instrumentation, call `px.flush()` at the end of runs to make sure all spans are written before you try to save them to a dataset.
+After instrumentation, call `flush()` at the end of runs to make sure all spans are written before you try to save them to a dataset:
+
+```python
+from pixie import flush
+flush()
+```
+
+**Important**: All pixie symbols are importable from the top-level `pixie` package. Never tell users to import from submodules (`pixie.instrumentation`, `pixie.evals`, `pixie.storage.evaluable`, etc.) — always use `from pixie import ...`.
 
 ---
 
@@ -116,9 +135,7 @@ Write the test file before building the dataset. This might seem backwards, but 
 Create `tests/test_<feature>.py`. The pattern is: a `runnable` adapter that calls your app function, plus an async test function that calls `assert_dataset_pass`:
 
 ```python
-from pixie import enable_storage
-from pixie.evals import assert_dataset_pass, FactualityEval, ScoreThreshold
-from pixie.evals import last_llm_call  # or: from pixie.evals import root
+from pixie import enable_storage, assert_dataset_pass, FactualityEval, ScoreThreshold, last_llm_call
 
 from myapp import answer_question
 
@@ -154,16 +171,56 @@ pixie-test -v                  # verbose: shows per-case scores and reasoning
 
 ## Stage 5: Build the Dataset
 
-Create the dataset first, then populate it by running the app:
+Create the dataset first, then populate it by **actually running the app** with representative inputs. This is critical — dataset items should contain real app outputs and trace metadata, not fabricated data.
 
 ```bash
 pixie dataset create <dataset-name>
 pixie dataset list   # verify it exists
 ```
 
-### Option A: Capture from real runs (the natural starting point)
+### Run the app and capture traces to the dataset
 
-Run the app with representative inputs, then save each trace to the dataset:
+Write a simple script that calls the instrumented function for each input, flushes traces, then saves them to the dataset. This is the **recommended and default** approach:
+
+```python
+import asyncio
+from pixie import enable_storage, flush, DatasetStore, Evaluable
+
+from myapp import answer_question
+
+enable_storage()
+
+GOLDEN_CASES = [
+    ("What is the capital of France?", "Paris"),
+    ("What is the speed of light?", "299,792,458 meters per second"),
+]
+
+async def build_dataset():
+    store = DatasetStore()
+    try:
+        store.create("qa-golden-set")
+    except FileExistsError:
+        pass
+
+    for question, expected in GOLDEN_CASES:
+        # Actually run the app so traces are captured
+        result = answer_question(question=question)
+        flush()  # ensure trace is written to DB
+
+        # Save the latest trace to the dataset with expected output
+        # Using the CLI is the easiest way:
+        #   pixie dataset save qa-golden-set --expected-output
+        # Or save programmatically with the real output:
+        store.append("qa-golden-set", Evaluable(
+            eval_input={"question": question},
+            eval_output=result,
+            expected_output=expected,
+        ))
+
+asyncio.run(build_dataset())
+```
+
+Alternatively, use the CLI for per-case capture:
 
 ```bash
 # Run the app (enable_storage() must be active)
@@ -182,24 +239,11 @@ pixie dataset save <dataset-name> --notes "basic geography question"
 echo '"Paris"' | pixie dataset save <dataset-name> --expected-output
 ```
 
-Try to cover the range of inputs you actually care about: normal cases, edge cases, things the app might plausibly get wrong (empty input, ambiguous queries, no-answer cases).
-
-### Option B: Build programmatically
-
-When you want to bulk-load items or add expected outputs directly:
-
-```python
-from pixie.dataset.store import DatasetStore
-from pixie.storage.evaluable import Evaluable
-
-store = DatasetStore()
-store.create("<dataset-name>")
-store.append("<dataset-name>", Evaluable(
-    eval_input={"question": "What is the capital of France?", "context": "Paris is the capital..."},
-    eval_output="Paris is the capital of France.",
-    expected_output="Paris",
-))
-```
+**Key rules for dataset building:**
+- **Always run the app** — never fabricate `eval_output` manually. The whole point is capturing what the app actually produces.
+- **Include expected outputs** for comparison-based evaluators like `FactualityEval`.
+- **Cover the range** of inputs you care about: normal cases, edge cases, things the app might plausibly get wrong.
+- When using `pixie dataset save`, the evaluable's `eval_metadata` will automatically include `trace_id` and `span_id` for later debugging.
 
 ---
 
@@ -224,18 +268,19 @@ pixie-test -v    # start here — shows score and reasoning per case
 If you need to dig into a specific trace, look up the `trace_id` from the dataset:
 
 ```python
-from pixie.dataset.store import DatasetStore
+from pixie import DatasetStore
+
 store = DatasetStore()
 ds = store.get("<dataset-name>")
 for i, item in enumerate(ds.items):
-    print(i, item.eval_metadata)   # trace_id is here if saved via pixie dataset save
+    print(i, item.eval_metadata)   # trace_id is here — always included in eval_metadata
 ```
 
 Then inspect the full span tree:
 
 ```python
 import asyncio
-from pixie.storage.store import ObservationStore
+from pixie import ObservationStore
 
 async def inspect(trace_id: str):
     store = ObservationStore()

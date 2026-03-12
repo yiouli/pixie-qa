@@ -78,10 +78,13 @@ def as_evaluable(span: ObserveSpan | LLMSpan) -> Evaluable:
 
 
 def _observe_span_to_evaluable(span: ObserveSpan) -> Evaluable:
+    meta: dict[str, Any] = dict(span.metadata) if span.metadata else {}
+    meta["trace_id"] = span.trace_id
+    meta["span_id"] = span.span_id
     return Evaluable(
         eval_input=span.input,
         eval_output=span.output,
-        eval_metadata=span.metadata if span.metadata else None,
+        eval_metadata=meta,
     )
 
 
@@ -109,6 +112,8 @@ def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
     input_data: JsonValue = [_make_json_compatible(asdict(msg)) for msg in span.input_messages]
 
     metadata: dict[str, Any] = {
+        "trace_id": span.trace_id,
+        "span_id": span.span_id,
         "provider": span.provider,
         "request_model": span.request_model,
         "response_model": span.response_model,

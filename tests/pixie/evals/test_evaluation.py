@@ -73,7 +73,7 @@ class TestEvaluate:
         assert result.reasoning == "sync works"
 
     @pytest.mark.asyncio
-    async def test_evaluator_exception_returns_zero_with_error(self) -> None:
+    async def test_evaluator_exception_propagates(self) -> None:
         async def failing_eval(
             evaluable: Evaluable,
             *,
@@ -81,11 +81,20 @@ class TestEvaluate:
         ) -> Evaluation:
             raise ValueError("boom")
 
-        result = await evaluate(failing_eval, Evaluable())
-        assert result.score == 0.0
-        assert "boom" in result.reasoning
-        assert result.details.get("error") == "ValueError"
-        assert "traceback" in result.details
+        with pytest.raises(ValueError, match="boom"):
+            await evaluate(failing_eval, Evaluable())
+
+    @pytest.mark.asyncio
+    async def test_sync_evaluator_exception_propagates(self) -> None:
+        def failing_sync_eval(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            raise RuntimeError("missing API key")
+
+        with pytest.raises(RuntimeError, match="missing API key"):
+            await evaluate(failing_sync_eval, Evaluable())
 
     @pytest.mark.asyncio
     async def test_clamps_score_above_one(self) -> None:

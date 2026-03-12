@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-import traceback
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -71,28 +70,25 @@ async def evaluate(
         1. If *evaluator* is sync, wrap via ``asyncio.to_thread``.
         2. Call evaluator with *evaluable* and *trace*.
         3. Clamp returned ``score`` to [0.0, 1.0].
-        4. If evaluator raises, return ``Evaluation(score=0.0, ...)`` with
-           error details.
+        4. If evaluator raises, the exception propagates to the caller.
+           Evaluator errors (missing API keys, network failures, etc.)
+           are never silently converted to a zero score.
 
     Args:
         evaluator: An evaluator callable (sync or async).
         evaluable: The data to evaluate.
         trace: Optional trace tree forwarded to the evaluator.
-    """
-    try:
-        extra_kwargs: dict[str, Any] = {"trace": trace}
 
-        if _is_async_callable(evaluator):
-            result: Evaluation = await evaluator(evaluable, **extra_kwargs)
-        else:
-            result = await asyncio.to_thread(evaluator, evaluable, **extra_kwargs)
-    except Exception as exc:
-        tb = traceback.format_exc()
-        return Evaluation(
-            score=0.0,
-            reasoning=str(exc),
-            details={"error": type(exc).__name__, "traceback": tb},
-        )
+    Raises:
+        Exception: Any exception raised by the evaluator propagates
+            unchanged so callers see clear, actionable errors.
+    """
+    extra_kwargs: dict[str, Any] = {"trace": trace}
+
+    if _is_async_callable(evaluator):
+        result: Evaluation = await evaluator(evaluable, **extra_kwargs)
+    else:
+        result = await asyncio.to_thread(evaluator, evaluable, **extra_kwargs)
 
     # Clamp score to [0.0, 1.0]
     clamped_score = result.score

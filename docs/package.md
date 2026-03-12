@@ -47,21 +47,23 @@ This is idempotent: safe to call multiple times.
 After calling `enable_storage()`, wrap the function(s) you want to evaluate with `@observe` or `start_observation`. Every call will be persisted automatically:
 
 ```python
-import pixie.instrumentation as px
+from pixie import enable_storage, observe, start_observation, flush
+
+enable_storage()
 
 # Decorator style — captures all kwargs as eval_input, return value as eval_output
-@px.observe(name="answer_question")
+@observe(name="answer_question")
 def answer_question(question: str) -> str:
     ...
 
 # Context-manager style — for more control over what gets captured
-with px.start_observation(input={"question": question}, name="answer_question") as obs:
+with start_observation(input={"question": question}, name="answer_question") as obs:
     result = run_pipeline(question)
     obs.set_output(result)
     obs.set_metadata("retrieved_chunks", 3)
 
 # Flush at the end of a script/run so all spans are written before you use CLI commands
-px.flush()
+flush()
 ```
 
 ---
@@ -106,8 +108,7 @@ Use `assert_dataset_pass` (or `assert_pass` for inline inputs) to write quality 
 ### Minimal test
 
 ```python
-from pixie import enable_storage
-from pixie.evals import assert_dataset_pass, FactualityEval, ScoreThreshold
+from pixie import enable_storage, assert_dataset_pass, FactualityEval, ScoreThreshold
 
 from myapp import answer_question
 
@@ -132,7 +133,7 @@ async def test_factuality():
 ### Evaluating the last LLM call instead of the root span
 
 ```python
-from pixie.evals import assert_dataset_pass, FactualityEval, last_llm_call
+from pixie import assert_dataset_pass, FactualityEval, last_llm_call
 
 async def test_llm_output():
     await assert_dataset_pass(
@@ -146,7 +147,7 @@ async def test_llm_output():
 ### Inline inputs (no dataset file)
 
 ```python
-from pixie.evals import assert_pass, LevenshteinMatch
+from pixie import assert_pass, LevenshteinMatch
 
 async def test_inline():
     await assert_pass(
@@ -181,7 +182,7 @@ async def test_inline():
 | `AnswerRelevancyEval()`               | RAG answer relevancy                 |
 | `AnswerCorrectnessEval(expected=...)` | RAG answer correctness               |
 
-All evaluators are importable from `pixie.evals`. See the [full API docs](#full-api-documentation) for the complete list and signatures.
+All evaluators are importable from `pixie` (e.g. `from pixie import FactualityEval`). See the [full API docs](#full-api-documentation) for the complete list and signatures.
 
 ---
 

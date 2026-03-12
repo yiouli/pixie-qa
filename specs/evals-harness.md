@@ -116,7 +116,7 @@ async def evaluate(
 1. If `evaluator` is a sync callable (not a coroutine function), wrap it with `asyncio.to_thread`.
 2. Call the evaluator with `evaluable` and `trace`. If `expected_output` is not `None`, also pass it as a keyword argument.
 3. Validate the returned `Evaluation`: clamp `score` to [0.0, 1.0], ensure `reasoning` is a non-empty string.
-4. If the evaluator raises an exception, return an `Evaluation` with `score=0.0`, `reasoning` set to the exception message, and `details={"error": type(ex).__name__, "traceback": ...}`.
+4. If the evaluator raises an exception, **let it propagate** to the caller.  Evaluator errors (missing API keys, network failures, etc.) must never be silently converted to a zero score.
 5. Return the `Evaluation`.
 
 ---
@@ -257,6 +257,7 @@ The `pixie test` command discovers eval test functions using the following rules
 2. Within each file, find functions whose names start with `test_`.
 3. Test functions may be sync or async. The runner handles both.
 4. Test functions take no arguments (like pytest test functions without fixtures).
+5. **Import errors are loud**: If a test file fails to import (syntax errors, missing dependencies, bad imports), the error propagates immediately rather than silently skipping the file and reporting "no tests collected".
 
 **Example test file:**
 
@@ -317,8 +318,8 @@ For each discovered test function:
 3. Run the test function. If async, run via `asyncio.run` or the existing event loop. If sync, call directly.
 4. Catch outcomes:
    - **Pass**: function returns normally. Print green checkmark + test name.
-   - **Fail (EvalAssertionError)**: Print red X + test name + the error message. In verbose mode, print the full results tensor with per-evaluator scores and reasoning.
-   - **Error (other exception)**: Print red X + test name + exception traceback.
+   - **Fail (EvalAssertionError)**: Print red X + test name + the error message (always visible). In verbose mode, also print the full results tensor with per-evaluator scores and reasoning.
+   - **Error (other exception)**: Print red X + test name + error summary (always visible). In verbose mode, also print the full traceback.
 5. Tear down the in-memory trace handler.
 6. After all tests, print summary: `X passed, Y failed, Z errors`.
 
@@ -450,7 +451,7 @@ async def test_trace_inspection():
 - `Evaluation` clamps score to [0.0, 1.0] on construction (or via `evaluate`).
 - `evaluate` with a sync evaluator wraps it and returns correctly.
 - `evaluate` with an async evaluator returns correctly.
-- `evaluate` returns `score=0.0` with error details when evaluator raises.
+- `evaluate` propagates exceptions from evaluators (never silently returns score=0.0).
 - `evaluate` clamps scores > 1.0 to 1.0 and < 0.0 to 0.0.
 - A plain async function satisfies the `Evaluator` protocol.
 - A class with async `__call__` satisfies the `Evaluator` protocol.
@@ -483,6 +484,9 @@ async def test_trace_inspection():
 - Runner reports error for functions that raise other exceptions.
 - Runner `--filter` flag filters tests by name.
 - Runner exit code is 0 when all pass, 1 when any fail.
+- Discovery raises `ImportError` when a test file cannot be imported.
+- Discovery raises `SyntaxError` when a test file has syntax errors.
+- Format always shows error messages (not just in verbose mode).
 - In-memory trace handler is installed before each test and removed after.
 - Spans from one test do not leak into another test.
 
