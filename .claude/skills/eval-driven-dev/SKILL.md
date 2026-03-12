@@ -11,6 +11,24 @@ The loop is: understand the app → instrument it → write the test file → bu
 
 ---
 
+## Stage 0: Ensure pixie-qa is Installed
+
+Before doing anything else, check that the `pixie-qa` package is available:
+
+```bash
+python -c "import pixie" 2>/dev/null && echo "installed" || echo "not installed"
+```
+
+If it's not installed, install it:
+
+```bash
+pip install pixie-qa
+```
+
+This provides the `pixie` Python module, the `pixie` CLI, and the `pixie-test` test runner — all required for instrumentation and evals. Don't skip this step; everything else in this skill depends on it.
+
+---
+
 ## Stage 1: Understand the Application
 
 Before touching any code, spend time actually reading the source. The code will tell you more than asking the user would, and it puts you in a much better position to make good decisions about what and how to evaluate.
