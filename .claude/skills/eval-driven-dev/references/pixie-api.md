@@ -3,14 +3,14 @@
 ## Configuration
 
 All settings read from environment variables at call time. By default,
-every artefact lives inside a single `.pixie` project directory:
+every artefact lives inside a single `pixie_qa` project directory:
 
-| Variable            | Default                  | Description                        |
-| ------------------- | ------------------------ | ---------------------------------- |
-| `PIXIE_ROOT`        | `.pixie`                 | Root directory for all artefacts   |
-| `PIXIE_DB_PATH`     | `.pixie/observations.db` | SQLite database file path          |
-| `PIXIE_DB_ENGINE`   | `sqlite`                 | Database engine (currently sqlite) |
-| `PIXIE_DATASET_DIR` | `.pixie/datasets`        | Directory for dataset JSON files   |
+| Variable            | Default                    | Description                        |
+| ------------------- | -------------------------- | ---------------------------------- |
+| `PIXIE_ROOT`        | `pixie_qa`                 | Root directory for all artefacts   |
+| `PIXIE_DB_PATH`     | `pixie_qa/observations.db` | SQLite database file path          |
+| `PIXIE_DB_ENGINE`   | `sqlite`                   | Database engine (currently sqlite) |
+| `PIXIE_DATASET_DIR` | `pixie_qa/datasets`        | Directory for dataset JSON files   |
 
 ---
 

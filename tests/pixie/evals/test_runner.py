@@ -9,6 +9,7 @@ import pytest
 
 from pixie.evals.runner import (
     EvalTestResult,
+    _find_rootdir,
     discover_tests,
     format_results,
     run_tests,
@@ -322,3 +323,130 @@ class TestFormatResults:
         output = format_results(results)
         assert "\u2713" in output
         assert "1 passed" in output
+
+
+# ── Rootdir discovery tests ────────────────────────────────────────────
+
+
+class TestFindRootdir:
+    """Tests for _find_rootdir() — project root detection like pytest."""
+
+    def test_finds_pyproject_toml(self, tmp_path: Path) -> None:
+        """Walks up to the directory containing pyproject.toml."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        sub = tmp_path / "pixie_qa" / "tests"
+        sub.mkdir(parents=True)
+
+        assert _find_rootdir(sub) == tmp_path
+
+    def test_finds_setup_py(self, tmp_path: Path) -> None:
+        (tmp_path / "setup.py").write_text("")
+        sub = tmp_path / "sub" / "deep"
+        sub.mkdir(parents=True)
+
+        assert _find_rootdir(sub) == tmp_path
+
+    def test_finds_setup_cfg(self, tmp_path: Path) -> None:
+        (tmp_path / "setup.cfg").write_text("")
+        sub = tmp_path / "a"
+        sub.mkdir()
+
+        assert _find_rootdir(sub) == tmp_path
+
+    def test_falls_back_to_start_when_no_marker(self, tmp_path: Path) -> None:
+        """When no project marker exists, returns the start directory."""
+        sub = tmp_path / "orphan"
+        sub.mkdir()
+        result = _find_rootdir(sub)
+        assert result == sub
+
+    def test_stops_at_nearest_marker(self, tmp_path: Path) -> None:
+        """If multiple ancestors have markers, picks the nearest."""
+        (tmp_path / "pyproject.toml").write_text("")
+        inner = tmp_path / "inner"
+        inner.mkdir()
+        (inner / "pyproject.toml").write_text("")
+        deep = inner / "tests"
+        deep.mkdir()
+
+        assert _find_rootdir(deep) == inner
+
+
+# ── Import resolution tests ─────────────────────────────────────────────
+
+
+class TestImportResolution:
+    """Test that _load_module finds project root and resolves imports."""
+
+    def test_imports_project_module_from_nested_test(self, tmp_path: Path) -> None:
+        """A test file in pixie_qa/tests/ can import a module at project root."""
+        # Project layout:
+        #   tmp_path/
+        #     pyproject.toml
+        #     myapp.py          ← defines greet()
+        #     pixie_qa/
+        #       tests/
+        #         test_import.py  ← imports myapp
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        (tmp_path / "myapp.py").write_text("def greet(): return 'hello'\n")
+        tests_dir = tmp_path / "pixie_qa" / "tests"
+        tests_dir.mkdir(parents=True)
+        _write_test_file(
+            tests_dir,
+            "test_import.py",
+            """\
+            from myapp import greet
+            def test_greet():
+                assert greet() == "hello"
+        """,
+        )
+
+        cases = discover_tests(str(tests_dir))
+        results = run_tests(cases)
+        assert len(results) == 1
+        assert results[0].status == "passed", results[0].message
+
+    def test_imports_package_from_nested_test(self, tmp_path: Path) -> None:
+        """A test file can import a package (directory with __init__.py)."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        pkg = tmp_path / "mypkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("VALUE = 42\n")
+        tests_dir = tmp_path / "pixie_qa" / "tests"
+        tests_dir.mkdir(parents=True)
+        _write_test_file(
+            tests_dir,
+            "test_pkg.py",
+            """\
+            from mypkg import VALUE
+            def test_value():
+                assert VALUE == 42
+        """,
+        )
+
+        cases = discover_tests(str(tests_dir))
+        results = run_tests(cases)
+        assert len(results) == 1
+        assert results[0].status == "passed", results[0].message
+
+    def test_no_sys_path_hack_needed_in_test_file(self, tmp_path: Path) -> None:
+        """Test files should NOT need sys.path.insert() to import project code."""
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        (tmp_path / "utils.py").write_text("X = 1\n")
+        tests_dir = tmp_path / "pixie_qa" / "tests"
+        tests_dir.mkdir(parents=True)
+        # This test does NOT add sys.path — the runner should handle it.
+        _write_test_file(
+            tests_dir,
+            "test_clean.py",
+            """\
+            from utils import X
+            def test_x():
+                assert X == 1
+        """,
+        )
+
+        cases = discover_tests(str(tests_dir))
+        results = run_tests(cases)
+        assert len(results) == 1
+        assert results[0].status == "passed", results[0].message

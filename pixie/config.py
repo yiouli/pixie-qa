@@ -11,14 +11,14 @@ import os
 from dataclasses import dataclass
 
 #: Default root directory for all pixie-generated artefacts.
-DEFAULT_ROOT = ".pixie"
+DEFAULT_ROOT = "pixie_qa"
 
 
 @dataclass(frozen=True)
 class PixieConfig:
     """Immutable configuration snapshot.
 
-    All paths default to subdirectories / files within a single ``.pixie``
+    All paths default to subdirectories / files within a single ``pixie_qa``
     project folder so that observations, datasets, tests, scripts and notes
     live in one predictable location.
 

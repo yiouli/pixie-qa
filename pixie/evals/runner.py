@@ -102,20 +102,24 @@ def discover_tests(
 def _load_module(path: Path) -> Any:
     """Dynamically load a Python module from *path*.
 
-    Before loading, the test file's ancestor directories are added to
-    ``sys.path`` (like pytest's ``rootdir`` behaviour) so that imports
-    of project-level modules work without extra configuration.
+    Before loading, the project **rootdir** is added to ``sys.path``
+    so that ``from myapp import ...`` works without extra configuration.
+
+    Root-directory detection follows the same strategy as pytest:
+    walk up from the test file's directory until we find a directory
+    that contains a project marker (``pyproject.toml``, ``setup.py``,
+    ``setup.cfg``).  If no marker is found, fall back to the test
+    file's parent directory (simple flat-layout projects).
 
     Raises:
         ImportError: If the module cannot be loaded (syntax errors,
             missing dependencies, etc.).  Errors propagate so callers
             see clear diagnostics instead of silent "no tests collected".
     """
-    # Add the test file's parent dir and its parent (project root) to
-    # sys.path so that ``from myapp import ...`` works out of the box.
-    for ancestor in (str(path.resolve().parent), str(path.resolve().parent.parent)):
-        if ancestor not in sys.path:
-            sys.path.insert(0, ancestor)
+    rootdir = _find_rootdir(path.resolve().parent)
+    rootdir_str = str(rootdir)
+    if rootdir_str not in sys.path:
+        sys.path.insert(0, rootdir_str)
 
     module_name = f"_pixie_test_{path.stem}_{id(path)}"
     spec = importlib.util.spec_from_file_location(module_name, path)
@@ -127,6 +131,29 @@ def _load_module(path: Path) -> Any:
     assert loader is not None  # guarded above
     loader.exec_module(module)
     return module
+
+
+#: Project marker files that identify the project root directory.
+_PROJECT_MARKERS = ("pyproject.toml", "setup.py", "setup.cfg")
+
+
+def _find_rootdir(start: Path) -> Path:
+    """Walk up from *start* looking for a project root marker.
+
+    Returns the first ancestor directory that contains
+    ``pyproject.toml``, ``setup.py``, or ``setup.cfg``.  If none is
+    found, returns *start* as a reasonable fallback.
+    """
+    current = start
+    while True:
+        for marker in _PROJECT_MARKERS:
+            if (current / marker).is_file():
+                return current
+        parent = current.parent
+        if parent == current:
+            # Reached filesystem root without finding a marker.
+            return start
+        current = parent
 
 
 def run_tests(cases: list[TestCase]) -> list[EvalTestResult]:

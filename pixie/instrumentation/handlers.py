@@ -63,7 +63,7 @@ async def _setup_storage() -> StorageHandler:
 def enable_storage() -> StorageHandler:
     """Set up Piccolo storage with default config and register the handler.
 
-    Creates the ``.pixie`` root directory and observation table if they
+    Creates the ``pixie_qa`` root directory and observation table if they
     don't exist.  Truly idempotent — calling twice returns the same
     handler without duplicating registrations, even from different threads
     or from within an async context.

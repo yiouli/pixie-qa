@@ -21,11 +21,11 @@ class TestGetConfigDefaults:
 
     def test_default_root(self) -> None:
         config = get_config()
-        assert config.root == ".pixie"
+        assert config.root == "pixie_qa"
 
     def test_default_db_path(self) -> None:
         config = get_config()
-        assert config.db_path == os.path.join(".pixie", "observations.db")
+        assert config.db_path == os.path.join("pixie_qa", "observations.db")
 
     def test_default_db_engine(self) -> None:
         config = get_config()
@@ -33,7 +33,7 @@ class TestGetConfigDefaults:
 
     def test_default_dataset_dir(self) -> None:
         config = get_config()
-        assert config.dataset_dir == os.path.join(".pixie", "datasets")
+        assert config.dataset_dir == os.path.join("pixie_qa", "datasets")
 
 
 class TestGetConfigEnvOverrides:
