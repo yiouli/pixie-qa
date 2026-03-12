@@ -102,11 +102,21 @@ def discover_tests(
 def _load_module(path: Path) -> Any:
     """Dynamically load a Python module from *path*.
 
+    Before loading, the test file's ancestor directories are added to
+    ``sys.path`` (like pytest's ``rootdir`` behaviour) so that imports
+    of project-level modules work without extra configuration.
+
     Raises:
         ImportError: If the module cannot be loaded (syntax errors,
             missing dependencies, etc.).  Errors propagate so callers
             see clear diagnostics instead of silent "no tests collected".
     """
+    # Add the test file's parent dir and its parent (project root) to
+    # sys.path so that ``from myapp import ...`` works out of the box.
+    for ancestor in (str(path.resolve().parent), str(path.resolve().parent.parent)):
+        if ancestor not in sys.path:
+            sys.path.insert(0, ancestor)
+
     module_name = f"_pixie_test_{path.stem}_{id(path)}"
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:

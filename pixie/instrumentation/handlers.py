@@ -44,8 +44,15 @@ _storage_handler: StorageHandler | None = None
 
 async def _setup_storage() -> StorageHandler:
     """Internal: create store, ensure tables exist, return handler."""
+    import os
+
     config = get_config()
     from piccolo.engine.sqlite import SQLiteEngine
+
+    # Ensure the root directory exists so the DB file can be created.
+    db_dir = os.path.dirname(config.db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
     engine = SQLiteEngine(path=config.db_path)
     store = ObservationStore(engine=engine)
@@ -56,9 +63,10 @@ async def _setup_storage() -> StorageHandler:
 def enable_storage() -> StorageHandler:
     """Set up Piccolo storage with default config and register the handler.
 
-    Creates the observation table if it doesn't exist.
-    Idempotent — calling twice returns the same handler without
-    duplicating registrations.
+    Creates the ``.pixie`` root directory and observation table if they
+    don't exist.  Truly idempotent — calling twice returns the same
+    handler without duplicating registrations, even from different threads
+    or from within an async context.
 
     Returns:
         The :class:`StorageHandler` for optional manual control.
@@ -71,7 +79,21 @@ def enable_storage() -> StorageHandler:
 
     init()
 
-    handler = asyncio.run(_setup_storage())
+    # Support being called both from sync (no running loop) and async
+    # contexts (running loop already present).
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            handler = pool.submit(asyncio.run, _setup_storage()).result()
+    else:
+        handler = asyncio.run(_setup_storage())
+
     add_handler(handler)
     _storage_handler = handler
     return handler

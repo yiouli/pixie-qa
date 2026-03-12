@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from pixie.config import PixieConfig, get_config
@@ -10,28 +12,41 @@ from pixie.config import PixieConfig, get_config
 class TestGetConfigDefaults:
     """get_config() returns sensible defaults when no env vars are set."""
 
-    def test_default_db_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.fixture(autouse=True)
+    def _clear_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("PIXIE_ROOT", raising=False)
         monkeypatch.delenv("PIXIE_DB_PATH", raising=False)
         monkeypatch.delenv("PIXIE_DB_ENGINE", raising=False)
         monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
-        config = get_config()
-        assert config.db_path == "pixie_observations.db"
 
-    def test_default_db_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("PIXIE_DB_PATH", raising=False)
-        monkeypatch.delenv("PIXIE_DB_ENGINE", raising=False)
-        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
+    def test_default_root(self) -> None:
+        config = get_config()
+        assert config.root == ".pixie"
+
+    def test_default_db_path(self) -> None:
+        config = get_config()
+        assert config.db_path == os.path.join(".pixie", "observations.db")
+
+    def test_default_db_engine(self) -> None:
         config = get_config()
         assert config.db_engine == "sqlite"
 
-    def test_default_dataset_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
+    def test_default_dataset_dir(self) -> None:
         config = get_config()
-        assert config.dataset_dir == "pixie_datasets"
+        assert config.dataset_dir == os.path.join(".pixie", "datasets")
 
 
 class TestGetConfigEnvOverrides:
     """get_config() reads PIXIE_* env vars when set."""
+
+    def test_reads_pixie_root(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("PIXIE_DB_PATH", raising=False)
+        monkeypatch.delenv("PIXIE_DATASET_DIR", raising=False)
+        monkeypatch.setenv("PIXIE_ROOT", "/tmp/my-pixie")
+        config = get_config()
+        assert config.root == "/tmp/my-pixie"
+        assert config.db_path == "/tmp/my-pixie/observations.db"
+        assert config.dataset_dir == "/tmp/my-pixie/datasets"
 
     def test_reads_pixie_db_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("PIXIE_DB_PATH", "/tmp/custom.db")

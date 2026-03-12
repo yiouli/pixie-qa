@@ -12,7 +12,7 @@ The `eval-driven-dev` skill guides your coding agent through the full QA loop fo
 2. **Instrument it** — add `enable_storage()` and `@observe` so every run is captured to a local SQLite database
 3. **Build a dataset** — save representative traces as test cases with `pixie dataset save`
 4. **Write eval tests** — generate `test_*.py` files with `assert_dataset_pass` and appropriate evaluators
-5. **Run the tests** — `pixie-test` to run all evals and report per-case scores
+5. **Run the tests** — `pixie test` to run all evals and report per-case scores
 6. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
 
 ## Getting Started
@@ -24,7 +24,6 @@ npx openskills install yiouli/pixie-qa
 ```
 
 The accompanying python package would be installed by the skill automatically when it's used.
-
 
 ### 2. Ask coding agent to set up evals
 

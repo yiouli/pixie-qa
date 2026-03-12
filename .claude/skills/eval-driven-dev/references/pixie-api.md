@@ -2,13 +2,15 @@
 
 ## Configuration
 
-All settings read from environment variables at call time:
+All settings read from environment variables at call time. By default,
+every artefact lives inside a single `.pixie` project directory:
 
-| Variable            | Default                 | Description                        |
-| ------------------- | ----------------------- | ---------------------------------- |
-| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path          |
-| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine (currently sqlite) |
-| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files   |
+| Variable            | Default                  | Description                        |
+| ------------------- | ------------------------ | ---------------------------------- |
+| `PIXIE_ROOT`        | `.pixie`                 | Root directory for all artefacts   |
+| `PIXIE_DB_PATH`     | `.pixie/observations.db` | SQLite database file path          |
+| `PIXIE_DB_ENGINE`   | `sqlite`                 | Database engine (currently sqlite) |
+| `PIXIE_DATASET_DIR` | `.pixie/datasets`        | Directory for dataset JSON files   |
 
 ---
 
@@ -42,7 +44,7 @@ pixie dataset save <name> --notes "some note"
 echo '"expected value"' | pixie dataset save <name> --expected-output
 
 # Run eval tests
-pixie-test [path] [-k filter_substring] [-v]
+pixie test [path] [-k filter_substring] [-v]
 ```
 
 **`pixie dataset save` selection modes:**

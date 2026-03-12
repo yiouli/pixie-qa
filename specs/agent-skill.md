@@ -36,10 +36,11 @@ At a high level, the process of practicing eval-driven-development goes like thi
 
 ## build datasets
 
-- use pixie database list/create/save commands to manage dataset
+- use `pixie dataset create/list/save` commands to manage datasets
+- all datasets, tests, scripts, and the observation DB live in `.pixie/` directory
 - there are two ways to add to dataset, either saving traces from actually running the software, or generating synthetic data
-- for saving to dataset from actual runs, first properly instrument the software by running `pixie.enable_storage()` at the software startup, then add `pixie.observe` or `pixie.start_observation` to the proper places in the code to capture data for evaluation; then after a run, use `pixie dataset save ...` command to save captured data to dataset <need specific instructions for using pixie here>
-- for generating synthetic data, you'd need to at least save one item from an actual run, then you can understand the data format of the actual inputs. Then you should generate the "inputs" portion of the data for various evaluation/test scenarios, write scripts to run the software with proper input piping and potential mocking, capture the traces, and save them to dataset using `pixie` provided APIs to read traces/convert to evaluable/save to dataset. <need specific instructiosn for using pixie here>
+- for saving to dataset from actual runs, first properly instrument the software by calling `enable_storage()` inside the app's startup function (not at module level), then add `@observe` or `start_observation` to the proper places in the code to capture data for evaluation; then after a run, use `pixie dataset save ...` command to save captured data to dataset
+- for generating synthetic data, you'd need to at least save one item from an actual run, then you can understand the data format of the actual inputs. Then you should generate the "inputs" portion of the data for various evaluation/test scenarios, write scripts (in `.pixie/scripts/`) to run the software with proper input piping and potential mocking, capture the traces, and save them to dataset using `pixie` provided APIs to read traces/convert to evaluable/save to dataset
 
 ### the expected output
 
@@ -47,8 +48,17 @@ depending on the evaluation criteria, expected outputs might be needed. If so, t
 
 ## define & run eval-based tests
 
-- define "tests" based on the evaluation criteria, and how "inputs" should be piped/mocked when running the software, using `pixie.assert_dataset_pass`. depending on the complexity of the criteria multiple tests with different evaluators, datasets and/or pass criteria might be needed, then run them with `pixie test ...` commandline <need more specific instructions here regarding using pixie here>
+- define "tests" based on the evaluation criteria, and how "inputs" should be piped/mocked when running the software, using `pixie.assert_dataset_pass`
+- depending on the complexity of the criteria, multiple tests with different evaluators, datasets and/or pass criteria might be needed
+- test files live in `.pixie/tests/` (e.g. `.pixie/tests/test_customer_service.py`)
+- run them with `pixie test .pixie/tests/` or `pixie test .pixie/tests/test_customer_service.py`
+- the test runner automatically adds the test file's parent and grandparent directories to `sys.path`, so project-root imports work out of the box (like pytest)
+- use `-v` for verbose output and `-k <pattern>` to filter tests by name
 
 ## investigate and learn
 
-for failed test case, lookup the fulll trace of failed test case (the traceid should be saved in the metadata of the record in dataset, this might not be implemented right now and need to be done), examine it and analyse where it goes wrong. do additional debug runs with same inputs for further debugging if needed. then make changes and run same evaluations and compare. iterate until satisfied.
+- for each failed test case, look up the full trace (the trace_id is saved in the evaluation result metadata)
+- examine the captured spans — inputs, outputs, LLM invocations, latencies — and analyse where the software went wrong
+- document findings with actual trace data, evaluator scores/reasoning, and root cause analysis in `.pixie/MEMORY.md`
+- do additional debug runs with the same inputs for further debugging if needed
+- make changes and re-run the same evaluations to compare; iterate until satisfied

@@ -44,15 +44,15 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- pixie dataset -------------------------------------------------------
-    dataset_parser = subparsers.add_parser("dataset", help="Dataset management commands")
+    dataset_parser = subparsers.add_parser(
+        "dataset", help="Dataset management commands"
+    )
     dataset_sub = dataset_parser.add_subparsers(
         dest="dataset_action", help="Dataset actions"
     )
 
     # pixie dataset create <name>
-    create_parser = dataset_sub.add_parser(
-        "create", help="Create a new empty dataset"
-    )
+    create_parser = dataset_sub.add_parser("create", help="Create a new empty dataset")
     create_parser.add_argument("name", help="Name for the new dataset")
 
     # pixie dataset list
@@ -85,6 +85,29 @@ def _build_parser() -> argparse.ArgumentParser:
         "--notes",
         default=None,
         help="Optional notes to attach to the evaluable metadata",
+    )
+
+    # -- pixie test ----------------------------------------------------------
+    test_parser = subparsers.add_parser("test", help="Run pixie eval tests")
+    test_parser.add_argument(
+        "test_path",
+        nargs="?",
+        default=".",
+        help="File or directory to search for tests (default: current directory)",
+    )
+    test_parser.add_argument(
+        "-k",
+        "--filter",
+        dest="filter_pattern",
+        default=None,
+        help="Only run tests whose names contain this substring",
+    )
+    test_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Show detailed evaluation results",
     )
 
     return parser
@@ -123,7 +146,9 @@ def _run_dataset_save(
         source = stdin if stdin is not None else sys.stdin
         raw = source.read().strip()
         if not raw:
-            raise ValueError("--expected-output flag set but no JSON provided on stdin.")
+            raise ValueError(
+                "--expected-output flag set but no JSON provided on stdin."
+            )
         expected = json.loads(raw)
 
     dataset = asyncio.run(
@@ -184,6 +209,17 @@ def main(argv: list[str] | None = None) -> int:
         ) as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             return 1
+
+    elif args.command == "test":
+        from pixie.cli.test_command import main as test_main
+
+        # Forward args in the format test_command.main() expects
+        test_argv: list[str] = [args.test_path]
+        if args.filter_pattern:
+            test_argv.extend(["-k", args.filter_pattern])
+        if args.verbose:
+            test_argv.append("-v")
+        return test_main(test_argv)
 
     return 0
 
