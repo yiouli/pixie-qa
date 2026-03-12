@@ -1,0 +1,57 @@
+{
+  "expectations": [
+    {
+      "text": "The agent edited chatbot.py to add @observe or start_observation wrapping answer_question",
+      "passed": false,
+      "evidence": "chatbot.py was NOT modified. Agent created a separate chatbot_instrumented.py file instead of editing the source file."
+    },
+    {
+      "text": "The agent added enable_storage() in chatbot.py (not just px.init())",
+      "passed": false,
+      "evidence": "chatbot.py is unmodified. enable_storage() was added to chatbot_instrumented.py, not chatbot.py."
+    },
+    {
+      "text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass",
+      "passed": true,
+      "evidence": "test_chatbot_evals.py created with both assert_dataset_pass and assert_pass"
+    },
+    {
+      "text": "The test file calls enable_storage() inside the runnable (not at module level in the test)",
+      "passed": false,
+      "evidence": "The _run_answer_question function (the runnable) does not call enable_storage(). No enable_storage() call found in test file at all."
+    },
+    {
+      "text": "The agent wrote code or commands to create a named dataset (DatasetStore().create() or 'pixie dataset create' CLI)",
+      "passed": true,
+      "evidence": "save_dataset.py uses DatasetStore to create 'rag-chatbot-traces' dataset"
+    },
+    {
+      "text": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())",
+      "passed": true,
+      "evidence": "save_dataset.py appends Evaluable items to the DatasetStore"
+    },
+    {
+      "text": "The agent created a MEMORY.md or notes file in the project directory",
+      "passed": false,
+      "evidence": "No MEMORY.md or notes file in the project directory"
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 4,
+    "total": 7,
+    "pass_rate": 0.429
+  },
+  "claims": [
+    {
+      "claim": "Without-skill agent created a separate instrumented file instead of editing the source",
+      "type": "quality",
+      "verified": true,
+      "evidence": "chatbot_instrumented.py exists alongside unmodified chatbot.py"
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "Clear discrimination. With-skill 7/7, without-skill 3/7. Key misses: didn't edit source file, no enable_storage in runnable, no MEMORY.md."
+  }
+}

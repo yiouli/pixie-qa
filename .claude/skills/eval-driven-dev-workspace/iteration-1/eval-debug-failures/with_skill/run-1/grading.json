@@ -1,0 +1,43 @@
+{
+  "expectations": [
+    {
+      "text": "Suggests running pixie-test -v for verbose output showing per-case reasoning",
+      "passed": true,
+      "evidence": "Step 1 explicitly shows 'pixie-test -v' and describes the per-case output with scores and reasoning strings. Repeated in the cheat-sheet at the end."
+    },
+    {
+      "text": "Explains how to find trace_id in eval_metadata of failing dataset items",
+      "passed": true,
+      "evidence": "Step 2 shows Python code iterating dataset items and calling 'item.eval_metadata.get(\"trace_id\")' with an explanation that trace_id links the item to the execution trace in pixie_observations.db."
+    },
+    {
+      "text": "Shows code to inspect a trace using ObservationStore.get_trace() or similar",
+      "passed": true,
+      "evidence": "Step 3 shows an async function using 'ObservationStore' and 'await store.get_trace(trace_id)' followed by 'root.to_text()'. Repeated in the cheat-sheet."
+    },
+    {
+      "text": "Covers possible root causes (bad prompt, retrieval issue, wrong expected_output, criteria too strict)",
+      "passed": true,
+      "evidence": "Step 4 provides a table covering: empty output (app crashed), 'answer contradicts reference' (bad prompt or retrieval), 'expected output is vague' (wrong expected_output), all cases fail at similar scores (ScoreThreshold too strict), and specific-input failures (edge case)."
+    },
+    {
+      "text": "Explains the iteration loop: fix -> re-run -> compare",
+      "passed": true,
+      "evidence": "Step 7 explicitly describes the loop: run 'pixie-test -v', check if failing cases improved and passing cases didn't regress, and 'Keep cycling through steps 1-6 until all tests pass'."
+    },
+    {
+      "text": "Mentions ScoreThreshold as a way to relax criteria if expectations were too strict",
+      "passed": true,
+      "evidence": "Step 6 under 'Relax the pass criteria' shows a code example using 'ScoreThreshold(threshold=0.5, pct=0.8)' with explanation that it allows 80% to pass instead of requiring 100%."
+    }
+  ],
+  "summary": {
+    "pass_rate": 1.0,
+    "timing": {
+      "duration_ms": 69813,
+      "total_tokens": 20219
+    },
+    "claims": "All 6 expectations are met. The response is well-structured with numbered steps covering the full debug-and-fix workflow: verbose test output, trace_id lookup in eval_metadata, ObservationStore trace inspection, root cause diagnosis table, targeted fix options (prompt, retrieval, dataset, criteria), and the iteration loop.",
+    "eval_feedback": "The response is thorough and directly addresses every expectation. The diagnostic table in Step 4 is especially clear, and the cheat-sheet at the end provides quick-reference commands. No significant gaps were found."
+  }
+}

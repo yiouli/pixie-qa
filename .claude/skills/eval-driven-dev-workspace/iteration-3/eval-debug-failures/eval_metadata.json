@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "eval-debug-failures",
+  "prompt": "My pixie eval tests are failing. Project is at PROJECT_DIR. The test in tests/test_qa.py runs assert_dataset_pass against 'qa-golden-set' and I'm getting low scores. Please investigate — look at the dataset, the test code, the app code, find the root cause, fix it, and show me how to re-run.",
+  "assertions": [
+    "The agent read tests/test_qa.py, qa_app.py, and the dataset file",
+    "The agent identified that eval_output is null in the dataset items as the root cause",
+    "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live)",
+    "The agent showed the 'pixie-test' command to re-run and verify the fix",
+    "The agent explained why the score was low (FactualityEval scoring null output vs expected answers)"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "expectations": [
+    {
+      "text": "Explains instrumentation with @observe or start_observation around the relevant function",
+      "passed": true,
+      "evidence": "Step 1 clearly shows px.start_observation used as a context manager wrapping the answer_question function, with input and output captured via obs.set_output()."
+    },
+    {
+      "text": "Shows or explains enable_storage() for persisting traces",
+      "passed": true,
+      "evidence": "Step 1 imports and calls enable_storage() with an explanation: 'One-time setup — creates SQLite DB and registers the storage handler'. The summary also mentions it explicitly."
+    },
+    {
+      "text": "Shows pixie dataset create and pixie dataset save CLI commands",
+      "passed": false,
+      "evidence": "pixie dataset save is shown multiple times (Steps 2 and 6), but pixie dataset create as a CLI command is never shown. Step 2 uses the Python API (DatasetStore.create()) instead of the CLI command."
+    },
+    {
+      "text": "Shows assert_dataset_pass or assert_pass in a test file",
+      "passed": true,
+      "evidence": "Step 4 shows a complete test file tests/test_rag_chatbot_eval.py with three test functions all using await assert_dataset_pass() with dataset_name, evaluators, and pass_criteria parameters."
+    },
+    {
+      "text": "Recommends an appropriate evaluator (e.g. FactualityEval, ClosedQAEval)",
+      "passed": true,
+      "evidence": "FactualityEval is recommended and used in tests. Additional RAG-appropriate evaluators are also recommended: FaithfulnessEval, AnswerRelevancyEval, AnswerCorrectnessEval, ContextRelevancyEval, EmbeddingSimilarityEval."
+    },
+    {
+      "text": "Explains how to run tests with pixie-test",
+      "passed": true,
+      "evidence": "Step 5 shows multiple pixie-test invocations: 'pixie-test tests/', 'pixie-test tests/test_rag_chatbot_eval.py -v', and 'pixie-test tests/ -k faithfulness'. The CI section also uses uv run pixie-test."
+    },
+    {
+      "text": "Mentions documenting understanding in memory files",
+      "passed": false,
+      "evidence": "No mention of memory files, documentation of understanding, or any memory-related workflow anywhere in the response."
+    }
+  ],
+  "summary": {
+    "pass_rate": 0.714,
+    "timing": {
+      "duration_ms": 67253,
+      "total_duration_seconds": 67.3,
+      "total_tokens": 17493
+    },
+    "claims": "The response provides a thorough, well-structured 7-step guide covering instrumentation, dataset building, evaluator selection, test writing, running evals, iteration, and CI integration. Code examples are concrete and practical. It correctly covers most key concepts including start_observation, enable_storage(), assert_dataset_pass, FactualityEval, and pixie-test.",
+    "eval_feedback": "5 of 7 expectations passed. The two failures are: (1) pixie dataset create CLI command is missing — the response uses the Python DatasetStore API instead; (2) no mention of documenting understanding in memory files, which is a workflow expectation for the skill. The response is otherwise high quality, with RAG-specific evaluator recommendations going beyond the minimum requirements."
+  }
+}

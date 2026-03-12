@@ -1,0 +1,29 @@
+{
+  "name": "rag-chatbot-golden",
+  "items": [
+    {
+      "eval_input": "{\"question\": \"What currency does Germany use?\"}",
+      "eval_output": "\"France uses the Euro (EUR).\"",
+      "eval_metadata": null,
+      "expected_output": "UNSET"
+    },
+    {
+      "eval_input": "{\"question\": \"What currency does Germany use?\"}",
+      "eval_output": "\"France uses the Euro (EUR).\"",
+      "eval_metadata": null,
+      "expected_output": "UNSET"
+    },
+    {
+      "eval_input": "{\"question\": \"What currency does Germany use?\"}",
+      "eval_output": "\"France uses the Euro (EUR).\"",
+      "eval_metadata": null,
+      "expected_output": "UNSET"
+    },
+    {
+      "eval_input": "{\"question\": \"What currency does Germany use?\"}",
+      "eval_output": "\"France uses the Euro (EUR).\"",
+      "eval_metadata": null,
+      "expected_output": "UNSET"
+    }
+  ]
+}

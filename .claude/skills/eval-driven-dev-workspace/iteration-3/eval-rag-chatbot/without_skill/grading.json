@@ -1,0 +1,63 @@
+{
+  "expectations": [
+    {
+      "text": "The agent edited chatbot.py to add @observe or start_observation wrapping answer_question",
+      "passed": true,
+      "evidence": "chatbot.py shows '@observe()' on answer_question (imported from pixie.instrumentation). Also added @observe() to retrieve_docs unnecessarily. Uses 'observe()' not 'px.observe(name=...)' — slightly different form but meets the assertion."
+    },
+    {
+      "text": "The agent added enable_storage() in chatbot.py (not just px.init())",
+      "passed": false,
+      "evidence": "chatbot.py has 'px.init()' in __main__ block, NOT 'enable_storage()'. The assertion specifically excludes px.init()."
+    },
+    {
+      "text": "The agent actually ran the app to generate traces (ran a python command)",
+      "passed": false,
+      "evidence": "Agent was still running when reviewed. No evidence of bash execution. Wrote capture_traces.py script but did not execute it."
+    },
+    {
+      "text": "The agent ran 'pixie dataset create' or called DatasetStore().create() to create a named dataset",
+      "passed": true,
+      "evidence": "capture_traces.py contains 'store.create(DATASET_NAME, items=evaluables)' using DatasetStore Python API — satisfies the 'or called DatasetStore().create()' clause."
+    },
+    {
+      "text": "The agent ran 'pixie dataset save' to save a trace to the dataset",
+      "passed": false,
+      "evidence": "Agent used 'store.create()' to save data (not 'pixie dataset save' CLI). The script is also blocked from execution."
+    },
+    {
+      "text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass",
+      "passed": true,
+      "evidence": "test_chatbot_evals.py created with 'assert_dataset_pass', 'assert_pass', and 'run_and_evaluate' — comprehensive test file using pixie eval primitives."
+    },
+    {
+      "text": "The agent created a MEMORY.md or notes file in the project directory",
+      "passed": false,
+      "evidence": "No MEMORY.md or notes file found in the without_skill project directory."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 4,
+    "total": 7,
+    "pass_rate": 0.429
+  },
+  "claims": [
+    {
+      "claim": "Agent discovered pixie API by exploring source code",
+      "type": "process",
+      "verified": true,
+      "evidence": "Agent read pixie source files including eval_utils.py, observation.py, etc. to discover the API without any skill documentation."
+    },
+    {
+      "claim": "Agent used px.init() instead of enable_storage(), demonstrating it lacked knowledge of the storage-specific initialization",
+      "type": "quality",
+      "verified": true,
+      "evidence": "chatbot.py has 'px.init()' in __main__ block. enable_storage() is a key distinction the skill teaches."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "Good discrimination: assertion 2 (enable_storage vs px.init) clearly separates with/without skill. Without-skill agent was resourceful in exploring source code but missed the storage initialization pattern."
+  }
+}

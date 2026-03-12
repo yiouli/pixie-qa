@@ -1,2 +1,4 @@
-.claude/skills
+.claude/skills/*
+!.claude/skills/eval-driven-dev/
+!.claude/skills/eval-driven-dev-workspace/
 __pycache__

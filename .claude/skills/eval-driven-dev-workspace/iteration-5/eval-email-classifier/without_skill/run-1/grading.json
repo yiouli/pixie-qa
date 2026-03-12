@@ -1,0 +1,82 @@
+{
+  "expectations": [
+    {
+      "text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email",
+      "passed": true,
+      "evidence": "extractor.py line 14: '@observe()' decorates extract_from_email. (Uses 'from pixie.instrumentation import init, observe' and '@observe()' directly.)"
+    },
+    {
+      "text": "The agent added enable_storage() to extractor.py (not just px.init())",
+      "passed": false,
+      "evidence": "extractor.py uses 'init()' at line 11 (imported as 'from pixie.instrumentation import init, observe'). There is no enable_storage() call anywhere in extractor.py."
+    },
+    {
+      "text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator",
+      "passed": true,
+      "evidence": "test_email_classifier.py defines custom async evaluators: category_matches, priority_matches, summary_is_non_empty, output_has_required_fields, category_is_valid, and priority_is_valid — these are custom field evaluators checking specific JSON fields."
+    },
+    {
+      "text": "The test file calls enable_storage() inside the runnable (not at module level in the test)",
+      "passed": false,
+      "evidence": "test_email_classifier.py has no call to enable_storage() anywhere — not in a runnable function, not at module level. The test functions call extract_from_email directly as the runnable without any enable_storage() setup."
+    },
+    {
+      "text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset",
+      "passed": true,
+      "evidence": "build_dataset.py line 150: 'dataset = store.create(DATASET_NAME, items=items)' uses DatasetStore().create() to create the 'email-classifier-golden' dataset."
+    },
+    {
+      "text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset",
+      "passed": true,
+      "evidence": "build_dataset.py line 150: 'store.create(DATASET_NAME, items=items)' passes items at creation time, which saves the evaluable items to the dataset. This is the equivalent of DatasetStore().append() for initial population."
+    },
+    {
+      "text": "The agent created a MEMORY.md or notes file in the project directory",
+      "passed": false,
+      "evidence": "No MEMORY.md file exists in the without_skill email classifier project directory. The file listing shows only: build_dataset.py, extractor.py, requirements.txt, test_email_classifier.py."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 3,
+    "total": 7,
+    "pass_rate": 0.57
+  },
+  "execution_metrics": {},
+  "timing": {
+    "total_duration_seconds": 112.1
+  },
+  "claims": [
+    {
+      "claim": "The test file has multiple custom evaluators checking individual JSON fields",
+      "type": "quality",
+      "verified": true,
+      "evidence": "test_email_classifier.py contains 6 custom async evaluator functions, each checking a specific aspect of the output (schema validity, category correctness, priority correctness, summary presence)."
+    },
+    {
+      "claim": "The dataset has 12 golden items covering all 4 categories",
+      "type": "factual",
+      "verified": true,
+      "evidence": "build_dataset.py defines GOLDEN_EXAMPLES with 12 entries: 3 billing, 3 technical, 3 account, 3 general."
+    },
+    {
+      "claim": "The test functions call extract_from_email directly as the runnable",
+      "type": "process",
+      "verified": true,
+      "evidence": "test_email_classifier.py passes 'runnable=extract_from_email' directly to assert_dataset_pass and assert_pass in all test functions."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The agent added enable_storage() to extractor.py (not just px.init())",
+        "reason": "The without_skill agent used init() instead of enable_storage(). This assertion correctly discriminates the approaches. The skip of enable_storage() in the test runnable is also a meaningful gap that could silently cause tests to not capture traces properly."
+      },
+      {
+        "assertion": "The test file calls enable_storage() inside the runnable (not at module level in the test)",
+        "reason": "The without_skill agent passes extract_from_email directly as the runnable, which means enable_storage() is never called during test execution. This would likely cause trace capture failures at runtime."
+      }
+    ],
+    "overall": "The without_skill run correctly adds @observe and creates a dataset with DatasetStore, but misses enable_storage() in both extractor.py and the test runnable, and creates no MEMORY.md. 4 of 7 assertions pass."
+  }
+}

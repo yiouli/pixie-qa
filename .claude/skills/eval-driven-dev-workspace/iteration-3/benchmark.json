@@ -1,0 +1,363 @@
+{
+  "metadata": {
+    "skill_name": "eval-driven-dev",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-03-12T06:55:24Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file",
+          "passed": true,
+          "evidence": "MEMORY.md documents qa_app.py structure in detail (answer_question function, Anthropic API, haiku model). Test file was modified. Dataset is mentioned ('qa-golden-set: 3 items, eval_output: null')."
+        },
+        {
+          "text": "The agent identified that eval_output is null in the dataset items as the root cause",
+          "passed": true,
+          "evidence": "MEMORY.md states: 'Dataset items all have eval_output: null \u2014 no pre-captured app outputs exist.' Agent correctly noted the null values, though attributed primary cause to missing from_trace parameter."
+        },
+        {
+          "text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live)",
+          "passed": true,
+          "evidence": "tests/test_qa.py was rewritten to include 'from_trace=last_llm_call' \u2014 this makes the test run the app live and capture LLM output from the trace instead of relying on the null dataset values."
+        },
+        {
+          "text": "The agent showed the 'pixie-test' command to re-run and verify the fix",
+          "passed": true,
+          "evidence": "MEMORY.md shows: 'PYTHONPATH=/home/yiouli/repo/pixie-qa pixie-test tests/test_qa.py -v'"
+        },
+        {
+          "text": "The agent explained why the score was low (FactualityEval scoring null output vs expected answers)",
+          "passed": true,
+          "evidence": "MEMORY.md: 'FactualityEval was comparing null against expected_output \u2014 resulting in low/zero scores'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.857,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email",
+          "passed": true,
+          "evidence": "extractor.py shows '@px.observe(name=\"extract_from_email\")' directly on extract_from_email function"
+        },
+        {
+          "text": "The agent added enable_storage() to extractor.py (not just px.init())",
+          "passed": true,
+          "evidence": "extractor.py has 'enable_storage()' at module level (line ~12). This is idiomatic \u2014 called on import."
+        },
+        {
+          "text": "The agent actually ran the extractor on sample emails to generate traces",
+          "passed": false,
+          "evidence": "build_dataset.py scripts the execution correctly but agent was blocked from running bash. No evidence of actual execution."
+        },
+        {
+          "text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset",
+          "passed": true,
+          "evidence": "build_dataset.py contains 'store.create(DATASET_NAME)' \u2014 Python API dataset creation with DatasetStore satisfies this assertion."
+        },
+        {
+          "text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset",
+          "passed": true,
+          "evidence": "build_dataset.py uses 'store.append(DATASET_NAME, Evaluable(...))' to save each trace item \u2014 the assertion explicitly says 'or equivalent'."
+        },
+        {
+          "text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator",
+          "passed": true,
+          "evidence": "tests/test_classifier.py imports 'ValidJSONEval' from pixie.evals and also defines a custom 'json_structure_eval' evaluator that checks category/priority/summary fields."
+        },
+        {
+          "text": "The agent created a MEMORY.md or notes file in the project directory",
+          "passed": true,
+          "evidence": "MEMORY.md exists with entry point, instrumented spans, datasets, and eval plan documented."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.286,
+        "passed": 2,
+        "failed": 5,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent edited chatbot.py to add @observe or start_observation wrapping answer_question",
+          "passed": true,
+          "evidence": "chatbot.py shows '@px.observe(name=\"answer_question\")' directly on answer_question function"
+        },
+        {
+          "text": "The agent added enable_storage() in chatbot.py (not just px.init())",
+          "passed": true,
+          "evidence": "chatbot.py main() function contains 'enable_storage()' call"
+        },
+        {
+          "text": "The agent actually ran the app to generate traces (ran a python command)",
+          "passed": false,
+          "evidence": "Agent was blocked by bash permission denial. Agent correctly described the command ('python chatbot.py') in its response but could not execute it. Orchestrator ran the app."
+        },
+        {
+          "text": "The agent ran 'pixie dataset create' or called DatasetStore().create() to create a named dataset",
+          "passed": false,
+          "evidence": "Agent described the correct 'pixie dataset create rag-chatbot-golden' command but was blocked from executing it. Orchestrator completed this step."
+        },
+        {
+          "text": "The agent ran 'pixie dataset save' to save a trace to the dataset",
+          "passed": false,
+          "evidence": "Agent described the correct 'pixie dataset save rag-chatbot-golden' command but was blocked from executing it. Orchestrator completed this step."
+        },
+        {
+          "text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass",
+          "passed": false,
+          "evidence": "Agent was blocked before creating the test file. Orchestrator wrote tests/test_chatbot.py following agent's explicit instructions."
+        },
+        {
+          "text": "The agent created a MEMORY.md or notes file in the project directory",
+          "passed": false,
+          "evidence": "Agent was blocked before creating MEMORY.md. Orchestrator wrote the file."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file",
+          "passed": true,
+          "evidence": "INVESTIGATION_NOTES.md shows detailed analysis of qa_app.py, test_qa.py source code, and dataset contents. Dataset items are quoted (eval_output: null)."
+        },
+        {
+          "text": "The agent identified that eval_output is null in the dataset items as the root cause",
+          "passed": true,
+          "evidence": "INVESTIGATION_NOTES.md: 'Bug 2: All dataset items have eval_output: null' \u2014 correctly identified as root cause. More thorough analysis than with-skill agent."
+        },
+        {
+          "text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live)",
+          "passed": true,
+          "evidence": "tests/test_qa.py was rewritten to use capture_traces() to capture live LLM output and build Evaluable objects with live eval_output before passing to assert_pass."
+        },
+        {
+          "text": "The agent showed the 'pixie-test' command to re-run and verify the fix",
+          "passed": false,
+          "evidence": "INVESTIGATION_NOTES.md shows 'PYTHONPATH=/home/yiouli/repo/pixie-qa python -m pixie test tests/test_qa.py' \u2014 uses 'python -m pixie test' not 'pixie-test'. The correct command is 'pixie-test' (standalone CLI entry point)."
+        },
+        {
+          "text": "The agent explained why the score was low (FactualityEval scoring null output vs expected answers)",
+          "passed": true,
+          "evidence": "INVESTIGATION_NOTES.md: 'FactualityEval always receives output=None, producing score 0 for every item' \u2014 correct explanation."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.143,
+        "passed": 1,
+        "failed": 6,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email",
+          "passed": false,
+          "evidence": "extractor.py is unmodified \u2014 no @observe or start_observation added. Agent dynamically wrapped the function in collect_traces.py using 'px.observe(name=\"extract_from_email\")(extract_from_email)' instead of editing the source file."
+        },
+        {
+          "text": "The agent added enable_storage() to extractor.py (not just px.init())",
+          "passed": false,
+          "evidence": "extractor.py is unmodified. collect_traces.py uses 'capture_traces()' context manager instead of enable_storage()."
+        },
+        {
+          "text": "The agent actually ran the extractor on sample emails to generate traces",
+          "passed": false,
+          "evidence": "Agent was blocked from running bash or had not yet attempted execution. No evidence of actual execution."
+        },
+        {
+          "text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset",
+          "passed": true,
+          "evidence": "collect_traces.py has 'dataset = store.create(DATASET_NAME, items=evaluables)' \u2014 Python API dataset creation."
+        },
+        {
+          "text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset",
+          "passed": false,
+          "evidence": "collect_traces.py passes evaluables to store.create() in one shot, but never actually executed. No 'pixie dataset save' CLI usage."
+        },
+        {
+          "text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator",
+          "passed": false,
+          "evidence": "No test file was created in the without_skill project directory. Only collect_traces.py was created."
+        },
+        {
+          "text": "The agent created a MEMORY.md or notes file in the project directory",
+          "passed": false,
+          "evidence": "No MEMORY.md or notes file found in the without_skill project directory."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.429,
+        "passed": 3,
+        "failed": 4,
+        "total": 7,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent edited chatbot.py to add @observe or start_observation wrapping answer_question",
+          "passed": true,
+          "evidence": "chatbot.py shows '@observe()' on answer_question (imported from pixie.instrumentation). Also added @observe() to retrieve_docs unnecessarily. Uses 'observe()' not 'px.observe(name=...)' \u2014 slightly different form but meets the assertion."
+        },
+        {
+          "text": "The agent added enable_storage() in chatbot.py (not just px.init())",
+          "passed": false,
+          "evidence": "chatbot.py has 'px.init()' in __main__ block, NOT 'enable_storage()'. The assertion specifically excludes px.init()."
+        },
+        {
+          "text": "The agent actually ran the app to generate traces (ran a python command)",
+          "passed": false,
+          "evidence": "Agent was still running when reviewed. No evidence of bash execution. Wrote capture_traces.py script but did not execute it."
+        },
+        {
+          "text": "The agent ran 'pixie dataset create' or called DatasetStore().create() to create a named dataset",
+          "passed": true,
+          "evidence": "capture_traces.py contains 'store.create(DATASET_NAME, items=evaluables)' using DatasetStore Python API \u2014 satisfies the 'or called DatasetStore().create()' clause."
+        },
+        {
+          "text": "The agent ran 'pixie dataset save' to save a trace to the dataset",
+          "passed": false,
+          "evidence": "Agent used 'store.create()' to save data (not 'pixie dataset save' CLI). The script is also blocked from execution."
+        },
+        {
+          "text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "test_chatbot_evals.py created with 'assert_dataset_pass', 'assert_pass', and 'run_and_evaluate' \u2014 comprehensive test file using pixie eval primitives."
+        },
+        {
+          "text": "The agent created a MEMORY.md or notes file in the project directory",
+          "passed": false,
+          "evidence": "No MEMORY.md or notes file found in the without_skill project directory."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.7143,
+        "stddev": 0.3778,
+        "min": 0.286,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.4573,
+        "stddev": 0.3294,
+        "min": 0.143,
+        "max": 0.8
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.26",
+      "time_seconds": "+0.0",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

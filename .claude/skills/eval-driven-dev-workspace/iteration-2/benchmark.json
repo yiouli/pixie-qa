@@ -1,0 +1,353 @@
+{
+  "metadata": {
+    "skill_name": "eval-driven-dev",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-03-12T06:31:44Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8333333333333334,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 82.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read the test file tests/test_qa.py to understand the existing test",
+          "passed": true,
+          "evidence": "metrics.json lists 'tests/test_qa.py' as first file read. summary.md accurately describes the test: calls assert_dataset_pass against 'qa-golden-set' with FactualityEval and ScoreThreshold(threshold=0.7, pct=0.8). The file exists unchanged in the project directory, consistent with being read."
+        },
+        {
+          "text": "The agent read qa_app.py to understand how the app is instrumented",
+          "passed": true,
+          "evidence": "metrics.json lists 'qa_app.py' as second file read. summary.md specifically notes 'qa_app.py \u2014 well-instrumented with @px.observe(name=\"answer_question\"), no issues', accurately reflecting the file contents."
+        },
+        {
+          "text": "The agent read the dataset file (qa-golden-set.json or pixie_datasets/) to inspect the test cases",
+          "passed": true,
+          "evidence": "metrics.json lists 'pixie_datasets/qa-golden-set.json' as third file read. The summary accurately describes the original state: '3 items, all with eval_output: null'. The fix then populated those fields, confirming the agent read and modified the dataset."
+        },
+        {
+          "text": "The agent identified a specific root cause for why tests might be failing",
+          "passed": true,
+          "evidence": "Root cause clearly identified in both summary.md and metrics.json: dataset items had eval_output=null; assert_dataset_pass passes evaluables=items to assert_pass which skips trace capture and evaluates stored eval_output directly, causing FactualityEval to score null against expected answers. This is a specific, mechanistic explanation including the internal code path."
+        },
+        {
+          "text": "The agent made or proposed a concrete fix (to test file, dataset, or app code)",
+          "passed": true,
+          "evidence": "The agent made a concrete fix: populated eval_output in pixie_datasets/qa-golden-set.json for all 3 items with factually correct answers. The modified file in project/pixie_datasets/qa-golden-set.json confirms the fix was applied (all three items now have non-null eval_output values)."
+        },
+        {
+          "text": "The agent explained how to re-run and verify the fix with pixie-test",
+          "passed": false,
+          "evidence": "Neither summary.md nor metrics.json mentions 'pixie-test', 're-run', 'rerun', or how to verify the fix. The summary describes the expected outcome but provides no instructions for re-running the test suite."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 158.8,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read extractor.py to understand the extraction function",
+          "passed": true,
+          "evidence": "summary.md explicitly states 'Understood the application: extract_from_email(email_text: str) -> dict calls GPT-4o-mini with a zero-shot system prompt and returns {category, priority, summary}.' MEMORY.md also documents the function signature and behavior, indicating the agent read and understood extractor.py."
+        },
+        {
+          "text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email",
+          "passed": true,
+          "evidence": "extractor.py line 19 shows '@px.observe(name=\"extract_from_email\")' decorator on the extract_from_email function. summary.md confirms 'Added @px.observe(name=\"extract_from_email\") decorator to extract_from_email'."
+        },
+        {
+          "text": "The agent created dataset items that include expected_output (JSON objects with category/priority/summary)",
+          "passed": true,
+          "evidence": "build_dataset.py contains 6 Evaluable items each with expected_output dicts containing all three fields: category, priority, and summary. For example, item 0 has expected_output={'category': 'billing', 'priority': 'high', 'summary': 'Customer was charged twice and is requesting an immediate refund.'}."
+        },
+        {
+          "text": "The agent wrote a test file that uses ValidJSONEval, JSONDiffEval, or a custom evaluator checking the required fields",
+          "passed": true,
+          "evidence": "tests/test_email_extraction.py imports and uses both ValidJSONEval (test_valid_json_schema) and JSONDiffEval (test_json_structure_diff), plus custom evaluators required_keys_eval, category_exact_eval, and priority_exact_eval that check all required fields."
+        },
+        {
+          "text": "The agent's test file uses assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "tests/test_email_extraction.py imports assert_dataset_pass from pixie.evals and all 5 test functions (test_valid_json_schema, test_required_keys_present, test_json_structure_diff, test_category_classification, test_priority_classification) call await assert_dataset_pass(...)."
+        },
+        {
+          "text": "The agent created a memory or notes file documenting the project and eval plan",
+          "passed": true,
+          "evidence": "MEMORY.md exists in the project directory. It documents: entry points, application summary, instrumented spans, dataset details (6 items with a summary table), eval plan (5 evaluators with criteria), all files created, and known issues/findings."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 116.6,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read chatbot.py to understand the code (not just assumed its contents)",
+          "passed": true,
+          "evidence": "summary.md Stage 1 describes reading chatbot.py and accurately reports its exact contents: Claude claude-haiku-4-5-20251001 model, answer_question and retrieve_docs functions, keyword-based stub retriever, and the data flow. MEMORY.md also contains a detailed breakdown of the source structure that matches the actual file."
+        },
+        {
+          "text": "The agent edited chatbot.py to add @observe or start_observation to answer_question",
+          "passed": true,
+          "evidence": "chatbot.py line 23 shows '@px.observe(name=\"answer_question\")' decorating the answer_question function. metrics.json lists 'project/chatbot.py' as a modified file."
+        },
+        {
+          "text": "The agent added enable_storage() to the entry point in chatbot.py or main()",
+          "passed": true,
+          "evidence": "chatbot.py line 45 shows 'enable_storage()' as the first statement inside main(). The import is on line 4: 'from pixie import enable_storage'."
+        },
+        {
+          "text": "The agent ran or showed 'pixie dataset create' for a new dataset",
+          "passed": false,
+          "evidence": "The agent created build_dataset.py which uses DatasetStore().create(DATASET_NAME) programmatically (line 74). No 'pixie dataset create' CLI command was run or shown. The summary says to run 'python build_dataset.py' rather than 'pixie dataset create'."
+        },
+        {
+          "text": "The agent created a test file (test_*.py) containing assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "tests/test_rag_chatbot.py was created and contains assert_dataset_pass in all three test functions (lines 61, 82, 103). The file name matches the test_*.py pattern."
+        },
+        {
+          "text": "The agent created a memory or notes file documenting the project structure and eval plan",
+          "passed": true,
+          "evidence": "project/MEMORY.md was created documenting: entry point, source structure with function descriptions, instrumented spans, datasets, eval plan with evaluator types and pass criteria, dataset items table, and known issues."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 165.8,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read the test file tests/test_qa.py to understand the existing test",
+          "passed": true,
+          "evidence": "metrics.json lists 'tests/test_qa.py' in files_read. The summary and fix both demonstrate detailed knowledge of the original assert_dataset_pass call and the runnable definition."
+        },
+        {
+          "text": "The agent read qa_app.py to understand how the app is instrumented",
+          "passed": true,
+          "evidence": "metrics.json lists 'qa_app.py' in files_read. The summary correctly describes the @px.observe decorator, the answer_question function, and its return value behavior."
+        },
+        {
+          "text": "The agent read the dataset file (qa-golden-set.json or pixie_datasets/) to inspect the test cases",
+          "passed": true,
+          "evidence": "metrics.json lists 'pixie_datasets/qa-golden-set.json' in files_read. The summary accurately describes the dataset structure (eval_output=null, expected_output present) and lists all three question items."
+        },
+        {
+          "text": "The agent identified a specific root cause for why tests might be failing",
+          "passed": true,
+          "evidence": "metrics.json has root_cause_identified=true with a precise explanation: assert_dataset_pass passes evaluables with eval_output=null directly to the evaluator, bypassing the runnable, so FactualityEval compares null against expected_output yielding near-zero scores."
+        },
+        {
+          "text": "The agent made or proposed a concrete fix (to test file, dataset, or app code)",
+          "passed": true,
+          "evidence": "tests/test_qa.py was rewritten to replace assert_dataset_pass with a manual loop calling run_and_evaluate per dataset item, injecting expected_output from each item. The fix is confirmed applied (fix_applied=true in metrics.json)."
+        },
+        {
+          "text": "The agent explained how to re-run and verify the fix with pixie-test",
+          "passed": false,
+          "evidence": "Neither summary.md nor metrics.json mentions pixie-test, re-running, or any instructions for verifying the fix. The summary ends at the fix description without providing run instructions."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 434.2,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read extractor.py to understand the extraction function",
+          "passed": true,
+          "evidence": "outputs/summary.md section 1 explicitly describes reading and understanding extractor.py: 'extract_from_email was decorated with @px.observe(name=\"extract_from_email\") from pixie.instrumentation'. The agent also correctly preserved the original function signature and logic, showing it was read before editing."
+        },
+        {
+          "text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email",
+          "passed": true,
+          "evidence": "project/extractor.py line 25: '@px.observe(name=\"extract_from_email\")' decorates the extract_from_email function. px.init() is called at module level (line 14) and px.flush() is added in the __main__ block (line 55)."
+        },
+        {
+          "text": "The agent created dataset items that include expected_output (JSON objects with category/priority/summary)",
+          "passed": true,
+          "evidence": "project/build_dataset.py creates 5 Evaluable items, each with expected_output=json.dumps({\"category\": ..., \"priority\": ..., \"summary\": ...}). All three required fields are present in every item. The dataset covers all four categories (billing, technical, account, general) and all three priority levels (low, medium, high)."
+        },
+        {
+          "text": "The agent wrote a test file that uses ValidJSONEval, JSONDiffEval, or a custom evaluator checking the required fields",
+          "passed": true,
+          "evidence": "project/test_extractor.py imports ValidJSONEval and JSONDiffEval (line 34) and additionally defines custom evaluators: has_required_keys (checks category, priority, summary keys), has_valid_category, has_valid_priority, has_non_empty_summary, category_matches_expected, and priority_matches_expected. The has_required_keys evaluator explicitly checks for all three required fields."
+        },
+        {
+          "text": "The agent's test file uses assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "project/test_extractor.py uses assert_pass in tests test_output_has_required_keys, test_category_is_valid_enum, test_priority_is_valid_enum, test_summary_is_non_empty, and test_full_structure_pass_threshold. assert_dataset_pass is used in test_dataset_category_and_priority (line 282). Both are imported from pixie.evals (line 30-31)."
+        },
+        {
+          "text": "The agent created a memory or notes file documenting the project and eval plan",
+          "passed": false,
+          "evidence": "No dedicated memory or notes file (e.g., MEMORY.md, notes.md, plan.md) was created inside the project directory. The outputs/summary.md documents the work done, but this is an agent-generated summary in the outputs dir, not a persistent memory/notes file stored in the project workspace for future reference."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.5,
+        "passed": 3,
+        "failed": 3,
+        "total": 6,
+        "time_seconds": 75.9,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The agent read chatbot.py to understand the code (not just assumed its contents)",
+          "passed": true,
+          "evidence": "metrics.json lists chatbot.py under 'files_modified' (not 'files_created'), confirming it was read before editing. The summary.md also describes specific implementation details from the original file (e.g., the retrieve_docs function, the Anthropic client usage), consistent with having read it."
+        },
+        {
+          "text": "The agent edited chatbot.py to add @observe or start_observation to answer_question",
+          "passed": true,
+          "evidence": "chatbot.py line 26 shows 'with px.start_observation(input=question, name=\"rag-chatbot\") as observation:' wrapping the body of answer_question(). The observation context manager captures input, sets metadata for retrieved chunks, and sets the output."
+        },
+        {
+          "text": "The agent added enable_storage() to the entry point in chatbot.py or main()",
+          "passed": false,
+          "evidence": "chatbot.py has 'px.init()' at module level (line 7) but no 'enable_storage()' call anywhere in the file. Neither main() nor the module-level code calls enable_storage()."
+        },
+        {
+          "text": "The agent ran or showed 'pixie dataset create' for a new dataset",
+          "passed": false,
+          "evidence": "The agent created build_dataset.py which uses the DatasetStore Python API to create the dataset programmatically, but there is no evidence of the 'pixie dataset create' CLI command being run or shown in any output file."
+        },
+        {
+          "text": "The agent created a test file (test_*.py) containing assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "test_chatbot.py was created and contains both assert_pass (used in test_answer_is_non_empty, test_capital_questions_contain_expected_city, test_language_questions_contain_expected_language) and assert_dataset_pass (used in test_dataset_golden_set at line 119)."
+        },
+        {
+          "text": "The agent created a memory or notes file documenting the project structure and eval plan",
+          "passed": false,
+          "evidence": "No memory or notes file was found in the project directory. The only files in /project/ are chatbot.py, test_chatbot.py, build_dataset.py, and requirements.txt. The outputs/summary.md is a run summary output, not a persistent memory/notes file documenting project structure for future reference."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.8888,
+        "stddev": 0.0963,
+        "min": 0.833,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 119.1333,
+        "stddev": 38.4626,
+        "min": 82.0,
+        "max": 158.8
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.722,
+        "stddev": 0.1923,
+        "min": 0.5,
+        "max": 0.833
+      },
+      "time_seconds": {
+        "mean": 225.3,
+        "stddev": 186.4133,
+        "min": 75.9,
+        "max": 434.2
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.17",
+      "time_seconds": "-106.2",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

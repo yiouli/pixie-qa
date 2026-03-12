@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "eval-driven-dev", "runs": [{"id": "eval-debug-failures-with_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "MEMORY.md", "type": "text", "content": "## Project: QA App Eval Debug\n\n### Entry point\n`answer_question(question, context)` in `qa_app.py`.\nMain entry: `main(question, context)` which calls `enable_storage()` then `answer_question(...)`.\n\n### Instrumented spans\n- `answer_question(question, context)` \u2014 `@px.observe(name=\"answer_question\")` wraps the full pipeline\n  - eval_input: `{\"question\": str, \"context\": str}`\n  - eval_output: str (the answer)\n  - Internally makes one Anthropic LLM call (captured as an `LLMSpan`)\n\n### Datasets\n- `qa-golden-set` (in `pixie_datasets/qa-golden-set.json`): 3 items, factual QA\n  - Each item has `eval_input`, `eval_output: null`, `expected_output`\n  - Examples: capital of France, author of Romeo and Juliet, boiling point of water\n\n### Eval plan\n- Evaluator: `FactualityEval`\n- Pass criteria: `ScoreThreshold(threshold=0.7, pct=0.8)`\n- Test file: `tests/test_qa.py::test_factuality`\n\n### Root cause of failures (all cases scoring 0)\n\n`assert_dataset_pass` passes `evaluables=items` to `assert_pass`. When `evaluables`\nis provided, `assert_pass` takes a shortcut: it calls `evaluate(evaluable=ev_item)`\ndirectly, **skipping the runnable entirely** and **skipping trace capture**.\n\nBecause all dataset items have `eval_output: null`, `FactualityEval` receives `None`\nas the output and scores 0 on every case. The app was never actually called.\n\n### Fix applied\n\nReplaced `assert_dataset_pass` with a manual loop using `run_and_evaluate` per item:\n\n1. Load dataset items manually via `DatasetStore(dataset_dir=...)`.\n2. For each item, call `run_and_evaluate(runnable, eval_input, expected_output=item.expected_output, from_trace=last_llm_call)`.\n   - This captures a live trace, selects the last LLM span (which has the real answer), and passes `expected_output` for `FactualityEval` to compare against.\n3. Accumulate results into the `[passes][inputs][evaluators]` tensor that `ScoreThreshold` expects.\n4. Call `criteria(all_evals)` and assert.\n\n### Known issues / findings\n- The dataset was pre-built with `eval_output: null` intentionally (outputs come from live runs).\n- `assert_dataset_pass` is designed for replaying stored outputs, not capturing new ones. When a dataset has null outputs, you need to use `run_and_evaluate` directly.\n- `from_trace=last_llm_call` selects the LLM span's text output, which is the actual answer string suitable for `FactualityEval`.\n\n### To run tests\n```bash\ncd <project_dir>\nPYTHONPATH=/home/yiouli/repo/pixie-qa pixie-test tests/test_qa.py -v\n```\n"}, {"name": "qa_app.py", "type": "text", "content": "\"\"\"Q&A app instrumented with pixie \u2014 has some eval tests that are currently failing.\"\"\"\n\nimport pixie.instrumentation as px\nfrom pixie import enable_storage\nfrom anthropic import Anthropic\n\n\n@px.observe(name=\"answer_question\")\ndef answer_question(question: str, context: str = \"\") -> str:\n    \"\"\"Answer a question, optionally with context.\"\"\"\n    client = Anthropic()\n    messages = [{\"role\": \"user\", \"content\": question}]\n    if context:\n        messages = [{\"role\": \"user\", \"content\": f\"Context: {context}\\n\\nQuestion: {question}\"}]\n\n    response = client.messages.create(\n        model=\"claude-haiku-4-5-20251001\",\n        max_tokens=200,\n        messages=messages,\n    )\n    return response.content[0].text\n\n\ndef main(question: str, context: str = \"\") -> str:\n    enable_storage()\n    return answer_question(question=question, context=context)\n"}, {"name": "requirements.txt", "type": "text", "content": "anthropic\npixie-qa\n"}], "grading": {"expectations": [{"text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file", "passed": true, "evidence": "MEMORY.md documents understanding of all three files in detail: test_qa.py (explains the original runnable), qa_app.py (describes answer_question with LLM call), and the dataset (notes 'eval_output: null' in all items). The fix applied is consistent with reading all three files."}, {"text": "The agent identified that eval_output is null in the dataset items as the root cause", "passed": true, "evidence": "MEMORY.md 'Root cause of failures' section explicitly states: 'Because all dataset items have eval_output: null, FactualityEval receives None as the output and scores 0 on every case.' This is the central diagnosis."}, {"text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live OR added from_trace=last_llm_call)", "passed": true, "evidence": "tests/test_qa.py was rewritten to use 'run_and_evaluate' per item with 'from_trace=last_llm_call', which captures a live trace from the LLM span. MEMORY.md confirms: 'Fix applied: Replaced assert_dataset_pass with a manual loop using run_and_evaluate per item.'"}, {"text": "The agent showed the 'pixie-test' command to re-run and verify the fix", "passed": true, "evidence": "MEMORY.md 'To run tests' section shows: 'PYTHONPATH=/home/yiouli/repo/pixie-qa pixie-test tests/test_qa.py -v'"}, {"text": "The agent did NOT modify files outside the project directory (especially not /home/yiouli/repo/pixie-qa/pixie/ framework source files)", "passed": true, "evidence": "File system check confirms no pixie framework files were modified after the run. MEMORY.md 'Files Modified' section only lists 'tests/test_qa.py' within the project directory."}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1.0}, "execution_metrics": {}, "timing": {"total_duration_seconds": 142.2}, "claims": [{"claim": "assert_dataset_pass passes evaluables=items to assert_pass, which skips trace capture", "type": "factual", "verified": true, "evidence": "MEMORY.md documents this framework behavior: 'assert_dataset_pass loads dataset items and passes them as evaluables to assert_pass. When evaluables is provided, assert_pass takes a shortcut: it calls evaluate(evaluable=ev_item) directly, skipping the runnable entirely.'"}, {"claim": "from_trace=last_llm_call selects the LLM span's text output", "type": "process", "verified": true, "evidence": "tests/test_qa.py line 54 uses 'from_trace=last_llm_call' and MEMORY.md confirms 'from_trace=last_llm_call selects the LLM span's text output, which is the actual answer string suitable for FactualityEval.'"}, {"claim": "The fix manually runs the runnable per item and accumulates results into the ScoreThreshold tensor", "type": "process", "verified": true, "evidence": "tests/test_qa.py lines 43-60 show a for loop that calls run_and_evaluate per item and appends to all_evals[0], then calls criteria(all_evals) \u2014 matching the described approach."}], "eval_feedback": {"suggestions": [{"reason": "No assertion checks that the fixed test would actually pass when run (i.e., that the LLM app produces correct answers). The fix is structurally correct but relies on the LLM returning answers that FactualityEval scores >= 0.7, which is not verified statically."}, {"assertion": "The agent identified that eval_output is null in the dataset items as the root cause", "reason": "This assertion is correct but could be tightened: the agent also identified a secondary structural issue (assert_dataset_pass bypasses the runnable). Both are root causes. An assertion checking that both were identified would be more complete."}], "overall": "All 5 assertions pass. The with_skill run shows excellent diagnostic reasoning \u2014 it correctly identifies the null eval_output root cause and applies the run_and_evaluate fix with from_trace=last_llm_call. The evals look solid for this task."}}}, {"id": "eval-debug-failures-without_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "MEMORY.md", "type": "text", "content": "# Eval Test Debugging \u2014 MEMORY\n\n## Root Cause Analysis\n\nThe eval tests in `tests/test_qa.py` were scoring 0 for all test cases due to two bugs.\n\n### Bug 1: `runnable` did not return the answer\n\nIn the original `test_qa.py`, the `runnable` function called `answer_question(...)` but did not `return` its result:\n\n```python\n# BROKEN\ndef runnable(eval_input):\n    enable_storage()\n    ...\n    answer_question(question=question, context=context)  # return value discarded\n```\n\nThis meant the actual LLM output was never captured as the `eval_output` for evaluation.\n\n### Bug 2: `assert_dataset_pass` bypasses the runnable entirely\n\n`assert_dataset_pass` loads dataset items and passes them as `evaluables` to `assert_pass`. When `evaluables` is provided to `assert_pass`, it skips trace capture and the runnable altogether \u2014 it evaluates the static `eval_output` from the dataset items directly.\n\nSince the dataset JSON (`pixie_datasets/qa-golden-set.json`) has `\"eval_output\": null` for all items, every call to `FactualityEval` received `output=None` and scored 0.\n\nThe chain:\n1. `assert_dataset_pass` \u2192 loads items with `eval_output=null` \u2192 passes as `evaluables`\n2. `assert_pass` with `evaluables` provided \u2192 skips runnable, evaluates static items\n3. Evaluator sees `output=None`, `expected=\"Paris\"` \u2192 score = 0\n\n## Fix Applied\n\nRewrote `tests/test_qa.py` to:\n\n1. **Return the answer in `runnable`** \u2014 added `return` to capture live LLM output.\n2. **Manually populate `eval_output`** before evaluation \u2014 load the dataset, run the runnable for each item via `asyncio.to_thread`, build a new `Evaluable` with the live output and the dataset's `expected_output`.\n3. **Use `assert_pass` with populated evaluables** \u2014 passes evaluables that have both `eval_output` (live LLM answer) and `expected_output` (ground truth from dataset).\n\n## Key Framework Behavior Notes\n\n- `assert_dataset_pass(runnable, dataset_name, evaluators)` loads a dataset and passes items as static `evaluables` to `assert_pass`. The runnable is **NOT** called.\n- `assert_pass(runnable, eval_inputs, evaluators, evaluables=None)`: when `evaluables` is provided, the runnable is skipped; when `evaluables=None`, trace capture is used but `expected_output` is not injected per item.\n- For live evaluation against a golden dataset, the test must manually run the runnable, capture outputs, and construct `Evaluable` objects with both `eval_output` and `expected_output` before calling `assert_pass`.\n\n## Files Modified\n\n- `tests/test_qa.py` \u2014 fixed `runnable` return value and rewrote `test_factuality` to populate evaluables with live LLM output before evaluation.\n"}, {"name": "qa_app.py", "type": "text", "content": "\"\"\"Q&A app instrumented with pixie \u2014 has some eval tests that are currently failing.\"\"\"\n\nimport pixie.instrumentation as px\nfrom pixie import enable_storage\nfrom anthropic import Anthropic\n\n\n@px.observe(name=\"answer_question\")\ndef answer_question(question: str, context: str = \"\") -> str:\n    \"\"\"Answer a question, optionally with context.\"\"\"\n    client = Anthropic()\n    messages = [{\"role\": \"user\", \"content\": question}]\n    if context:\n        messages = [{\"role\": \"user\", \"content\": f\"Context: {context}\\n\\nQuestion: {question}\"}]\n\n    response = client.messages.create(\n        model=\"claude-haiku-4-5-20251001\",\n        max_tokens=200,\n        messages=messages,\n    )\n    return response.content[0].text\n\n\ndef main(question: str, context: str = \"\") -> str:\n    enable_storage()\n    return answer_question(question=question, context=context)\n"}, {"name": "requirements.txt", "type": "text", "content": "anthropic\npixie-qa\n"}], "grading": {"expectations": [{"text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file", "passed": true, "evidence": "MEMORY.md documents detailed understanding of all three files: the original test_qa.py (quotes the broken runnable), qa_app.py (notes the @observe decorator and LLM call), and the dataset JSON (quotes 'eval_output: null' as the issue). The fix applied is consistent with having read all three."}, {"text": "The agent identified that eval_output is null in the dataset items as the root cause", "passed": true, "evidence": "MEMORY.md 'Bug 2' section states: 'Since the dataset JSON (pixie_datasets/qa-golden-set.json) has \"eval_output\": null for all items, every call to FactualityEval received output=None and scored 0.' The null eval_output is explicitly named as a root cause."}, {"text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live OR added from_trace=last_llm_call)", "passed": true, "evidence": "tests/test_qa.py was rewritten: the runnable now returns the answer (line 16: 'return answer_question(...)'), and the test manually runs the runnable via asyncio.to_thread, builds populated Evaluable objects with live eval_output, then calls assert_pass with those evaluables. This populates eval_output before evaluation."}, {"text": "The agent showed the 'pixie-test' command to re-run and verify the fix", "passed": false, "evidence": "MEMORY.md does not show a 'pixie-test' command. The document lists only the modified files and explains the fixes but does not include a run command. No pixie-test invocation is documented anywhere in the project files."}, {"text": "The agent did NOT modify files outside the project directory (especially not /home/yiouli/repo/pixie-qa/pixie/ framework source files)", "passed": true, "evidence": "File system check confirms no pixie framework files were modified after the run. MEMORY.md 'Files Modified' section only lists 'tests/test_qa.py' within the project directory."}], "summary": {"passed": 4, "failed": 1, "total": 5, "pass_rate": 0.8}, "execution_metrics": {}, "timing": {"total_duration_seconds": 135.9}, "claims": [{"claim": "Bug 1: The runnable did not return the answer (return value discarded)", "type": "factual", "verified": true, "evidence": "MEMORY.md documents this explicitly as 'Bug 1' with a code snippet showing the original broken pattern and explanation that 'the actual LLM output was never captured as the eval_output.'"}, {"claim": "Bug 2: assert_dataset_pass bypasses the runnable when evaluables are provided", "type": "factual", "verified": true, "evidence": "MEMORY.md 'Bug 2' section explains: 'assert_dataset_pass loads dataset items and passes them as evaluables to assert_pass. When evaluables is provided to assert_pass, it skips trace capture and the runnable altogether.'"}, {"claim": "The fix populates eval_output with live LLM output before calling assert_pass", "type": "process", "verified": true, "evidence": "tests/test_qa.py lines 27-36 show asyncio.to_thread(runnable, item.eval_input) capturing live output, then building Evaluable with eval_output=output before passing to assert_pass. This correctly populates eval_output."}, {"claim": "The approach of running runnable twice (once in the population loop, once implicitly via assert_pass) may be redundant", "type": "quality", "verified": true, "evidence": "tests/test_qa.py calls runnable via asyncio.to_thread to get output (lines 27-36) and then passes eval_inputs + evaluables to assert_pass (line 38-44). Since evaluables is provided to assert_pass, assert_pass will skip the runnable \u2014 so the second runnable reference is indeed ignored. The logic is correct but slightly redundant in passing both eval_inputs and evaluables."}], "eval_feedback": {"suggestions": [{"assertion": "The agent showed the 'pixie-test' command to re-run and verify the fix", "reason": "The without_skill agent documented the bug analysis and fix well but omitted the re-run command. This is a meaningful gap: showing the command to verify the fix works is part of good debugging practice and the skill workflow."}, {"reason": "The without_skill agent identified two root causes (null eval_output AND missing return in runnable) while the with_skill agent only addressed the null eval_output issue via run_and_evaluate. An assertion checking whether the agent identified both bugs (or just one) would help differentiate quality of diagnosis."}], "overall": "The without_skill run shows strong diagnostic ability \u2014 it identified both bugs and produced a correct fix. The only miss is not documenting the pixie-test command. 4 of 5 assertions pass."}}}, {"id": "eval-email-classifier-with_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "MEMORY.md", "type": "text", "content": "## Project: Email Classifier\n\n### Entry point\n`python extractor.py` or `extract_from_email(email_text)` directly.\n\n### How to run\n```bash\ncd /home/yiouli/repo/pixie-qa/.claude/skills/eval-driven-dev-workspace/iteration-5/eval-email-classifier/with_skill/project\nPYTHONPATH=/home/yiouli/repo/pixie-qa python extractor.py\n```\n\n### Instrumented spans\n- `extract_from_email(email_text: str)` \u2014 `@observe` wraps the full classifier pipeline\n  - `eval_input`: `{\"email_text\": str}`\n  - `eval_output`: `{\"category\": str, \"priority\": str, \"summary\": str}`\n\n### Use cases handled\n- **billing**: keywords like charge, refund, invoice, payment, billing, subscription\n- **technical**: keywords like crash, error, bug, broken, not working, upload, download\n- **account**: keywords like password, login, account, username, sign in, reset\n- **general**: anything else (fallback)\n\nPriority tiers:\n- **high**: urgent, asap, immediately, critical, crashing, duplicate charge\n- **medium**: soon, when possible, annoying, frustrating\n- **low**: default\n\nSummary: first sentence, truncated to 100 chars.\n\n### Datasets\n- `email-classifier-golden`: 6 items covering all 4 categories, multiple priority levels, and edge cases\n  - billing/high: duplicate charge ASAP\n  - technical/high: app crashing urgently\n  - account/low: reset password query\n  - general/low: dark mode feature request\n  - billing/low: subscription question (no urgency keywords)\n  - technical/medium: frustrating bug report\n\n### Eval plan\n- Evaluator: `JSONDiffEval` (heuristic, no LLM needed) comparing `category` and `priority` fields\n- Pass criteria: `ScoreThreshold(threshold=0.8, pct=0.8)` \u2014 80% of cases must score \u2265 0.8\n- `from_trace`: `root` (the `extract_from_email` span is the root)\n- Test file: `tests/test_email_classifier.py::test_classification`\n\n### Known issues / findings\n- The mock classifier uses simple keyword rules \u2014 no LLM calls, so `last_llm_call` won't be available\n- `JSONDiffEval` compares the full dict; expected_output should match the exact structure returned\n- Summary field is derived deterministically from the first sentence, so it can be included in expected output\n"}, {"name": "build_dataset.py", "type": "text", "content": "\"\"\"Build the golden dataset for the email classifier eval.\"\"\"\n\nimport sys\nimport os\n\nsys.path.insert(0, \"/home/yiouli/repo/pixie-qa\")\n\n# Set dataset dir relative to project\nos.environ.setdefault(\n    \"PIXIE_DATASET_DIR\",\n    os.path.join(os.path.dirname(__file__), \"pixie_datasets\"),\n)\n\nfrom pixie.dataset.store import DatasetStore\nfrom pixie.storage.evaluable import Evaluable\n\nDATASET_NAME = \"email-classifier-golden\"\n\n# Golden items: (email_text, expected_output)\nGOLDEN_ITEMS = [\n    (\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        {\n            \"category\": \"billing\",\n            \"priority\": \"high\",\n            \"summary\": \"Hi, my subscription was charged twice this month\",\n        },\n    ),\n    (\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        {\n            \"category\": \"technical\",\n            \"priority\": \"high\",\n            \"summary\": \"The app keeps crashing when I try to upload files larger than 10MB\",\n        },\n    ),\n    (\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        {\n            \"category\": \"account\",\n            \"priority\": \"low\",\n            \"summary\": \"Can you tell me how to reset my password? I can't find the option in settings\",\n        },\n    ),\n    (\n        \"Just wondering when your mobile app will support dark mode.\",\n        {\n            \"category\": \"general\",\n            \"priority\": \"low\",\n            \"summary\": \"Just wondering when your mobile app will support dark mode\",\n        },\n    ),\n    (\n        \"I have a question about my billing plan. When does my subscription renew?\",\n        {\n            \"category\": \"billing\",\n            \"priority\": \"low\",\n            \"summary\": \"I have a question about my billing plan\",\n        },\n    ),\n    (\n        \"There is a bug in the export feature that is really frustrating. Could you fix it soon?\",\n        {\n            \"category\": \"technical\",\n            \"priority\": \"medium\",\n            \"summary\": \"There is a bug in the export feature that is really frustrating\",\n        },\n    ),\n]\n\nstore = DatasetStore()\n\n# Delete existing dataset if present to start fresh\nexisting = store.list()\nif DATASET_NAME in existing:\n    store.delete(DATASET_NAME)\n\nstore.create(DATASET_NAME)\n\nfor email_text, expected in GOLDEN_ITEMS:\n    store.append(\n        DATASET_NAME,\n        Evaluable(\n            eval_input={\"email_text\": email_text},\n            eval_output=None,\n            expected_output=expected,\n        ),\n    )\n\nds = store.get(DATASET_NAME)\nprint(f\"Created dataset '{DATASET_NAME}' with {len(ds.items)} items.\")\nfor i, item in enumerate(ds.items):\n    print(f\"  [{i}] {item.eval_input['email_text'][:60]!r}... \u2192 expected: {item.expected_output}\")\n"}, {"name": "extractor.py", "type": "text", "content": "\"\"\"Email classifier \u2014 mock version that works without an API key.\n\nThis mock classifies emails using simple keyword rules.\nSuitable for running eval infrastructure without needing OPENAI_API_KEY.\n\"\"\"\n\nimport json\n\nfrom pixie import enable_storage\nimport pixie.instrumentation as px\n\nenable_storage()\n\n\n@px.observe(name=\"extract_from_email\")\ndef extract_from_email(email_text: str) -> dict:\n    \"\"\"Extract structured info from a customer support email.\n\n    Returns a dict with:\n      - category: \"billing\" | \"technical\" | \"account\" | \"general\"\n      - priority: \"low\" | \"medium\" | \"high\"\n      - summary: one-sentence summary\n\n    (Mock: uses keyword rules \u2014 no LLM API call needed.)\n    \"\"\"\n    text = email_text.lower()\n\n    # Determine category\n    if any(w in text for w in [\"charge\", \"refund\", \"invoice\", \"payment\", \"billing\", \"subscription\"]):\n        category = \"billing\"\n    elif any(w in text for w in [\"crash\", \"error\", \"bug\", \"broken\", \"not working\", \"upload\", \"download\"]):\n        category = \"technical\"\n    elif any(w in text for w in [\"password\", \"login\", \"account\", \"username\", \"sign in\", \"reset\"]):\n        category = \"account\"\n    else:\n        category = \"general\"\n\n    # Determine priority\n    if any(w in text for w in [\"urgent\", \"asap\", \"immediately\", \"critical\", \"crashing\", \"duplicate charge\"]):\n        priority = \"high\"\n    elif any(w in text for w in [\"soon\", \"when possible\", \"annoying\", \"frustrating\"]):\n        priority = \"medium\"\n    else:\n        priority = \"low\"\n\n    # Generate summary\n    first_sentence = email_text.strip().split(\".\")[0].strip()\n    summary = first_sentence[:100] if first_sentence else \"Customer support request.\"\n\n    return {\"category\": category, \"priority\": priority, \"summary\": summary}\n\n\nif __name__ == \"__main__\":\n    sample_emails = [\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        \"Just wondering when your mobile app will support dark mode.\",\n    ]\n    for email in sample_emails:\n        result = extract_from_email(email)\n        print(json.dumps(result, indent=2))\n        print()\n\n    px.flush()\n"}, {"name": "requirements.txt", "type": "text", "content": "pixie-qa\n"}], "grading": {"expectations": [{"text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email", "passed": true, "evidence": "extractor.py line 15: '@px.observe(name=\"extract_from_email\")' decorates the extract_from_email function."}, {"text": "The agent added enable_storage() to extractor.py (not just px.init())", "passed": true, "evidence": "extractor.py lines 9-12: 'from pixie import enable_storage' followed by top-level 'enable_storage()' call."}, {"text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator", "passed": true, "evidence": "tests/test_email_classifier.py line 4: imports 'JSONDiffEval' and uses it in test_classification as the evaluator passed to assert_dataset_pass."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": true, "evidence": "tests/test_email_classifier.py lines 9-12: 'def runnable(eval_input):' contains 'enable_storage()' as its first statement, inside the function body."}, {"text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset", "passed": true, "evidence": "build_dataset.py line 78: 'store.create(DATASET_NAME)' creates the 'email-classifier-golden' dataset using DatasetStore."}, {"text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset", "passed": true, "evidence": "build_dataset.py lines 80-88: 'store.append(DATASET_NAME, Evaluable(...))' is called for each of the 6 golden items, saving them to the dataset."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at the project directory and documents the entry point, instrumented spans, use cases, datasets, eval plan, and known issues."}], "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0}, "execution_metrics": {}, "timing": {"total_duration_seconds": 97.8}, "claims": [{"claim": "The mock classifier uses simple keyword rules \u2014 no LLM calls", "type": "factual", "verified": true, "evidence": "extractor.py uses only string operations (lowercase + keyword matching) with no LLM import or API calls."}, {"claim": "Dataset has 6 items covering all 4 categories and multiple priority levels", "type": "factual", "verified": true, "evidence": "build_dataset.py defines GOLDEN_ITEMS with 6 entries covering billing/high, technical/high, account/low, general/low, billing/low, and technical/medium."}, {"claim": "JSONDiffEval compares the full dict", "type": "process", "verified": true, "evidence": "MEMORY.md states this and test_email_classifier.py passes JSONDiffEval() as the evaluator alongside from_trace=root."}], "eval_feedback": {"suggestions": [{"reason": "No assertion checks that the test was run successfully or that the evaluator received non-null outputs. The build_dataset.py stores evaluables with eval_output=None (line 85), which means the runnable must be called live \u2014 but no assertion verifies the runnable actually produces a trace that JSONDiffEval can compare."}], "overall": "All 7 assertions pass with solid evidence. The with_skill run produces a clean, complete solution. The one gap is that evaluables are saved with null eval_output, relying entirely on the runnable path \u2014 worth verifying explicitly."}}}, {"id": "eval-email-classifier-without_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "build_dataset.py", "type": "text", "content": "\"\"\"Build the golden dataset for the email classifier eval.\n\nRun this script once to create the dataset file:\n\n    PYTHONPATH=/home/yiouli/repo/pixie-qa python build_dataset.py\n\nThe dataset is saved to ./datasets/email-classifier-golden.json.\nEach item contains:\n  - eval_input:      the raw email text (passed to extract_from_email)\n  - expected_output: the expected dict with category, priority, and summary\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom pathlib import Path\n\nfrom pixie.dataset.store import DatasetStore\nfrom pixie.storage.evaluable import Evaluable\n\nDATASET_NAME = \"email-classifier-golden\"\nDATASET_DIR = Path(__file__).parent / \"datasets\"\n\n# ---------------------------------------------------------------------------\n# Golden examples \u2014 (email_text, expected_output)\n# ---------------------------------------------------------------------------\n\nGOLDEN_EXAMPLES: list[tuple[str, dict]] = [\n    # --- billing ---\n    (\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        {\n            \"category\": \"billing\",\n            \"priority\": \"high\",\n            \"summary\": \"Hi, my subscription was charged twice this month\",\n        },\n    ),\n    (\n        \"I received an invoice for $99 but I cancelled my subscription last month.\",\n        {\n            \"category\": \"billing\",\n            \"priority\": \"low\",\n            \"summary\": \"I received an invoice for $99 but I cancelled my subscription last month\",\n        },\n    ),\n    (\n        \"The payment failed three times and I can't complete my purchase. Please fix this soon.\",\n        {\n            \"category\": \"billing\",\n            \"priority\": \"medium\",\n            \"summary\": \"The payment failed three times and I can't complete my purchase\",\n        },\n    ),\n    # --- technical ---\n    (\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        {\n            \"category\": \"technical\",\n            \"priority\": \"high\",\n            \"summary\": \"The app keeps crashing when I try to upload files larger than 10MB\",\n        },\n    ),\n    (\n        \"There is a bug where the download button does nothing when I click it.\",\n        {\n            \"category\": \"technical\",\n            \"priority\": \"low\",\n            \"summary\": \"There is a bug where the download button does nothing when I click it\",\n        },\n    ),\n    (\n        \"I keep getting an error message every time I open the dashboard. Very frustrating.\",\n        {\n            \"category\": \"technical\",\n            \"priority\": \"medium\",\n            \"summary\": \"I keep getting an error message every time I open the dashboard\",\n        },\n    ),\n    # --- account ---\n    (\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        {\n            \"category\": \"account\",\n            \"priority\": \"low\",\n            \"summary\": \"Can you tell me how to reset my password\",\n        },\n    ),\n    (\n        \"I can't login to my account. The username and password I set are not being accepted.\",\n        {\n            \"category\": \"account\",\n            \"priority\": \"low\",\n            \"summary\": \"I can't login to my account\",\n        },\n    ),\n    (\n        \"My account was locked out immediately after I tried to sign in. Please fix this ASAP.\",\n        {\n            \"category\": \"account\",\n            \"priority\": \"high\",\n            \"summary\": \"My account was locked out immediately after I tried to sign in\",\n        },\n    ),\n    # --- general ---\n    (\n        \"Just wondering when your mobile app will support dark mode.\",\n        {\n            \"category\": \"general\",\n            \"priority\": \"low\",\n            \"summary\": \"Just wondering when your mobile app will support dark mode\",\n        },\n    ),\n    (\n        \"I love your product! Any chance you will add keyboard shortcuts soon?\",\n        {\n            \"category\": \"general\",\n            \"priority\": \"medium\",\n            \"summary\": \"I love your product! Any chance you will add keyboard shortcuts soon\",\n        },\n    ),\n    (\n        \"Do you have any documentation on how to use the API?\",\n        {\n            \"category\": \"general\",\n            \"priority\": \"low\",\n            \"summary\": \"Do you have any documentation on how to use the API\",\n        },\n    ),\n]\n\n\ndef build() -> None:\n    store = DatasetStore(dataset_dir=DATASET_DIR)\n\n    # Remove existing dataset if present (allows re-running this script)\n    try:\n        store.delete(DATASET_NAME)\n        print(f\"Deleted existing dataset '{DATASET_NAME}'\")\n    except FileNotFoundError:\n        pass\n\n    items = [\n        Evaluable(\n            eval_input=email_text,\n            expected_output=expected,\n        )\n        for email_text, expected in GOLDEN_EXAMPLES\n    ]\n\n    dataset = store.create(DATASET_NAME, items=items)\n    print(f\"Created dataset '{DATASET_NAME}' with {len(dataset.items)} items\")\n    print(f\"Saved to: {DATASET_DIR / (DATASET_NAME.replace(' ', '-') + '.json')}\")\n\n\nif __name__ == \"__main__\":\n    build()\n"}, {"name": "extractor.py", "type": "text", "content": "\"\"\"Email classifier \u2014 mock version that works without an API key.\n\nThis mock classifies emails using simple keyword rules.\nSuitable for running eval infrastructure without needing OPENAI_API_KEY.\n\"\"\"\n\nimport json\n\nfrom pixie.instrumentation import init, observe\n\ninit()\n\n\n@observe()\ndef extract_from_email(email_text: str) -> dict:\n    \"\"\"Extract structured info from a customer support email.\n\n    Returns a dict with:\n      - category: \"billing\" | \"technical\" | \"account\" | \"general\"\n      - priority: \"low\" | \"medium\" | \"high\"\n      - summary: one-sentence summary\n\n    (Mock: uses keyword rules \u2014 no LLM API call needed.)\n    \"\"\"\n    text = email_text.lower()\n\n    # Determine category\n    if any(w in text for w in [\"charge\", \"refund\", \"invoice\", \"payment\", \"billing\", \"subscription\"]):\n        category = \"billing\"\n    elif any(w in text for w in [\"crash\", \"error\", \"bug\", \"broken\", \"not working\", \"upload\", \"download\"]):\n        category = \"technical\"\n    elif any(w in text for w in [\"password\", \"login\", \"account\", \"username\", \"sign in\", \"reset\"]):\n        category = \"account\"\n    else:\n        category = \"general\"\n\n    # Determine priority\n    if any(w in text for w in [\"urgent\", \"asap\", \"immediately\", \"critical\", \"crashing\", \"duplicate charge\"]):\n        priority = \"high\"\n    elif any(w in text for w in [\"soon\", \"when possible\", \"annoying\", \"frustrating\"]):\n        priority = \"medium\"\n    else:\n        priority = \"low\"\n\n    # Generate summary\n    first_sentence = email_text.strip().split(\".\")[0].strip()\n    summary = first_sentence[:100] if first_sentence else \"Customer support request.\"\n\n    return {\"category\": category, \"priority\": priority, \"summary\": summary}\n\n\nif __name__ == \"__main__\":\n    sample_emails = [\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        \"Just wondering when your mobile app will support dark mode.\",\n    ]\n    for email in sample_emails:\n        result = extract_from_email(email)\n        print(json.dumps(result, indent=2))\n        print()\n"}, {"name": "requirements.txt", "type": "text", "content": "pixie-qa\n"}, {"name": "test_email_classifier.py", "type": "text", "content": "\"\"\"Eval test suite for the email classifier.\n\nRun with:\n\n    PYTHONPATH=/home/yiouli/repo/pixie-qa python -m pytest test_email_classifier.py -v\n\nOr using the pixie test runner (if installed):\n\n    PYTHONPATH=/home/yiouli/repo/pixie-qa pixie test test_email_classifier.py\n\nPrerequisites:\n    1. Run `python build_dataset.py` once to create the golden dataset.\n    2. The instrumented extractor.py must be in the same directory.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport asyncio\nimport json\nfrom pathlib import Path\nfrom typing import Any\n\nfrom pixie.evals.eval_utils import assert_dataset_pass, assert_pass\nfrom pixie.evals.evaluation import Evaluation\nfrom pixie.storage.evaluable import Evaluable\nfrom pixie.storage.tree import ObservationNode\n\nfrom extractor import extract_from_email\n\nDATASET_NAME = \"email-classifier-golden\"\nDATASET_DIR = str(Path(__file__).parent / \"datasets\")\n\n\n# ---------------------------------------------------------------------------\n# Evaluators\n# ---------------------------------------------------------------------------\n\n\ndef _parse_output(output: Any) -> dict:\n    \"\"\"Parse the classifier output from an Evaluable.\n\n    The @observe decorator serialises the return value via jsonpickle.\n    We accept both a dict and a JSON string.\n    \"\"\"\n    if isinstance(output, dict):\n        return output\n    if isinstance(output, str):\n        return json.loads(output)\n    raise ValueError(f\"Unexpected output type: {type(output)!r}\")\n\n\ndef _parse_expected(expected: Any) -> dict:\n    \"\"\"Parse the expected output from an Evaluable.\"\"\"\n    if isinstance(expected, dict):\n        return expected\n    if isinstance(expected, str):\n        return json.loads(expected)\n    raise ValueError(f\"Unexpected expected_output type: {type(expected)!r}\")\n\n\nasync def category_matches(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the predicted category exactly matches the expected category.\"\"\"\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        expected = _parse_expected(evaluable.expected_output)\n\n        predicted_category = actual.get(\"category\")\n        expected_category = expected.get(\"category\")\n\n        if predicted_category == expected_category:\n            return Evaluation(\n                score=1.0,\n                reasoning=f\"Category correct: '{predicted_category}'\",\n                details={\"predicted\": predicted_category, \"expected\": expected_category},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Category mismatch: got '{predicted_category}', expected '{expected_category}'\",\n            details={\"predicted\": predicted_category, \"expected\": expected_category},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\nasync def priority_matches(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the predicted priority exactly matches the expected priority.\"\"\"\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        expected = _parse_expected(evaluable.expected_output)\n\n        predicted_priority = actual.get(\"priority\")\n        expected_priority = expected.get(\"priority\")\n\n        if predicted_priority == expected_priority:\n            return Evaluation(\n                score=1.0,\n                reasoning=f\"Priority correct: '{predicted_priority}'\",\n                details={\"predicted\": predicted_priority, \"expected\": expected_priority},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Priority mismatch: got '{predicted_priority}', expected '{expected_priority}'\",\n            details={\"predicted\": predicted_priority, \"expected\": expected_priority},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\nasync def summary_is_non_empty(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the summary field is a non-empty string.\"\"\"\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        summary = actual.get(\"summary\", \"\")\n\n        if isinstance(summary, str) and summary.strip():\n            return Evaluation(\n                score=1.0,\n                reasoning=f\"Summary is non-empty: '{summary[:60]}...'\",\n                details={\"summary\": summary},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=\"Summary is missing or empty\",\n            details={\"summary\": summary},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\nasync def output_has_required_fields(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the output contains all three required fields: category, priority, summary.\"\"\"\n    required = {\"category\", \"priority\", \"summary\"}\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        missing = required - set(actual.keys())\n\n        if not missing:\n            return Evaluation(\n                score=1.0,\n                reasoning=\"All required fields present: category, priority, summary\",\n                details={\"fields\": list(actual.keys())},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Missing required fields: {sorted(missing)}\",\n            details={\"missing\": sorted(missing), \"present\": sorted(actual.keys())},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\nasync def category_is_valid(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the category value is one of the allowed values.\"\"\"\n    allowed = {\"billing\", \"technical\", \"account\", \"general\"}\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        category = actual.get(\"category\")\n\n        if category in allowed:\n            return Evaluation(\n                score=1.0,\n                reasoning=f\"Category '{category}' is a valid value\",\n                details={\"category\": category, \"allowed\": sorted(allowed)},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Category '{category}' is not a valid value. Allowed: {sorted(allowed)}\",\n            details={\"category\": category, \"allowed\": sorted(allowed)},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\nasync def priority_is_valid(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that the priority value is one of the allowed values.\"\"\"\n    allowed = {\"low\", \"medium\", \"high\"}\n    try:\n        actual = _parse_output(evaluable.eval_output)\n        priority = actual.get(\"priority\")\n\n        if priority in allowed:\n            return Evaluation(\n                score=1.0,\n                reasoning=f\"Priority '{priority}' is a valid value\",\n                details={\"priority\": priority, \"allowed\": sorted(allowed)},\n            )\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Priority '{priority}' is not a valid value. Allowed: {sorted(allowed)}\",\n            details={\"priority\": priority, \"allowed\": sorted(allowed)},\n        )\n    except Exception as exc:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Evaluator error: {exc}\",\n            details={\"error\": str(exc)},\n        )\n\n\n# ---------------------------------------------------------------------------\n# Test functions (discovered by pixie test runner or pytest)\n# ---------------------------------------------------------------------------\n\n\ndef test_output_schema() -> None:\n    \"\"\"All outputs must contain the three required fields with valid enum values.\"\"\"\n    asyncio.run(\n        assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[\n                output_has_required_fields,\n                category_is_valid,\n                priority_is_valid,\n                summary_is_non_empty,\n            ],\n            dataset_dir=DATASET_DIR,\n        )\n    )\n\n\ndef test_category_accuracy() -> None:\n    \"\"\"The classifier must correctly categorise every email in the golden dataset.\"\"\"\n    asyncio.run(\n        assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[category_matches],\n            dataset_dir=DATASET_DIR,\n        )\n    )\n\n\ndef test_priority_accuracy() -> None:\n    \"\"\"The classifier must correctly determine the priority of every email.\"\"\"\n    asyncio.run(\n        assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[priority_matches],\n            dataset_dir=DATASET_DIR,\n        )\n    )\n\n\ndef test_full_pipeline() -> None:\n    \"\"\"End-to-end check: schema validity, correct category, correct priority, and non-empty summary.\"\"\"\n    asyncio.run(\n        assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[\n                output_has_required_fields,\n                category_is_valid,\n                priority_is_valid,\n                summary_is_non_empty,\n                category_matches,\n                priority_matches,\n            ],\n            dataset_dir=DATASET_DIR,\n        )\n    )\n\n\n# ---------------------------------------------------------------------------\n# Inline smoke test \u2014 no dataset required\n# ---------------------------------------------------------------------------\n\n\ndef test_billing_email_inline() -> None:\n    \"\"\"Quick inline test for a billing email without using the dataset.\"\"\"\n    email = \"My subscription was charged twice. Refund the duplicate charge ASAP.\"\n    asyncio.run(\n        assert_pass(\n            runnable=extract_from_email,\n            eval_inputs=[email],\n            evaluators=[\n                output_has_required_fields,\n                category_is_valid,\n                priority_is_valid,\n                summary_is_non_empty,\n            ],\n        )\n    )\n\n\ndef test_technical_email_inline() -> None:\n    \"\"\"Quick inline test for a technical email without using the dataset.\"\"\"\n    email = \"The app crashes whenever I try to upload files. This is urgent.\"\n    asyncio.run(\n        assert_pass(\n            runnable=extract_from_email,\n            eval_inputs=[email],\n            evaluators=[\n                output_has_required_fields,\n                category_is_valid,\n                priority_is_valid,\n                summary_is_non_empty,\n            ],\n        )\n    )\n"}], "grading": {"expectations": [{"text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email", "passed": true, "evidence": "extractor.py line 14: '@observe()' decorates extract_from_email. (Uses 'from pixie.instrumentation import init, observe' and '@observe()' directly.)"}, {"text": "The agent added enable_storage() to extractor.py (not just px.init())", "passed": false, "evidence": "extractor.py uses 'init()' at line 11 (imported as 'from pixie.instrumentation import init, observe'). There is no enable_storage() call anywhere in extractor.py."}, {"text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator", "passed": true, "evidence": "test_email_classifier.py defines custom async evaluators: category_matches, priority_matches, summary_is_non_empty, output_has_required_fields, category_is_valid, and priority_is_valid \u2014 these are custom field evaluators checking specific JSON fields."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": false, "evidence": "test_email_classifier.py has no call to enable_storage() anywhere \u2014 not in a runnable function, not at module level. The test functions call extract_from_email directly as the runnable without any enable_storage() setup."}, {"text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset", "passed": true, "evidence": "build_dataset.py line 150: 'dataset = store.create(DATASET_NAME, items=items)' uses DatasetStore().create() to create the 'email-classifier-golden' dataset."}, {"text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset", "passed": true, "evidence": "build_dataset.py line 150: 'store.create(DATASET_NAME, items=items)' passes items at creation time, which saves the evaluable items to the dataset. This is the equivalent of DatasetStore().append() for initial population."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": false, "evidence": "No MEMORY.md file exists in the without_skill email classifier project directory. The file listing shows only: build_dataset.py, extractor.py, requirements.txt, test_email_classifier.py."}], "summary": {"passed": 4, "failed": 3, "total": 7, "pass_rate": 0.57}, "execution_metrics": {}, "timing": {"total_duration_seconds": 112.1}, "claims": [{"claim": "The test file has multiple custom evaluators checking individual JSON fields", "type": "quality", "verified": true, "evidence": "test_email_classifier.py contains 6 custom async evaluator functions, each checking a specific aspect of the output (schema validity, category correctness, priority correctness, summary presence)."}, {"claim": "The dataset has 12 golden items covering all 4 categories", "type": "factual", "verified": true, "evidence": "build_dataset.py defines GOLDEN_EXAMPLES with 12 entries: 3 billing, 3 technical, 3 account, 3 general."}, {"claim": "The test functions call extract_from_email directly as the runnable", "type": "process", "verified": true, "evidence": "test_email_classifier.py passes 'runnable=extract_from_email' directly to assert_dataset_pass and assert_pass in all test functions."}], "eval_feedback": {"suggestions": [{"assertion": "The agent added enable_storage() to extractor.py (not just px.init())", "reason": "The without_skill agent used init() instead of enable_storage(). This assertion correctly discriminates the approaches. The skip of enable_storage() in the test runnable is also a meaningful gap that could silently cause tests to not capture traces properly."}, {"assertion": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "reason": "The without_skill agent passes extract_from_email directly as the runnable, which means enable_storage() is never called during test execution. This would likely cause trace capture failures at runtime."}], "overall": "The without_skill run correctly adds @observe and creates a dataset with DatasetStore, but misses enable_storage() in both extractor.py and the test runnable, and creates no MEMORY.md. 4 of 7 assertions pass."}}}, {"id": "eval-rag-chatbot-with_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "MEMORY.md", "type": "text", "content": "## Project: RAG Chatbot (mock)\n\n### Entry point\n`python chatbot.py` \u2014 runs 4 sample questions through `answer_question`.\n`answer_question(question: str) -> str` \u2014 the main function to evaluate.\n\n### How the app works\n- `retrieve_docs(query)`: keyword-matches the query against a small in-memory document store and returns matching chunks.\n- `answer_question(question)`: calls `retrieve_docs`, returns the first retrieved chunk as the answer. In a real version this would call an LLM; here it's a deterministic mock.\n- No real LLM calls are made, so there is no `last_llm_call` span in traces. Evaluation uses `from_trace=root`.\n\n### Instrumented spans\n- `answer_question(question)` \u2014 `@px.observe(name=\"answer_question\")` wraps the full pipeline.\n  - `eval_input`: `{\"question\": str}`\n  - `eval_output`: `str` (the answer, i.e. the first retrieved chunk)\n- `enable_storage()` is called at module import time (chatbot.py top-level) and also inside the test `runnable` to ensure traces are always captured.\n\n### Datasets\n- `rag-chatbot-golden`: golden dataset with 4 factual QA items covering capitals, language, population, and currency questions. Each item has an `expected_output`.\n\n### Dataset items\n| question | expected_output |\n|---|---|\n| What is the capital of France? | Paris |\n| What language do people speak in Germany? | German |\n| What is the population of France? | 68 million (approx) |\n| What currency does Germany use? | Euro (EUR) |\n\n### Eval plan\n- **Evaluators**: `FactualityEval` (factual accuracy vs expected output), `AnswerRelevancyEval` (answer is relevant to the question)\n- **Pass criteria**: `ScoreThreshold(0.7, pct=0.8)` \u2014 80% of cases must score \u2265 0.7\n- **from_trace**: `root` (no LLM span exists in mock)\n- **Test file**: `tests/test_rag_chatbot.py`\n\n### Commands\n\n```bash\n# Set PYTHONPATH for pixie\nexport PYTHONPATH=/home/yiouli/repo/pixie-qa\n\n# Run the app to generate traces (from project dir)\ncd /home/yiouli/repo/pixie-qa/.claude/skills/eval-driven-dev-workspace/iteration-5/eval-rag-chatbot/with_skill/project\npython chatbot.py\n\n# Create the dataset\npixie dataset create rag-chatbot-golden\n\n# Save each run trace with expected output (run chatbot once per question then save)\npython -c \"from chatbot import answer_question; answer_question('What is the capital of France?')\"\necho '\"Paris\"' | pixie dataset save rag-chatbot-golden --expected-output --notes \"capital of France\"\n\npython -c \"from chatbot import answer_question; answer_question('What language do people speak in Germany?')\"\necho '\"German\"' | pixie dataset save rag-chatbot-golden --expected-output --notes \"language in Germany\"\n\npython -c \"from chatbot import answer_question; answer_question('What is the population of France?')\"\necho '\"France has a population of about 68 million.\"' | pixie dataset save rag-chatbot-golden --expected-output --notes \"population of France\"\n\npython -c \"from chatbot import answer_question; answer_question('What currency does Germany use?')\"\necho '\"Euro (EUR)\"' | pixie dataset save rag-chatbot-golden --expected-output --notes \"currency of Germany\"\n\n# Verify dataset\npixie dataset list\n\n# Run eval tests\npixie-test tests/ -v\n```\n\n### Known issues / findings\n- The app is a deterministic mock \u2014 no real LLM is used. Answers are the first retrieved chunk verbatim.\n- `from_trace=root` is used because there is no LLM span; `last_llm_call` would fail or return nothing.\n- The golden dataset is built programmatically (see build_dataset.py) to avoid manual CLI steps.\n"}, {"name": "build_dataset.py", "type": "text", "content": "\"\"\"Build the golden dataset for the RAG chatbot eval.\n\nRun with:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa python build_dataset.py\n\"\"\"\n\nfrom pixie.dataset.store import DatasetStore\nfrom pixie.storage.evaluable import Evaluable\n\nDATASET_NAME = \"rag-chatbot-golden\"\n\ngolden_items = [\n    {\n        \"eval_input\": {\"question\": \"What is the capital of France?\"},\n        \"eval_output\": \"Paris is the capital of France.\",\n        \"expected_output\": \"Paris\",\n    },\n    {\n        \"eval_input\": {\"question\": \"What language do people speak in Germany?\"},\n        \"eval_output\": \"German is spoken in Germany and Austria.\",\n        \"expected_output\": \"German\",\n    },\n    {\n        \"eval_input\": {\"question\": \"What is the population of France?\"},\n        \"eval_output\": \"France has a population of about 68 million.\",\n        \"expected_output\": \"France has a population of about 68 million.\",\n    },\n    {\n        \"eval_input\": {\"question\": \"What currency does Germany use?\"},\n        \"eval_output\": \"Germany also uses the Euro (EUR).\",\n        \"expected_output\": \"Euro (EUR)\",\n    },\n]\n\n\ndef build():\n    store = DatasetStore()\n\n    # Delete existing dataset if present so we start fresh\n    existing = store.list()\n    if DATASET_NAME in existing:\n        store.delete(DATASET_NAME)\n        print(f\"Deleted existing dataset '{DATASET_NAME}'.\")\n\n    store.create(DATASET_NAME)\n    print(f\"Created dataset '{DATASET_NAME}'.\")\n\n    for item in golden_items:\n        store.append(\n            DATASET_NAME,\n            Evaluable(\n                eval_input=item[\"eval_input\"],\n                eval_output=item[\"eval_output\"],\n                expected_output=item[\"expected_output\"],\n            ),\n        )\n        print(f\"  Added: {item['eval_input']['question']!r}\")\n\n    print(f\"\\nDataset '{DATASET_NAME}' built with {len(golden_items)} items.\")\n\n\nif __name__ == \"__main__\":\n    build()\n"}, {"name": "chatbot.py", "type": "text", "content": "\"\"\"RAG chatbot \u2014 mock version that works without an API key.\n\nThis mock returns deterministic answers based on keyword matching.\nSuitable for running eval infrastructure without needing ANTHROPIC_API_KEY.\n\"\"\"\n\nfrom pixie import enable_storage\nimport pixie.instrumentation as px\n\nenable_storage()\n\n\ndef retrieve_docs(query: str) -> list[str]:\n    \"\"\"Retrieve relevant document chunks for a query.\"\"\"\n    docs = {\n        \"capital\": [\"Paris is the capital of France.\", \"Berlin is the capital of Germany.\"],\n        \"population\": [\"France has a population of about 68 million.\", \"Germany has about 84 million people.\"],\n        \"language\": [\"French is spoken in France.\", \"German is spoken in Germany and Austria.\"],\n        \"currency\": [\"France uses the Euro (EUR).\", \"Germany also uses the Euro (EUR).\"],\n    }\n    for keyword, chunks in docs.items():\n        if keyword in query.lower():\n            return chunks\n    return [\"No relevant documents found.\"]\n\n\n@px.observe(name=\"answer_question\")\ndef answer_question(question: str) -> str:\n    \"\"\"Answer a question using retrieved context.\n\n    (Mock: returns deterministic answers \u2014 no LLM API call needed.)\n    \"\"\"\n    chunks = retrieve_docs(question)\n    # In the real version this calls an LLM; here we return the first chunk directly.\n    return chunks[0] if chunks else \"I don't have information about that.\"\n\n\ndef main():\n    questions = [\n        \"What is the capital of France?\",\n        \"What language do people speak in Germany?\",\n        \"What is the population of France?\",\n        \"What currency does Germany use?\",\n    ]\n    for q in questions:\n        print(f\"Q: {q}\")\n        print(f\"A: {answer_question(q)}\")\n        print()\n    px.flush()\n\n\nif __name__ == \"__main__\":\n    main()\n"}, {"name": "requirements.txt", "type": "text", "content": "pixie-qa\n"}], "grading": {"expectations": [{"text": "The agent edited chatbot.py to add @observe or start_observation to answer_question", "passed": true, "evidence": "chatbot.py line 27: '@px.observe(name=\"answer_question\")' decorates the answer_question function directly."}, {"text": "The agent added enable_storage() to chatbot.py (not just px.init())", "passed": true, "evidence": "chatbot.py lines 7-10: 'from pixie import enable_storage' followed by 'enable_storage()' at module level."}, {"text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass", "passed": true, "evidence": "tests/test_rag_chatbot.py imports and calls 'assert_dataset_pass' in both test_factuality and test_answer_relevancy."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": true, "evidence": "tests/test_rag_chatbot.py lines 27-32: 'def runnable(eval_input):' contains 'enable_storage()' as its first statement, inside the function body."}, {"text": "The agent wrote code or commands to create a named dataset (DatasetStore().create() or 'pixie dataset create' CLI)", "passed": true, "evidence": "build_dataset.py line 45: 'store.create(DATASET_NAME)' creates the 'rag-chatbot-golden' dataset. MEMORY.md also shows 'pixie dataset create rag-chatbot-golden' CLI command."}, {"text": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())", "passed": true, "evidence": "build_dataset.py lines 48-57: 'store.append(DATASET_NAME, Evaluable(...))' saves each golden item. MEMORY.md also shows 'pixie dataset save' CLI commands."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at /project/MEMORY.md and contains detailed project documentation including entry points, instrumentation notes, dataset schema, eval plan, and commands."}], "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0}, "execution_metrics": {}, "timing": {"total_duration_seconds": 93.6}, "claims": [{"claim": "No real LLM calls are made, so there is no last_llm_call span in traces", "type": "factual", "verified": true, "evidence": "chatbot.py confirms the mock uses keyword matching, not an LLM. MEMORY.md explicitly notes 'from_trace=root' is used because there is no LLM span."}, {"claim": "The dataset contains 4 factual QA items", "type": "factual", "verified": true, "evidence": "build_dataset.py defines golden_items with exactly 4 entries covering capitals, language, population, and currency."}, {"claim": "enable_storage() is called at module import time in chatbot.py", "type": "process", "verified": true, "evidence": "chatbot.py line 10 has top-level 'enable_storage()' call."}], "eval_feedback": {"suggestions": [{"reason": "No assertion checks whether the dataset was actually created and persisted (e.g., that pixie_datasets/ contains a valid JSON file). The build_dataset.py script is present but no assertion verifies it was run or produced a valid dataset."}, {"assertion": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())", "reason": "This assertion passes because build_dataset.py uses DatasetStore().append(), but the evaluables saved have eval_output pre-set (not from live traces). A stronger assertion would check that traces from running the app were saved, not just hardcoded golden answers."}], "overall": "All 7 assertions pass with clear evidence. The with_skill run produces a well-structured solution. Consider adding assertions that verify dataset contents are valid (not null outputs) and that the test actually exercises the runnable."}}}, {"id": "eval-rag-chatbot-without_skill-run-1", "prompt": "(No prompt found)", "eval_id": null, "outputs": [{"name": "MEMORY.md", "type": "text", "content": "# RAG Chatbot \u2014 Eval-Driven Development Setup\n\n## What was done\n\n### 1. Instrumented `chatbot.py`\n\nAdded pixie instrumentation to the two core functions:\n\n- Called `px.init()` at module level to initialise the instrumentation subsystem.\n- Decorated `retrieve_docs()` with `@px.observe()` \u2014 captures `query` as input and the returned chunk list as output.\n- Decorated `answer_question()` with `@px.observe()` \u2014 captures `question` as input and the final answer string as output.\n\nBecause `answer_question` calls `retrieve_docs`, the two spans are nested: the outer `answer_question` span is the root, and `retrieve_docs` is a child span.\n\n### 2. Golden dataset \u2014 `datasets/rag-chatbot-golden.json`\n\nA JSON file conforming to pixie's `Dataset` / `Evaluable` schema.  It contains 6 question-answer pairs covering all four topic keywords (capital, language, population, currency) for both France and Germany.\n\nEach item has:\n- `eval_input`: the question string (passed to `answer_question`)\n- `expected_output`: the exact string the chatbot is expected to return\n\nLoad it with:\n```python\nfrom pixie.dataset.store import DatasetStore\nstore = DatasetStore(dataset_dir=\"datasets\")\ndataset = store.get(\"rag-chatbot-golden\")\n```\n\n### 3. Eval test file \u2014 `test_chatbot_eval.py`\n\nThree test classes:\n\n| Class | Method | Evaluator | Notes |\n|---|---|---|---|\n| `TestChatbotEvalDataset` | `test_exact_match_golden_dataset` | `ExactMatchEval` | Loads dataset from disk via `assert_dataset_pass` |\n| `TestChatbotEvalDataset` | `test_levenshtein_similarity_golden_dataset` | `LevenshteinMatch` | Threshold 0.8 \u2014 catches near-misses |\n| `TestChatbotEvalInline` | `test_exact_match_inline` | `ExactMatchEval` | Same golden pairs, no file I/O, uses `assert_pass` + inline `Evaluable` list |\n| `TestChatbotEvalInline` | `test_unknown_question_returns_fallback` | custom | Verifies fallback message for out-of-scope questions |\n\n## How to run\n\n```bash\n# From the project directory\nPYTHONPATH=/home/yiouli/repo/pixie-qa pytest test_chatbot_eval.py -v\n```\n\n## Key design decisions\n\n- `px.init()` is called at module import time in `chatbot.py`. This is idempotent \u2014 calling it again from test fixtures is safe.\n- The `_reset_instrumentation` autouse fixture calls `_px_obs._reset_state()` before and after each test to prevent span leakage between tests.\n- The `run_chatbot` wrapper imports `answer_question` lazily (inside the function body) so the import happens after any fixture-level state resets.\n- `ExactMatchEval` is the primary evaluator because the mock chatbot is fully deterministic; Levenshtein is added as a secondary check to show how threshold-based criteria work.\n\n## Files created / modified\n\n| File | Action |\n|---|---|\n| `chatbot.py` | Modified \u2014 added `px.init()` and `@px.observe()` decorators |\n| `datasets/rag-chatbot-golden.json` | Created \u2014 6-item golden dataset |\n| `test_chatbot_eval.py` | Created \u2014 eval test suite |\n| `MEMORY.md` | Created \u2014 this file |\n"}, {"name": "chatbot.py", "type": "text", "content": "\"\"\"RAG chatbot \u2014 mock version that works without an API key.\n\nThis mock returns deterministic answers based on keyword matching.\nSuitable for running eval infrastructure without needing ANTHROPIC_API_KEY.\n\"\"\"\n\nimport pixie.instrumentation as px\n\npx.init()\n\n\n@px.observe()\ndef retrieve_docs(query: str) -> list[str]:\n    \"\"\"Retrieve relevant document chunks for a query.\"\"\"\n    docs = {\n        \"capital\": [\"Paris is the capital of France.\", \"Berlin is the capital of Germany.\"],\n        \"population\": [\"France has a population of about 68 million.\", \"Germany has about 84 million people.\"],\n        \"language\": [\"French is spoken in France.\", \"German is spoken in Germany and Austria.\"],\n        \"currency\": [\"France uses the Euro (EUR).\", \"Germany also uses the Euro (EUR).\"],\n    }\n    for keyword, chunks in docs.items():\n        if keyword in query.lower():\n            return chunks\n    return [\"No relevant documents found.\"]\n\n\n@px.observe()\ndef answer_question(question: str) -> str:\n    \"\"\"Answer a question using retrieved context.\n\n    (Mock: returns deterministic answers \u2014 no LLM API call needed.)\n    \"\"\"\n    chunks = retrieve_docs(question)\n    # In the real version this calls an LLM; here we return the first chunk directly.\n    return chunks[0] if chunks else \"I don't have information about that.\"\n\n\ndef main():\n    questions = [\n        \"What is the capital of France?\",\n        \"What language do people speak in Germany?\",\n        \"What is the population of France?\",\n        \"What currency does Germany use?\",\n    ]\n    for q in questions:\n        print(f\"Q: {q}\")\n        print(f\"A: {answer_question(q)}\")\n        print()\n\n\nif __name__ == \"__main__\":\n    main()\n"}, {"name": "requirements.txt", "type": "text", "content": "pixie-qa\n"}, {"name": "test_chatbot_eval.py", "type": "text", "content": "\"\"\"Eval tests for the RAG chatbot.\n\nUses pixie's eval harness to run the golden dataset against answer_question()\nand check that answers are correct using ExactMatchEval.\n\nRun with:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa pytest test_chatbot_eval.py -v\n\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom pathlib import Path\n\nimport pytest\n\nimport pixie.instrumentation.observation as _px_obs\nfrom pixie.dataset.store import DatasetStore\nfrom pixie.evals.eval_utils import assert_dataset_pass, assert_pass\nfrom pixie.evals.scorers import ExactMatchEval, LevenshteinMatch\nfrom pixie.storage.evaluable import Evaluable\n\n# Project directory \u2014 dataset lives alongside this file.\n_PROJECT_DIR = Path(__file__).parent\n_DATASET_DIR = _PROJECT_DIR / \"datasets\"\n_DATASET_NAME = \"rag-chatbot-golden\"\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n\n@pytest.fixture(autouse=True)\ndef _reset_instrumentation():\n    \"\"\"Reset global instrumentation state between tests to avoid cross-test pollution.\"\"\"\n    _px_obs._reset_state()\n    yield\n    _px_obs._reset_state()\n\n\n# ---------------------------------------------------------------------------\n# Runnable wrapper\n# ---------------------------------------------------------------------------\n\ndef run_chatbot(question: str) -> None:\n    \"\"\"Thin wrapper that runs answer_question() inside a pixie observation span.\n\n    assert_pass / run_and_evaluate expect a runnable that:\n      - accepts a single eval_input value\n      - produces at least one ObserveSpan via pixie instrumentation\n\n    The @observe decorator on answer_question() handles span creation\n    automatically, so we just call it here.\n    \"\"\"\n    # Import here so instrumentation is already initialised before import-time\n    # module-level px.init() runs inside chatbot.py.\n    from chatbot import answer_question  # noqa: PLC0415\n\n    answer_question(question)\n\n\n# ---------------------------------------------------------------------------\n# Exact-match eval against the golden dataset\n# ---------------------------------------------------------------------------\n\n\nclass TestChatbotEvalDataset:\n    \"\"\"Eval tests that load the golden dataset from disk.\"\"\"\n\n    @pytest.mark.asyncio\n    async def test_exact_match_golden_dataset(self):\n        \"\"\"Every answer in the golden dataset must exactly match expected output.\"\"\"\n        await assert_dataset_pass(\n            runnable=run_chatbot,\n            dataset_name=_DATASET_NAME,\n            evaluators=[ExactMatchEval()],\n            dataset_dir=str(_DATASET_DIR),\n        )\n\n    @pytest.mark.asyncio\n    async def test_levenshtein_similarity_golden_dataset(self):\n        \"\"\"Every answer must score >= 0.8 on Levenshtein string similarity.\"\"\"\n        from pixie.evals.criteria import ScoreThreshold  # noqa: PLC0415\n\n        await assert_dataset_pass(\n            runnable=run_chatbot,\n            dataset_name=_DATASET_NAME,\n            evaluators=[LevenshteinMatch()],\n            dataset_dir=str(_DATASET_DIR),\n            pass_criteria=ScoreThreshold(threshold=0.8),\n        )\n\n\n# ---------------------------------------------------------------------------\n# Inline eval \u2014 no dataset file required\n# ---------------------------------------------------------------------------\n\n\nclass TestChatbotEvalInline:\n    \"\"\"Eval tests using inline Evaluable items (no dataset file needed).\"\"\"\n\n    # Golden pairs: (question, expected_answer)\n    _GOLDEN = [\n        (\"What is the capital of France?\", \"Paris is the capital of France.\"),\n        (\"What language do people speak in Germany?\", \"German is spoken in Germany and Austria.\"),\n        (\"What is the population of France?\", \"France has a population of about 68 million.\"),\n        (\"What currency does Germany use?\", \"Germany also uses the Euro (EUR).\"),\n        (\"What is the capital of Germany?\", \"Berlin is the capital of Germany.\"),\n        (\"What currency does France use?\", \"France uses the Euro (EUR).\"),\n    ]\n\n    @pytest.mark.asyncio\n    async def test_exact_match_inline(self):\n        \"\"\"Inline exact-match eval \u2014 no dataset file required.\"\"\"\n        eval_inputs = [q for q, _ in self._GOLDEN]\n        evaluables = [\n            Evaluable(eval_input=q, expected_output=expected)\n            for q, expected in self._GOLDEN\n        ]\n\n        await assert_pass(\n            runnable=run_chatbot,\n            eval_inputs=eval_inputs,\n            evaluators=[ExactMatchEval()],\n            evaluables=evaluables,\n        )\n\n    @pytest.mark.asyncio\n    async def test_unknown_question_returns_fallback(self):\n        \"\"\"Questions with no matching keyword return a 'No relevant documents' answer.\"\"\"\n        from pixie.evals.eval_utils import run_and_evaluate  # noqa: PLC0415\n        from pixie.evals.evaluation import Evaluation  # noqa: PLC0415\n        from pixie.storage.evaluable import Evaluable as _Evaluable  # noqa: PLC0415\n        from pixie.storage.tree import ObservationNode  # noqa: PLC0415\n\n        async def check_fallback(\n            evaluable: _Evaluable,\n            *,\n            trace: list[ObservationNode] | None = None,\n        ) -> Evaluation:\n            output = evaluable.eval_output or \"\"\n            assert \"No relevant documents\" in str(output), (\n                f\"Expected fallback message, got: {output!r}\"\n            )\n            return Evaluation(score=1.0, reasoning=\"fallback present\")\n\n        result = await run_and_evaluate(\n            evaluator=check_fallback,\n            runnable=run_chatbot,\n            eval_input=\"What is the weather in Paris?\",\n        )\n        assert result.score == 1.0\n"}], "grading": {"expectations": [{"text": "The agent edited chatbot.py to add @observe or start_observation to answer_question", "passed": true, "evidence": "chatbot.py line 27: '@px.observe()' decorates answer_question. Additionally, retrieve_docs is also decorated."}, {"text": "The agent added enable_storage() to chatbot.py (not just px.init())", "passed": false, "evidence": "chatbot.py uses 'px.init()' at line 9 but there is NO call to enable_storage() anywhere in chatbot.py. The MEMORY.md confirms this: 'Called px.init() at module level to initialise the instrumentation subsystem.'"}, {"text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass", "passed": true, "evidence": "test_chatbot_eval.py imports and uses both 'assert_dataset_pass' (line 19) and 'assert_pass' (line 121), meeting the assertion."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": false, "evidence": "test_chatbot_eval.py has no call to enable_storage() anywhere \u2014 not in the runnable, not at module level. The run_chatbot function simply calls answer_question directly without any enable_storage() call."}, {"text": "The agent wrote code or commands to create a named dataset (DatasetStore().create() or 'pixie dataset create' CLI)", "passed": false, "evidence": "The dataset file 'datasets/rag-chatbot-golden.json' exists in the project directory, but no build_dataset.py or equivalent script was created. The JSON file appears to have been written directly without using DatasetStore().create(). No CLI commands for dataset creation are shown in MEMORY.md."}, {"text": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())", "passed": false, "evidence": "No build_dataset.py or script using DatasetStore().append() was created. The dataset JSON was written directly as a file. The items have 'eval_output: null', indicating no traces were saved. No 'pixie dataset save' commands appear in MEMORY.md."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at the project directory and documents what was done, key design decisions, and how to run the tests."}], "summary": {"passed": 3, "failed": 4, "total": 7, "pass_rate": 0.43}, "execution_metrics": {}, "timing": {"total_duration_seconds": 106.5}, "claims": [{"claim": "Decorated answer_question() with @px.observe() \u2014 captures question as input and the final answer string as output", "type": "process", "verified": true, "evidence": "chatbot.py lines 27-35 confirm @px.observe() on answer_question."}, {"claim": "A JSON file conforming to pixie's Dataset / Evaluable schema was created with 6 question-answer pairs", "type": "factual", "verified": true, "evidence": "datasets/rag-chatbot-golden.json exists with 6 items. However, all items have eval_output: null."}, {"claim": "px.init() is called at module import time in chatbot.py \u2014 this is idempotent", "type": "process", "verified": true, "evidence": "chatbot.py line 9 has top-level 'px.init()'. However, this is not enable_storage() as required by the assertions."}], "eval_feedback": {"suggestions": [{"assertion": "The agent added enable_storage() to chatbot.py (not just px.init())", "reason": "This assertion correctly discriminates between the two approaches. The without_skill agent used px.init() instead \u2014 a meaningful distinction since enable_storage() is required for the eval harness to capture traces."}, {"reason": "The without_skill agent created the dataset JSON by hand rather than using the DatasetStore API. An assertion that checks for DatasetStore usage (not just file existence) would be valuable, as writing the JSON directly bypasses the intended workflow."}], "overall": "The without_skill run correctly adds @observe but misses enable_storage(), the dataset creation API, and the trace-saving workflow. 3 of 7 assertions pass. The assertions are discriminating and correctly capture the differences."}}}], "previous_feedback": {}, "previous_outputs": {"eval-debug-failures-with_skill-run-1": [{"name": "MEMORY.md", "type": "text", "content": "## Project: Q&A App Eval Debug\n\n### Entry point\n`from qa_app import main; main(question, context)` or directly `answer_question(question, context)`\n\n### Instrumented spans\n- `answer_question(question, context)` \u2014 decorated with `@px.observe(name=\"answer_question\")`\n  - eval_input: `{\"question\": str, \"context\": str}`\n  - eval_output: str (the LLM response)\n- The function calls Anthropic Claude (claude-haiku-4-5-20251001) and returns the response text.\n\n### Datasets\n- `qa-golden-set`: 3 items covering factual QA (geography, literature, science)\n  - All items have `expected_output` set\n  - All items had `eval_output: null` (pre-populated traces were missing)\n\n### Eval plan\n- Evaluator: `FactualityEval()`\n- Pass criteria: `ScoreThreshold(threshold=0.7, pct=0.8)` (80% of cases must score \u2265 0.7)\n- Test file: `tests/test_qa.py::test_factuality`\n- `from_trace`: `last_llm_call` \u2014 captures live LLM response during each test run\n\n### Root Cause of Failures\n\nThe dataset `pixie_datasets/qa-golden-set.json` had `\"eval_output\": null` for all 3 items.\n`FactualityEval` compares `eval_output` against `expected_output`, but with null outputs there\nis nothing to evaluate \u2014 all cases scored 0.\n\nThe test was missing `from_trace=last_llm_call` in the `assert_dataset_pass` call. Without this\nargument, the harness uses the stored `eval_output` from the dataset (null). With `from_trace=last_llm_call`,\nthe harness re-runs the app for each dataset item, captures the live LLM response from the trace,\nand evaluates that instead.\n\n### Fix Applied\nAdded `from_trace=last_llm_call` to `assert_dataset_pass` in `tests/test_qa.py`.\n\n### How to Re-Run\n```bash\ncd /home/yiouli/repo/pixie-qa/.claude/skills/eval-driven-dev-workspace/iteration-4/eval-debug-failures/with_skill/project && PYTHONPATH=/home/yiouli/repo/pixie-qa pixie-test tests/test_qa.py -v\n```\n"}, {"name": "test_qa.py", "type": "text", "content": "\"\"\"Eval-based tests for the Q&A app.\"\"\"\n\nimport asyncio\nfrom pixie import enable_storage\nfrom pixie.evals import assert_dataset_pass, FactualityEval, ScoreThreshold, last_llm_call\n\nfrom qa_app import answer_question\n\n\ndef runnable(eval_input):\n    enable_storage()\n    question = eval_input.get(\"question\", \"\") if isinstance(eval_input, dict) else str(eval_input)\n    context = eval_input.get(\"context\", \"\") if isinstance(eval_input, dict) else \"\"\n    answer_question(question=question, context=context)\n\n\nasync def test_factuality():\n    \"\"\"Test that answers are factually accurate compared to expected outputs.\"\"\"\n    await assert_dataset_pass(\n        runnable=runnable,\n        dataset_name=\"qa-golden-set\",\n        evaluators=[FactualityEval()],\n        pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),\n        from_trace=last_llm_call,\n    )\n"}], "eval-debug-failures-without_skill-run-1": [{"name": "test_qa.py", "type": "text", "content": "\"\"\"Eval-based tests for the Q&A app \u2014 currently failing.\"\"\"\n\nimport asyncio\nfrom pixie import enable_storage\nfrom pixie.evals import assert_dataset_pass, FactualityEval, ScoreThreshold\n\nfrom qa_app import answer_question\n\n\ndef runnable(eval_input):\n    enable_storage()\n    question = eval_input.get(\"question\", \"\") if isinstance(eval_input, dict) else str(eval_input)\n    context = eval_input.get(\"context\", \"\") if isinstance(eval_input, dict) else \"\"\n    return answer_question(question=question, context=context)\n\n\nasync def test_factuality():\n    \"\"\"Test that answers are factually accurate compared to expected outputs.\"\"\"\n    await assert_dataset_pass(\n        runnable=runnable,\n        dataset_name=\"qa-golden-set\",\n        evaluators=[FactualityEval()],\n        pass_criteria=ScoreThreshold(threshold=0.7, pct=0.8),\n    )\n"}], "eval-email-classifier-with_skill-run-1": [{"name": "MEMORY.md", "type": "text", "content": "# Project: Email Classifier\n\n## Entry point\n`python extractor.py` \u2014 runs 4 sample emails through `extract_from_email` and prints JSON.\n\n## Instrumented spans\n- `extract_from_email(email_text: str)` \u2014 `@observe(name=\"extract_from_email\")` wraps the full pipeline\n  - eval_input: `{\"email_text\": str}`\n  - eval_output: `{\"category\": str, \"priority\": str, \"summary\": str}` (dict)\n\n## Datasets\n- `email-classifier-golden`: 6 items covering billing, technical, account, general categories and various priority levels\n\n## Eval plan\n- Evaluator 1: `ValidJSONEval` \u2014 verifies output is valid JSON (serialisable dict with required keys)\n- Evaluator 2: Custom `json_structure_eval` \u2014 verifies `category`, `priority`, and `summary` keys exist and have valid enum values\n- from_trace: `root` (the `@observe` span \u2014 no real LLM call)\n- Pass criteria: `ScoreThreshold(threshold=1.0, pct=1.0)` for structure checks (deterministic rules, should always pass)\n- Test file: `tests/test_email_classifier.py::test_json_structure`\n\n## Known issues / findings\n- App is fully deterministic (keyword rules, no LLM). Structure tests should always pass.\n- `ValidJSONEval` works on the string representation of the output; output is already a dict so it will be serialised.\n"}, {"name": "extractor.py", "type": "text", "content": "\"\"\"Email classifier \u2014 mock version that works without an API key.\n\nThis mock classifies emails using simple keyword rules.\nSuitable for running eval infrastructure without needing OPENAI_API_KEY.\n\"\"\"\n\nimport json\n\nfrom pixie import enable_storage\nimport pixie.instrumentation as px\n\n\n@px.observe(name=\"extract_from_email\")\ndef extract_from_email(email_text: str) -> dict:\n    \"\"\"Extract structured info from a customer support email.\n\n    Returns a dict with:\n      - category: \"billing\" | \"technical\" | \"account\" | \"general\"\n      - priority: \"low\" | \"medium\" | \"high\"\n      - summary: one-sentence summary\n\n    (Mock: uses keyword rules \u2014 no LLM API call needed.)\n    \"\"\"\n    text = email_text.lower()\n\n    # Determine category\n    if any(w in text for w in [\"charge\", \"refund\", \"invoice\", \"payment\", \"billing\", \"subscription\"]):\n        category = \"billing\"\n    elif any(w in text for w in [\"crash\", \"error\", \"bug\", \"broken\", \"not working\", \"upload\", \"download\"]):\n        category = \"technical\"\n    elif any(w in text for w in [\"password\", \"login\", \"account\", \"username\", \"sign in\", \"reset\"]):\n        category = \"account\"\n    else:\n        category = \"general\"\n\n    # Determine priority\n    if any(w in text for w in [\"urgent\", \"asap\", \"immediately\", \"critical\", \"crashing\", \"duplicate charge\"]):\n        priority = \"high\"\n    elif any(w in text for w in [\"soon\", \"when possible\", \"annoying\", \"frustrating\"]):\n        priority = \"medium\"\n    else:\n        priority = \"low\"\n\n    # Generate summary\n    first_sentence = email_text.strip().split(\".\")[0].strip()\n    summary = first_sentence[:100] if first_sentence else \"Customer support request.\"\n\n    return {\"category\": category, \"priority\": priority, \"summary\": summary}\n\n\nif __name__ == \"__main__\":\n    enable_storage()\n    sample_emails = [\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        \"Just wondering when your mobile app will support dark mode.\",\n    ]\n    for email in sample_emails:\n        result = extract_from_email(email)\n        print(json.dumps(result, indent=2))\n        print()\n    px.flush()\n"}, {"name": "test_email_classifier.py", "type": "text", "content": "\"\"\"Eval-based tests for the email classifier.\n\nTests verify that extract_from_email always returns a dict with:\n  - \"category\" in {\"billing\", \"technical\", \"account\", \"general\"}\n  - \"priority\"  in {\"low\", \"medium\", \"high\"}\n  - \"summary\"   a non-empty string\n\nUses heuristic evaluators only \u2014 no API key required.\n\"\"\"\n\nimport json\n\nfrom pixie import enable_storage\nfrom pixie.evals import (\n    assert_dataset_pass,\n    Evaluation,\n    ScoreThreshold,\n    root,\n)\nfrom pixie.storage.evaluable import Evaluable\n\nfrom extractor import extract_from_email\n\nVALID_CATEGORIES = {\"billing\", \"technical\", \"account\", \"general\"}\nVALID_PRIORITIES = {\"low\", \"medium\", \"high\"}\n\n\ndef runnable(eval_input):\n    \"\"\"Adapter: re-run the app with eval_input captured by @observe.\"\"\"\n    enable_storage()\n    extract_from_email(**eval_input)\n\n\n# ---------------------------------------------------------------------------\n# Custom evaluator: checks JSON structure and enum values\n# ---------------------------------------------------------------------------\n\nasync def json_structure_eval(evaluable: Evaluable, *, trace=None) -> Evaluation:\n    \"\"\"Verify output has required keys with valid enum values.\"\"\"\n    output = evaluable.eval_output\n\n    # eval_output is the dict returned by extract_from_email\n    if not isinstance(output, dict):\n        # Try to parse if it's a JSON string\n        try:\n            output = json.loads(output)\n        except Exception:\n            return Evaluation(\n                score=0.0,\n                reasoning=f\"Output is not a dict and cannot be parsed as JSON: {type(output)!r}\",\n            )\n\n    missing_keys = [k for k in (\"category\", \"priority\", \"summary\") if k not in output]\n    if missing_keys:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Missing required keys: {missing_keys}\",\n        )\n\n    errors = []\n    if output[\"category\"] not in VALID_CATEGORIES:\n        errors.append(f\"category {output['category']!r} not in {VALID_CATEGORIES}\")\n    if output[\"priority\"] not in VALID_PRIORITIES:\n        errors.append(f\"priority {output['priority']!r} not in {VALID_PRIORITIES}\")\n    if not isinstance(output[\"summary\"], str) or not output[\"summary\"].strip():\n        errors.append(\"summary must be a non-empty string\")\n\n    if errors:\n        return Evaluation(score=0.0, reasoning=\"; \".join(errors))\n\n    return Evaluation(score=1.0, reasoning=\"All required keys present with valid values.\")\n\n\n# ---------------------------------------------------------------------------\n# Test\n# ---------------------------------------------------------------------------\n\nasync def test_json_structure():\n    \"\"\"Every item in the dataset must have valid JSON structure.\"\"\"\n    await assert_dataset_pass(\n        runnable=runnable,\n        dataset_name=\"email-classifier-golden\",\n        evaluators=[json_structure_eval],\n        pass_criteria=ScoreThreshold(threshold=1.0, pct=1.0),\n        from_trace=root,\n    )\n"}], "eval-email-classifier-without_skill-run-1": [{"name": "extractor.py", "type": "text", "content": "\"\"\"Email classifier \u2014 mock version that works without an API key.\n\nThis mock classifies emails using simple keyword rules.\nSuitable for running eval infrastructure without needing OPENAI_API_KEY.\n\"\"\"\n\nimport json\n\n\ndef extract_from_email(email_text: str) -> dict:\n    \"\"\"Extract structured info from a customer support email.\n\n    Returns a dict with:\n      - category: \"billing\" | \"technical\" | \"account\" | \"general\"\n      - priority: \"low\" | \"medium\" | \"high\"\n      - summary: one-sentence summary\n\n    (Mock: uses keyword rules \u2014 no LLM API call needed.)\n    \"\"\"\n    text = email_text.lower()\n\n    # Determine category\n    if any(w in text for w in [\"charge\", \"refund\", \"invoice\", \"payment\", \"billing\", \"subscription\"]):\n        category = \"billing\"\n    elif any(w in text for w in [\"crash\", \"error\", \"bug\", \"broken\", \"not working\", \"upload\", \"download\"]):\n        category = \"technical\"\n    elif any(w in text for w in [\"password\", \"login\", \"account\", \"username\", \"sign in\", \"reset\"]):\n        category = \"account\"\n    else:\n        category = \"general\"\n\n    # Determine priority\n    if any(w in text for w in [\"urgent\", \"asap\", \"immediately\", \"critical\", \"crashing\", \"duplicate charge\"]):\n        priority = \"high\"\n    elif any(w in text for w in [\"soon\", \"when possible\", \"annoying\", \"frustrating\"]):\n        priority = \"medium\"\n    else:\n        priority = \"low\"\n\n    # Generate summary\n    first_sentence = email_text.strip().split(\".\")[0].strip()\n    summary = first_sentence[:100] if first_sentence else \"Customer support request.\"\n\n    return {\"category\": category, \"priority\": priority, \"summary\": summary}\n\n\nif __name__ == \"__main__\":\n    sample_emails = [\n        \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n        \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n        \"Can you tell me how to reset my password? I can't find the option in settings.\",\n        \"Just wondering when your mobile app will support dark mode.\",\n    ]\n    for email in sample_emails:\n        result = extract_from_email(email)\n        print(json.dumps(result, indent=2))\n        print()\n"}, {"name": "test_email_classifier.py", "type": "text", "content": "\"\"\"Eval-based tests for the email classifier using pixie.\n\nThese tests instrument extract_from_email, run it on sample inputs, and\nevaluate the outputs using pixie evaluators.\n\nRun with:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa pytest test_email_classifier.py -v\n\nOr generate the dataset first:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa python generate_dataset.py\nThen run:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa pytest test_email_classifier.py -v\n\"\"\"\n\nfrom __future__ import annotations\n\nimport asyncio\nimport json\nimport os\nimport sys\n\nimport pytest\n\n# Ensure project dir is importable\nsys.path.insert(0, os.path.dirname(__file__))\n\nimport pixie.instrumentation.observation as _px_obs\nfrom pixie.evals.evaluation import Evaluation\nfrom pixie.evals.eval_utils import assert_pass, assert_dataset_pass, EvalAssertionError\nfrom pixie.evals.trace_capture import capture_traces\nfrom pixie.storage.evaluable import Evaluable, as_evaluable\nfrom pixie.storage.tree import build_tree, ObservationNode\n\nfrom instrumented_extractor import extract_from_email\n\n# ---------------------------------------------------------------------------\n# Project-local dataset directory\n# ---------------------------------------------------------------------------\n\nPROJECT_DIR = os.path.dirname(os.path.abspath(__file__))\nDATASET_DIR = os.path.join(PROJECT_DIR, \"pixie_datasets\")\nDATASET_NAME = \"email-classifier-traces\"\n\n# ---------------------------------------------------------------------------\n# Sample inputs used in live-capture tests\n# ---------------------------------------------------------------------------\n\nSAMPLE_EMAILS = [\n    \"Hi, my subscription was charged twice this month. Please refund the duplicate charge ASAP.\",\n    \"The app keeps crashing when I try to upload files larger than 10MB. This is urgent.\",\n    \"Can you tell me how to reset my password? I can't find the option in settings.\",\n    \"Just wondering when your mobile app will support dark mode.\",\n    \"I received an invoice for an amount I don't recognize. Please help clarify this billing issue.\",\n]\n\n# ---------------------------------------------------------------------------\n# Custom evaluators\n# ---------------------------------------------------------------------------\n\nVALID_CATEGORIES = {\"billing\", \"technical\", \"account\", \"general\"}\nVALID_PRIORITIES = {\"low\", \"medium\", \"high\"}\n\n\nasync def has_required_keys(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that eval_output is a dict with 'category', 'priority', and 'summary'.\"\"\"\n    output = evaluable.eval_output\n    if not isinstance(output, dict):\n        # eval_output is serialised via jsonpickle \u2014 could be a JSON string\n        if isinstance(output, str):\n            try:\n                output = json.loads(output)\n            except (json.JSONDecodeError, TypeError):\n                return Evaluation(\n                    score=0.0,\n                    reasoning=f\"Output is a non-JSON string: {output!r}\",\n                )\n        else:\n            return Evaluation(\n                score=0.0,\n                reasoning=f\"Expected dict output, got {type(output).__name__}: {output!r}\",\n            )\n\n    required = {\"category\", \"priority\", \"summary\"}\n    missing = required - set(output.keys())\n    if missing:\n        return Evaluation(\n            score=0.0,\n            reasoning=f\"Output missing required keys: {sorted(missing)}\",\n        )\n    return Evaluation(\n        score=1.0,\n        reasoning=\"Output contains all required keys: category, priority, summary.\",\n    )\n\n\nasync def valid_category(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that 'category' is one of the allowed values.\"\"\"\n    output = evaluable.eval_output\n    if isinstance(output, str):\n        try:\n            output = json.loads(output)\n        except (json.JSONDecodeError, TypeError):\n            pass\n    if not isinstance(output, dict):\n        return Evaluation(score=0.0, reasoning=\"Output is not a dict.\")\n    cat = output.get(\"category\")\n    if cat in VALID_CATEGORIES:\n        return Evaluation(\n            score=1.0,\n            reasoning=f\"category={cat!r} is valid.\",\n        )\n    return Evaluation(\n        score=0.0,\n        reasoning=f\"category={cat!r} is not in {VALID_CATEGORIES}.\",\n    )\n\n\nasync def valid_priority(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that 'priority' is one of the allowed values.\"\"\"\n    output = evaluable.eval_output\n    if isinstance(output, str):\n        try:\n            output = json.loads(output)\n        except (json.JSONDecodeError, TypeError):\n            pass\n    if not isinstance(output, dict):\n        return Evaluation(score=0.0, reasoning=\"Output is not a dict.\")\n    pri = output.get(\"priority\")\n    if pri in VALID_PRIORITIES:\n        return Evaluation(\n            score=1.0,\n            reasoning=f\"priority={pri!r} is valid.\",\n        )\n    return Evaluation(\n        score=0.0,\n        reasoning=f\"priority={pri!r} is not in {VALID_PRIORITIES}.\",\n    )\n\n\nasync def non_empty_summary(\n    evaluable: Evaluable,\n    *,\n    trace: list[ObservationNode] | None = None,\n) -> Evaluation:\n    \"\"\"Check that 'summary' is a non-empty string.\"\"\"\n    output = evaluable.eval_output\n    if isinstance(output, str):\n        try:\n            output = json.loads(output)\n        except (json.JSONDecodeError, TypeError):\n            pass\n    if not isinstance(output, dict):\n        return Evaluation(score=0.0, reasoning=\"Output is not a dict.\")\n    summary = output.get(\"summary\")\n    if isinstance(summary, str) and len(summary.strip()) > 0:\n        return Evaluation(\n            score=1.0,\n            reasoning=f\"summary is a non-empty string ({len(summary)} chars).\",\n        )\n    return Evaluation(\n        score=0.0,\n        reasoning=f\"summary is empty or not a string: {summary!r}\",\n    )\n\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n\n@pytest.fixture(autouse=True)\ndef _reset_instrumentation():\n    \"\"\"Reset pixie instrumentation state before each test to avoid cross-test bleed.\"\"\"\n    _px_obs._reset_state()\n    yield\n    _px_obs._reset_state()\n\n\n# ---------------------------------------------------------------------------\n# Tests: live capture (no pre-saved dataset required)\n# ---------------------------------------------------------------------------\n\n\nclass TestLiveCapture:\n    \"\"\"Run the extractor on sample inputs, capture traces, and evaluate.\"\"\"\n\n    def test_spans_are_captured(self):\n        \"\"\"Instrumented function should produce at least one span per call.\"\"\"\n        with capture_traces() as handler:\n            extract_from_email(\"My payment failed. Please help!\")\n        assert len(handler.spans) >= 1, \"Expected at least one span to be captured.\"\n\n    def test_span_has_input_and_output(self):\n        \"\"\"Captured span should carry the email text as input and a dict as output.\"\"\"\n        email = \"I need to reset my password urgently.\"\n        with capture_traces() as handler:\n            extract_from_email(email)\n\n        assert handler.spans, \"No spans captured.\"\n        span = handler.spans[0]\n\n        # eval_input should contain the email text somewhere\n        ev = as_evaluable(span)\n        assert ev.eval_input is not None, \"eval_input should not be None.\"\n        assert ev.eval_output is not None, \"eval_output should not be None.\"\n\n    async def test_all_emails_pass_structure_checks(self):\n        \"\"\"All sample emails should produce structurally valid JSON output.\"\"\"\n        evaluators = [has_required_keys, valid_category, valid_priority, non_empty_summary]\n        await assert_pass(\n            runnable=extract_from_email,\n            eval_inputs=SAMPLE_EMAILS,\n            evaluators=evaluators,\n        )\n\n    async def test_billing_email_categorised_as_billing(self):\n        \"\"\"A billing email should be categorised as 'billing'.\"\"\"\n        email = \"I was charged twice. Please refund the duplicate charge.\"\n        with capture_traces() as handler:\n            result = extract_from_email(email)\n\n        assert result[\"category\"] == \"billing\", (\n            f\"Expected 'billing' category, got {result['category']!r}\"\n        )\n\n    async def test_technical_email_categorised_as_technical(self):\n        \"\"\"A technical email should be categorised as 'technical'.\"\"\"\n        email = \"The app keeps crashing when I try to upload a file.\"\n        with capture_traces() as handler:\n            result = extract_from_email(email)\n\n        assert result[\"category\"] == \"technical\", (\n            f\"Expected 'technical' category, got {result['category']!r}\"\n        )\n\n    async def test_urgent_email_has_high_priority(self):\n        \"\"\"An urgent email should receive 'high' priority.\"\"\"\n        email = \"This is URGENT \u2014 my account was hacked and I need help immediately!\"\n        with capture_traces() as handler:\n            result = extract_from_email(email)\n\n        assert result[\"priority\"] == \"high\", (\n            f\"Expected 'high' priority, got {result['priority']!r}\"\n        )\n\n    async def test_account_reset_email(self):\n        \"\"\"A password-reset email should be categorised as 'account'.\"\"\"\n        email = \"I forgot my password and need to reset it.\"\n        with capture_traces() as handler:\n            result = extract_from_email(email)\n\n        assert result[\"category\"] == \"account\", (\n            f\"Expected 'account' category, got {result['category']!r}\"\n        )\n\n\n# ---------------------------------------------------------------------------\n# Tests: dataset-backed (requires generate_dataset.py to have been run first)\n# ---------------------------------------------------------------------------\n\n\nclass TestDatasetBacked:\n    \"\"\"Load the pre-saved dataset and evaluate every item.\"\"\"\n\n    @pytest.fixture(autouse=True)\n    def _check_dataset_exists(self):\n        \"\"\"Skip all dataset tests if the dataset file hasn't been generated yet.\"\"\"\n        dataset_file = os.path.join(DATASET_DIR, \"email-classifier-traces.json\")\n        if not os.path.isfile(dataset_file):\n            pytest.skip(\n                \"Dataset not found. Run 'python generate_dataset.py' first to generate it.\"\n            )\n\n    async def test_dataset_all_required_keys(self):\n        \"\"\"Every item in the saved dataset should have category, priority, summary.\"\"\"\n        await assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[has_required_keys],\n            dataset_dir=DATASET_DIR,\n        )\n\n    async def test_dataset_valid_category(self):\n        \"\"\"Every item in the saved dataset should have a valid category.\"\"\"\n        await assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[valid_category],\n            dataset_dir=DATASET_DIR,\n        )\n\n    async def test_dataset_valid_priority(self):\n        \"\"\"Every item in the saved dataset should have a valid priority.\"\"\"\n        await assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[valid_priority],\n            dataset_dir=DATASET_DIR,\n        )\n\n    async def test_dataset_non_empty_summary(self):\n        \"\"\"Every item in the saved dataset should have a non-empty summary.\"\"\"\n        await assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[non_empty_summary],\n            dataset_dir=DATASET_DIR,\n        )\n\n    async def test_dataset_all_checks_combined(self):\n        \"\"\"Combined: run all four structural checks against the entire dataset.\"\"\"\n        await assert_dataset_pass(\n            runnable=extract_from_email,\n            dataset_name=DATASET_NAME,\n            evaluators=[has_required_keys, valid_category, valid_priority, non_empty_summary],\n            dataset_dir=DATASET_DIR,\n        )\n"}], "eval-rag-chatbot-with_skill-run-1": [{"name": "MEMORY.md", "type": "text", "content": "## Project: RAG Chatbot (Mock)\n\n### Entry point\n`python chatbot.py` \u2014 runs `main()` which calls `answer_question()` for 4 questions.\n\n### Instrumented spans\n- `answer_question(question)` \u2014 @observe wraps the full RAG pipeline\n  - eval_input: {\"question\": str}\n  - eval_output: str (the answer \u2014 first retrieved chunk)\n\n### Datasets\n- `rag-chatbot-golden`: 4 items covering capital, language, population, currency questions\n\n### Eval plan\n- Evaluator: ExactMatchEval (heuristic, no LLM key needed)\n- Pass criteria: ScoreThreshold(threshold=1.0, pct=0.75) \u2014 75% of cases must be exact match\n- Test file: tests/test_rag_chatbot.py::test_answer_exactmatch\n- Uses `root` span since `answer_question` is the outermost observed function\n\n### Known issues / findings\n- Mock version: no real LLM calls, answers are deterministic keyword-based retrieval\n- `answer_question` returns chunks[0] (first retrieved doc), so expected_output is the first chunk per keyword\n"}, {"name": "chatbot.py", "type": "text", "content": "\"\"\"RAG chatbot \u2014 mock version that works without an API key.\n\nThis mock returns deterministic answers based on keyword matching.\nSuitable for running eval infrastructure without needing ANTHROPIC_API_KEY.\n\"\"\"\n\nfrom pixie import enable_storage\nimport pixie.instrumentation as px\n\n\ndef retrieve_docs(query: str) -> list[str]:\n    \"\"\"Retrieve relevant document chunks for a query.\"\"\"\n    docs = {\n        \"capital\": [\"Paris is the capital of France.\", \"Berlin is the capital of Germany.\"],\n        \"population\": [\"France has a population of about 68 million.\", \"Germany has about 84 million people.\"],\n        \"language\": [\"French is spoken in France.\", \"German is spoken in Germany and Austria.\"],\n        \"currency\": [\"France uses the Euro (EUR).\", \"Germany also uses the Euro (EUR).\"],\n    }\n    for keyword, chunks in docs.items():\n        if keyword in query.lower():\n            return chunks\n    return [\"No relevant documents found.\"]\n\n\n@px.observe(name=\"answer_question\")\ndef answer_question(question: str) -> str:\n    \"\"\"Answer a question using retrieved context.\n\n    (Mock: returns deterministic answers \u2014 no LLM API call needed.)\n    \"\"\"\n    chunks = retrieve_docs(question)\n    # In the real version this calls an LLM; here we return the first chunk directly.\n    return chunks[0] if chunks else \"I don't have information about that.\"\n\n\ndef main():\n    enable_storage()\n    questions = [\n        \"What is the capital of France?\",\n        \"What language do people speak in Germany?\",\n        \"What is the population of France?\",\n        \"What currency does Germany use?\",\n    ]\n    for q in questions:\n        print(f\"Q: {q}\")\n        print(f\"A: {answer_question(q)}\")\n        print()\n    px.flush()\n\n\nif __name__ == \"__main__\":\n    main()\n"}, {"name": "test_rag_chatbot.py", "type": "text", "content": "\"\"\"Eval tests for the RAG chatbot using pixie.\"\"\"\n\nfrom pixie import enable_storage\nfrom pixie.evals import assert_dataset_pass, ExactMatchEval, ScoreThreshold\nfrom pixie.evals import root\n\nimport sys\nimport os\n\nsys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\nfrom chatbot import answer_question\n\n\ndef runnable(eval_input):\n    \"\"\"Adapter: call answer_question with the captured eval_input.\"\"\"\n    enable_storage()\n    answer_question(**eval_input)\n\n\nasync def test_answer_exactmatch():\n    \"\"\"Test that answers exactly match expected outputs for known questions.\"\"\"\n    await assert_dataset_pass(\n        runnable=runnable,\n        dataset_name=\"rag-chatbot-golden\",\n        evaluators=[ExactMatchEval()],\n        pass_criteria=ScoreThreshold(threshold=1.0, pct=0.75),\n        from_trace=root,\n    )\n"}], "eval-rag-chatbot-without_skill-run-1": [{"name": "chatbot_instrumented.py", "type": "text", "content": "\"\"\"RAG chatbot \u2014 mock version instrumented with pixie for tracing.\n\nThis version wraps the core functions with pixie's @observe decorator\nand enable_storage() so all spans are persisted to SQLite.\n\"\"\"\n\nimport os\nimport sys\n\n# Ensure pixie is importable\nsys.path.insert(0, os.environ.get(\"PIXIE_PATH\", \"/home/yiouli/repo/pixie-qa\"))\n\nfrom pixie import enable_storage\nfrom pixie.instrumentation import observe, flush\n\n\n# --------------------------------------------------------------------------\n# Instrumented application functions\n# --------------------------------------------------------------------------\n\n\n@observe()\ndef retrieve_docs(query: str) -> list[str]:\n    \"\"\"Retrieve relevant document chunks for a query.\"\"\"\n    docs = {\n        \"capital\": [\"Paris is the capital of France.\", \"Berlin is the capital of Germany.\"],\n        \"population\": [\"France has a population of about 68 million.\", \"Germany has about 84 million people.\"],\n        \"language\": [\"French is spoken in France.\", \"German is spoken in Germany and Austria.\"],\n        \"currency\": [\"France uses the Euro (EUR).\", \"Germany also uses the Euro (EUR).\"],\n    }\n    for keyword, chunks in docs.items():\n        if keyword in query.lower():\n            return chunks\n    return [\"No relevant documents found.\"]\n\n\n@observe()\ndef answer_question(question: str) -> str:\n    \"\"\"Answer a question using retrieved context.\n\n    (Mock: returns deterministic answers \u2014 no LLM API call needed.)\n    \"\"\"\n    chunks = retrieve_docs(question)\n    return chunks[0] if chunks else \"I don't have information about that.\"\n\n\n# --------------------------------------------------------------------------\n# Main entry point\n# --------------------------------------------------------------------------\n\n\ndef main() -> None:\n    enable_storage()\n\n    questions = [\n        \"What is the capital of France?\",\n        \"What language do people speak in Germany?\",\n        \"What is the population of France?\",\n        \"What currency does Germany use?\",\n    ]\n    for q in questions:\n        answer = answer_question(q)\n        print(f\"Q: {q}\")\n        print(f\"A: {answer}\")\n        print()\n\n    flush()\n    print(\"Traces saved to pixie_observations.db\")\n\n\nif __name__ == \"__main__\":\n    main()\n"}, {"name": "test_chatbot_evals.py", "type": "text", "content": "\"\"\"Eval tests for the RAG chatbot using pixie.\n\nRun with:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa pixie test test_chatbot_evals.py\nor:\n    PYTHONPATH=/home/yiouli/repo/pixie-qa python -m pytest test_chatbot_evals.py -v\n\nTests\n-----\n1. test_answer_question_exact_match\n   Runs answer_question() live for each question and checks the output\n   exactly matches the expected answer using ExactMatchEval.\n\n2. test_answer_question_levenshtein\n   Same live run but uses Levenshtein similarity \u2014 tolerates minor\n   wording differences.\n\n3. test_dataset_exact_match\n   Loads the pre-built dataset saved by save_dataset.py and runs\n   ExactMatchEval against every stored item (no app re-execution needed).\n\n4. test_retrieve_docs_returns_list\n   Basic unit-style eval: checks that retrieve_docs returns a non-empty\n   list for known keywords.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport asyncio\nimport os\nimport sys\n\nsys.path.insert(0, os.environ.get(\"PIXIE_PATH\", \"/home/yiouli/repo/pixie-qa\"))\n\nimport pixie.instrumentation.observation as _px_obs\nfrom pixie.evals import (\n    ExactMatchEval,\n    LevenshteinMatch,\n    assert_dataset_pass,\n    assert_pass,\n)\nfrom pixie.evals.evaluation import Evaluation\nfrom pixie.storage.evaluable import Evaluable\nfrom pixie.storage.tree import ObservationNode\n\n# Ensure instrumentation state is clean before tests run\n_px_obs._reset_state()\n\n# Paths\n_HERE = os.path.dirname(os.path.abspath(__file__))\nDATASET_DIR = os.path.join(_HERE, \"pixie_datasets\")\nDATASET_NAME = \"rag-chatbot-traces\"\n\n# Import the instrumented application functions\nfrom chatbot_instrumented import answer_question, retrieve_docs  # noqa: E402\n\n# --------------------------------------------------------------------------\n# Test inputs and expected outputs\n# --------------------------------------------------------------------------\n\nQUESTIONS = [\n    \"What is the capital of France?\",\n    \"What language do people speak in Germany?\",\n    \"What is the population of France?\",\n    \"What currency does Germany use?\",\n]\n\n# These match the first chunk returned by retrieve_docs for each keyword\nEXPECTED_OUTPUTS = [\n    \"Paris is the capital of France.\",\n    \"French is spoken in France.\",\n    \"France has a population of about 68 million.\",\n    \"France uses the Euro (EUR).\",\n]\n\n# --------------------------------------------------------------------------\n# Helper: wrap answer_question to accept a single string input\n# --------------------------------------------------------------------------\n\n\ndef _run_answer_question(question: str) -> str:\n    \"\"\"Thin wrapper so answer_question fits the (input) -> output signature.\"\"\"\n    return answer_question(question)\n\n\n# --------------------------------------------------------------------------\n# Tests\n# --------------------------------------------------------------------------\n\n\ndef test_answer_question_exact_match() -> None:\n    \"\"\"Each question produces the exact expected first-chunk answer.\"\"\"\n    asyncio.run(\n        assert_pass(\n            runnable=_run_answer_question,\n            eval_inputs=QUESTIONS,\n            evaluators=[ExactMatchEval()],\n            evaluables=[\n                Evaluable(eval_input=q, eval_output=None, expected_output=e)\n                for q, e in zip(QUESTIONS, EXPECTED_OUTPUTS)\n            ],\n        )\n    )\n\n\ndef test_answer_question_levenshtein() -> None:\n    \"\"\"Levenshtein similarity >= 0.5 for each answer (should be 1.0 for exact match).\"\"\"\n    asyncio.run(\n        assert_pass(\n            runnable=_run_answer_question,\n            eval_inputs=QUESTIONS,\n            evaluators=[LevenshteinMatch()],\n            evaluables=[\n                Evaluable(eval_input=q, eval_output=None, expected_output=e)\n                for q, e in zip(QUESTIONS, EXPECTED_OUTPUTS)\n            ],\n        )\n    )\n\n\ndef test_dataset_exact_match() -> None:\n    \"\"\"Load the pre-built dataset and run ExactMatchEval against every item.\n\n    Requires save_dataset.py to have been executed first so that\n    pixie_datasets/rag-chatbot-traces.json exists.\n    \"\"\"\n    dataset_path = os.path.join(DATASET_DIR, \"rag-chatbot-traces.json\")\n    if not os.path.exists(dataset_path):\n        raise AssertionError(\n            f\"Dataset not found at {dataset_path}. \"\n            \"Run save_dataset.py first:\\n\"\n            \"  PYTHONPATH=/home/yiouli/repo/pixie-qa python save_dataset.py\"\n        )\n\n    asyncio.run(\n        assert_dataset_pass(\n            runnable=_run_answer_question,\n            dataset_name=DATASET_NAME,\n            evaluators=[ExactMatchEval()],\n            dataset_dir=DATASET_DIR,\n        )\n    )\n\n\ndef test_retrieve_docs_returns_relevant_chunks() -> None:\n    \"\"\"retrieve_docs returns at least one chunk for every known keyword.\"\"\"\n    keywords_and_expected_first_words = {\n        \"capital\": \"Paris\",\n        \"population\": \"France\",\n        \"language\": \"French\",\n        \"currency\": \"France\",\n    }\n\n    async def _check_output(\n        evaluable: Evaluable,\n        *,\n        trace: list[ObservationNode] | None = None,\n    ) -> Evaluation:\n        output = evaluable.eval_output\n        # output is the JSON-serialised list returned by retrieve_docs\n        # Check it is non-empty and contains at least one string\n        if output is None:\n            return Evaluation(score=0.0, reasoning=\"Output is None\")\n        if isinstance(output, list) and len(output) > 0:\n            return Evaluation(score=1.0, reasoning=\"Non-empty list returned\")\n        # JSON-serialised string form \u2014 just confirm it's not the fallback\n        if \"No relevant documents found\" in str(output):\n            return Evaluation(score=0.0, reasoning=\"Fallback 'no docs' returned\")\n        return Evaluation(score=1.0, reasoning=\"Docs returned\")\n\n    def _run_retrieve(query: str) -> list[str]:\n        return retrieve_docs(query)\n\n    asyncio.run(\n        assert_pass(\n            runnable=_run_retrieve,\n            eval_inputs=list(keywords_and_expected_first_words.keys()),\n            evaluators=[_check_output],\n        )\n    )\n"}]}, "benchmark": {"metadata": {"skill_name": "eval-driven-dev", "skill_path": "<path/to/skill>", "executor_model": "<model-name>", "analyzer_model": "<model-name>", "timestamp": "2026-03-12T08:22:09Z", "evals_run": [1, 2, 3], "runs_per_configuration": 3}, "runs": [{"eval_id": 3, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 5, "failed": 0, "total": 5, "time_seconds": 142.2, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file", "passed": true, "evidence": "MEMORY.md documents understanding of all three files in detail: test_qa.py (explains the original runnable), qa_app.py (describes answer_question with LLM call), and the dataset (notes 'eval_output: null' in all items). The fix applied is consistent with reading all three files."}, {"text": "The agent identified that eval_output is null in the dataset items as the root cause", "passed": true, "evidence": "MEMORY.md 'Root cause of failures' section explicitly states: 'Because all dataset items have eval_output: null, FactualityEval receives None as the output and scores 0 on every case.' This is the central diagnosis."}, {"text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live OR added from_trace=last_llm_call)", "passed": true, "evidence": "tests/test_qa.py was rewritten to use 'run_and_evaluate' per item with 'from_trace=last_llm_call', which captures a live trace from the LLM span. MEMORY.md confirms: 'Fix applied: Replaced assert_dataset_pass with a manual loop using run_and_evaluate per item.'"}, {"text": "The agent showed the 'pixie-test' command to re-run and verify the fix", "passed": true, "evidence": "MEMORY.md 'To run tests' section shows: 'PYTHONPATH=/home/yiouli/repo/pixie-qa pixie-test tests/test_qa.py -v'"}, {"text": "The agent did NOT modify files outside the project directory (especially not /home/yiouli/repo/pixie-qa/pixie/ framework source files)", "passed": true, "evidence": "File system check confirms no pixie framework files were modified after the run. MEMORY.md 'Files Modified' section only lists 'tests/test_qa.py' within the project directory."}], "notes": []}, {"eval_id": 2, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 7, "failed": 0, "total": 7, "time_seconds": 97.8, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email", "passed": true, "evidence": "extractor.py line 15: '@px.observe(name=\"extract_from_email\")' decorates the extract_from_email function."}, {"text": "The agent added enable_storage() to extractor.py (not just px.init())", "passed": true, "evidence": "extractor.py lines 9-12: 'from pixie import enable_storage' followed by top-level 'enable_storage()' call."}, {"text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator", "passed": true, "evidence": "tests/test_email_classifier.py line 4: imports 'JSONDiffEval' and uses it in test_classification as the evaluator passed to assert_dataset_pass."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": true, "evidence": "tests/test_email_classifier.py lines 9-12: 'def runnable(eval_input):' contains 'enable_storage()' as its first statement, inside the function body."}, {"text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset", "passed": true, "evidence": "build_dataset.py line 78: 'store.create(DATASET_NAME)' creates the 'email-classifier-golden' dataset using DatasetStore."}, {"text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset", "passed": true, "evidence": "build_dataset.py lines 80-88: 'store.append(DATASET_NAME, Evaluable(...))' is called for each of the 6 golden items, saving them to the dataset."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at the project directory and documents the entry point, instrumented spans, use cases, datasets, eval plan, and known issues."}], "notes": []}, {"eval_id": 1, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 7, "failed": 0, "total": 7, "time_seconds": 93.6, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent edited chatbot.py to add @observe or start_observation to answer_question", "passed": true, "evidence": "chatbot.py line 27: '@px.observe(name=\"answer_question\")' decorates the answer_question function directly."}, {"text": "The agent added enable_storage() to chatbot.py (not just px.init())", "passed": true, "evidence": "chatbot.py lines 7-10: 'from pixie import enable_storage' followed by 'enable_storage()' at module level."}, {"text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass", "passed": true, "evidence": "tests/test_rag_chatbot.py imports and calls 'assert_dataset_pass' in both test_factuality and test_answer_relevancy."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": true, "evidence": "tests/test_rag_chatbot.py lines 27-32: 'def runnable(eval_input):' contains 'enable_storage()' as its first statement, inside the function body."}, {"text": "The agent wrote code or commands to create a named dataset (DatasetStore().create() or 'pixie dataset create' CLI)", "passed": true, "evidence": "build_dataset.py line 45: 'store.create(DATASET_NAME)' creates the 'rag-chatbot-golden' dataset. MEMORY.md also shows 'pixie dataset create rag-chatbot-golden' CLI command."}, {"text": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())", "passed": true, "evidence": "build_dataset.py lines 48-57: 'store.append(DATASET_NAME, Evaluable(...))' saves each golden item. MEMORY.md also shows 'pixie dataset save' CLI commands."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at /project/MEMORY.md and contains detailed project documentation including entry points, instrumentation notes, dataset schema, eval plan, and commands."}], "notes": []}, {"eval_id": 3, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.8, "passed": 4, "failed": 1, "total": 5, "time_seconds": 135.9, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent read tests/test_qa.py, qa_app.py, and the dataset file", "passed": true, "evidence": "MEMORY.md documents detailed understanding of all three files: the original test_qa.py (quotes the broken runnable), qa_app.py (notes the @observe decorator and LLM call), and the dataset JSON (quotes 'eval_output: null' as the issue). The fix applied is consistent with having read all three."}, {"text": "The agent identified that eval_output is null in the dataset items as the root cause", "passed": true, "evidence": "MEMORY.md 'Bug 2' section states: 'Since the dataset JSON (pixie_datasets/qa-golden-set.json) has \"eval_output\": null for all items, every call to FactualityEval received output=None and scored 0.' The null eval_output is explicitly named as a root cause."}, {"text": "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live OR added from_trace=last_llm_call)", "passed": true, "evidence": "tests/test_qa.py was rewritten: the runnable now returns the answer (line 16: 'return answer_question(...)'), and the test manually runs the runnable via asyncio.to_thread, builds populated Evaluable objects with live eval_output, then calls assert_pass with those evaluables. This populates eval_output before evaluation."}, {"text": "The agent showed the 'pixie-test' command to re-run and verify the fix", "passed": false, "evidence": "MEMORY.md does not show a 'pixie-test' command. The document lists only the modified files and explains the fixes but does not include a run command. No pixie-test invocation is documented anywhere in the project files."}, {"text": "The agent did NOT modify files outside the project directory (especially not /home/yiouli/repo/pixie-qa/pixie/ framework source files)", "passed": true, "evidence": "File system check confirms no pixie framework files were modified after the run. MEMORY.md 'Files Modified' section only lists 'tests/test_qa.py' within the project directory."}], "notes": []}, {"eval_id": 2, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.57, "passed": 4, "failed": 3, "total": 7, "time_seconds": 112.1, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent edited extractor.py to add @observe or start_observation to extract_from_email", "passed": true, "evidence": "extractor.py line 14: '@observe()' decorates extract_from_email. (Uses 'from pixie.instrumentation import init, observe' and '@observe()' directly.)"}, {"text": "The agent added enable_storage() to extractor.py (not just px.init())", "passed": false, "evidence": "extractor.py uses 'init()' at line 11 (imported as 'from pixie.instrumentation import init, observe'). There is no enable_storage() call anywhere in extractor.py."}, {"text": "The agent wrote a test file using ValidJSONEval, JSONDiffEval, or a custom field evaluator", "passed": true, "evidence": "test_email_classifier.py defines custom async evaluators: category_matches, priority_matches, summary_is_non_empty, output_has_required_fields, category_is_valid, and priority_is_valid \u2014 these are custom field evaluators checking specific JSON fields."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": false, "evidence": "test_email_classifier.py has no call to enable_storage() anywhere \u2014 not in a runnable function, not at module level. The test functions call extract_from_email directly as the runnable without any enable_storage() setup."}, {"text": "The agent used 'pixie dataset create' or DatasetStore().create() to create a named dataset", "passed": true, "evidence": "build_dataset.py line 150: 'dataset = store.create(DATASET_NAME, items=items)' uses DatasetStore().create() to create the 'email-classifier-golden' dataset."}, {"text": "The agent used 'pixie dataset save' (CLI or equivalent) to save traces into the dataset", "passed": true, "evidence": "build_dataset.py line 150: 'store.create(DATASET_NAME, items=items)' passes items at creation time, which saves the evaluable items to the dataset. This is the equivalent of DatasetStore().append() for initial population."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": false, "evidence": "No MEMORY.md file exists in the without_skill email classifier project directory. The file listing shows only: build_dataset.py, extractor.py, requirements.txt, test_email_classifier.py."}], "notes": []}, {"eval_id": 1, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.43, "passed": 3, "failed": 4, "total": 7, "time_seconds": 106.5, "tokens": 0, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The agent edited chatbot.py to add @observe or start_observation to answer_question", "passed": true, "evidence": "chatbot.py line 27: '@px.observe()' decorates answer_question. Additionally, retrieve_docs is also decorated."}, {"text": "The agent added enable_storage() to chatbot.py (not just px.init())", "passed": false, "evidence": "chatbot.py uses 'px.init()' at line 9 but there is NO call to enable_storage() anywhere in chatbot.py. The MEMORY.md confirms this: 'Called px.init() at module level to initialise the instrumentation subsystem.'"}, {"text": "The agent created a test file (test_*.py) with assert_dataset_pass or assert_pass", "passed": true, "evidence": "test_chatbot_eval.py imports and uses both 'assert_dataset_pass' (line 19) and 'assert_pass' (line 121), meeting the assertion."}, {"text": "The test file calls enable_storage() inside the runnable (not at module level in the test)", "passed": false, "evidence": "test_chatbot_eval.py has no call to enable_storage() anywhere \u2014 not in the runnable, not at module level. The run_chatbot function simply calls answer_question directly without any enable_storage() call."}, {"text": "The agent wrote code or commands to create a named dataset (DatasetStore().create() or 'pixie dataset create' CLI)", "passed": false, "evidence": "The dataset file 'datasets/rag-chatbot-golden.json' exists in the project directory, but no build_dataset.py or equivalent script was created. The JSON file appears to have been written directly without using DatasetStore().create(). No CLI commands for dataset creation are shown in MEMORY.md."}, {"text": "The agent wrote code or commands to save traces to the dataset ('pixie dataset save' CLI or DatasetStore().append())", "passed": false, "evidence": "No build_dataset.py or script using DatasetStore().append() was created. The dataset JSON was written directly as a file. The items have 'eval_output: null', indicating no traces were saved. No 'pixie dataset save' commands appear in MEMORY.md."}, {"text": "The agent created a MEMORY.md or notes file in the project directory", "passed": true, "evidence": "MEMORY.md exists at the project directory and documents what was done, key design decisions, and how to run the tests."}], "notes": []}], "run_summary": {"with_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0}, "time_seconds": {"mean": 111.2, "stddev": 26.9288, "min": 93.6, "max": 142.2}, "tokens": {"mean": 0.0, "stddev": 0.0, "min": 0, "max": 0}}, "without_skill": {"pass_rate": {"mean": 0.6, "stddev": 0.1868, "min": 0.43, "max": 0.8}, "time_seconds": {"mean": 118.1667, "stddev": 15.6107, "min": 106.5, "max": 135.9}, "tokens": {"mean": 0.0, "stddev": 0.0, "min": 0, "max": 0}}, "delta": {"pass_rate": "+0.40", "time_seconds": "-7.0", "tokens": "+0"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

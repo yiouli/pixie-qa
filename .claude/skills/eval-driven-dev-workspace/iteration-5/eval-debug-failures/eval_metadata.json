@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "eval-debug-failures",
+  "prompt": "I have a QA app with failing eval tests. The tests are in tests/test_qa.py and all cases are scoring 0. Please investigate why the tests are failing and fix the issue.",
+  "assertions": [
+    "The agent read tests/test_qa.py, qa_app.py, and the dataset file",
+    "The agent identified that eval_output is null in the dataset items as the root cause",
+    "The agent made a concrete fix (populated eval_output in dataset OR rewrote test to run the app live OR added from_trace=last_llm_call)",
+    "The agent showed the 'pixie-test' command to re-run and verify the fix",
+    "The agent did NOT modify files outside the project directory (especially not framework source files)"
+  ]
+}

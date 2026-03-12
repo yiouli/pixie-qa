@@ -1,0 +1,44 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends @observe or start_observation decorator on the extraction function",
+      "passed": true,
+      "evidence": "Stage 3 explicitly shows adding '@px.observe(name=\"extract_from_email\")' to the extraction function, with a before/after code example. The key points section explains that pixie will record eval_input and eval_output."
+    },
+    {
+      "text": "Shows how to attach expected_output to dataset items (echo piped to --expected-output flag or Python API)",
+      "passed": true,
+      "evidence": "Step 4b shows: 'echo '{...}' | pixie dataset save email-extraction --expected-output --notes ...'. Step 4c (build_dataset.py) shows the Python API using 'Evaluable(eval_input=..., expected_output=...)' with DatasetStore.append()."
+    },
+    {
+      "text": "Recommends ValidJSONEval, JSONDiffEval, or a custom evaluator for structured output validation",
+      "passed": true,
+      "evidence": "Stage 2 evaluation plan table recommends 'ValidJSONEval(schema=...)' for parseable JSON validation. Stage 5 test code uses 'ValidJSONEval()' in test_extraction_structure(). A custom 'has_required_fields' evaluator is also provided for field-level validation. Note: JSONDiffEval is not mentioned, but ValidJSONEval and a custom evaluator are present."
+    },
+    {
+      "text": "Shows a complete test function using assert_dataset_pass or assert_pass",
+      "passed": true,
+      "evidence": "Stage 5 provides two complete async test functions (test_extraction_structure and test_extraction_quality) both using 'await assert_dataset_pass(runnable=..., dataset_name=..., evaluators=[...], pass_criteria=..., from_trace=root)'."
+    },
+    {
+      "text": "Explains running tests with pixie-test",
+      "passed": true,
+      "evidence": "After Stage 5 code, a bash block shows: 'pixie-test', 'pixie-test -k structure', 'pixie-test -k quality', and 'pixie-test -v' with explanations. Stage 6 also references 'pixie-test -v' for investigating failures."
+    },
+    {
+      "text": "Addresses how to handle partial pass criteria (ScoreThreshold)",
+      "passed": true,
+      "evidence": "Both test functions use ScoreThreshold: test_extraction_structure uses 'ScoreThreshold(threshold=1.0, pct=1.0)' (must be perfect), and test_extraction_quality uses 'ScoreThreshold(threshold=0.7, pct=0.8)' (80% must score >= 0.7), demonstrating partial pass criteria."
+    }
+  ],
+  "summary": {
+    "pass_rate": 1.0,
+    "timing": {
+      "total_tokens": 18569,
+      "duration_ms": 73087,
+      "total_duration_seconds": 73.1
+    },
+    "claims": "The response provides a comprehensive, end-to-end guide for eval-driven testing of a JSON extraction function. It covers all six expectations: instrumentation with @observe, dataset building with expected_output (both CLI and Python API), evaluator recommendations (ValidJSONEval + custom), complete test functions with assert_dataset_pass, running tests with pixie-test, and partial pass criteria with ScoreThreshold.",
+    "eval_feedback": "All 6 expectations are met. The response is well-structured with clear stages. One minor note: JSONDiffEval is not mentioned (ValidJSONEval and a custom evaluator are used instead), but ValidJSONEval fully satisfies expectation 3. The ScoreThreshold examples in expectation 6 are particularly well-demonstrated with both strict (pct=1.0) and lenient (pct=0.8) variants."
+  }
+}

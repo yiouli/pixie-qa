@@ -1,0 +1,82 @@
+[
+  {
+    "query": "i have a rag chatbot in ~/projects/support-bot/chatbot.py that answers questions based on our zendesk docs. it's been giving inconsistent answers lately and i want to make sure it's actually working correctly before we ship to customers next week",
+    "should_trigger": true
+  },
+  {
+    "query": "we built a python script that classifies customer emails using claude. product wants a way to catch regressions whenever we change the prompt. how do i set this up?",
+    "should_trigger": true
+  },
+  {
+    "query": "my LLM summarizer (summarizer.py) sometimes drops key facts from the source documents. i want to build a test suite around it so i can confidently refactor the prompt",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm working on a contract extraction pipeline — it pulls dates, parties, and obligations from pdf contracts using gpt-4. i want to evaluate the quality of the extractions systematically. where do i start?",
+    "should_trigger": true
+  },
+  {
+    "query": "my ai agent is behaving weirdly. it was working fine yesterday but after i changed the system prompt it started giving completely different answers to the same questions. how do i debug this?",
+    "should_trigger": true
+  },
+  {
+    "query": "i need to add observability to my python llm pipeline so i can trace what's going into the model and what's coming out. the entry point is pipeline/run.py",
+    "should_trigger": true
+  },
+  {
+    "query": "we have a qa bot at work (qa_bot.py, calls openai) and we want to benchmark two different prompt strategies to see which one answers factual questions better. is there a good way to do this?",
+    "should_trigger": true
+  },
+  {
+    "query": "can you help me build a golden dataset for testing my document Q&A app? i want to have a set of question/answer pairs i can run evals against whenever i change the retrieval logic",
+    "should_trigger": true
+  },
+  {
+    "query": "i updated our rag pipeline's retrieval step (it now does hybrid search instead of pure vector search) and i want to validate that the answer quality actually improved. what's the process?",
+    "should_trigger": true
+  },
+  {
+    "query": "my chatbot passes all my manual spot checks but i feel like there might be edge cases i'm missing. how do i set up more rigorous testing for it?",
+    "should_trigger": true
+  },
+  {
+    "query": "i have a flask api at work and i want to write unit tests for the /users and /orders endpoints. can you help me write pytest tests for those?",
+    "should_trigger": false
+  },
+  {
+    "query": "we're setting up a github actions pipeline for our python package. i need help with the ci config — running tests, linting with ruff, and publishing to pypi on tags",
+    "should_trigger": false
+  },
+  {
+    "query": "i'm fine-tuning a bert model on our internal ticket classification dataset (tickets.csv, ~50k rows). the training is going well but validation accuracy is plateauing at 87%. any tips?",
+    "should_trigger": false
+  },
+  {
+    "query": "i need to benchmark the query performance of our postgres database. some queries on the user_events table are taking 3-5 seconds and i want to see which indexes would help",
+    "should_trigger": false
+  },
+  {
+    "query": "can you help me add structured logging to our django app? we want to ship logs to datadog with request_id, user_id, and response_time fields on every request",
+    "should_trigger": false
+  },
+  {
+    "query": "i have a bunch of pytest tests in tests/ that haven't been run in a while. can you help me fix the ones that are failing? most of the failures seem to be import errors",
+    "should_trigger": false
+  },
+  {
+    "query": "we're doing a load test on our api before launch. i want to simulate 500 concurrent users hitting the /search endpoint and measure p95 latency. what tool should i use?",
+    "should_trigger": false
+  },
+  {
+    "query": "i'm evaluating three open source vector databases (qdrant, weaviate, milvus) for a new project. can you help me benchmark them on insertion speed and recall at different k values?",
+    "should_trigger": false
+  },
+  {
+    "query": "we have a python microservice (inventory_service.py) that i want to add prometheus metrics to — things like request count, latency histograms, and error rates per endpoint",
+    "should_trigger": false
+  },
+  {
+    "query": "i want to evaluate my machine learning model's performance. i have predictions in preds.csv and ground truth in labels.csv. can you calculate precision, recall, and f1 for me?",
+    "should_trigger": false
+  }
+]

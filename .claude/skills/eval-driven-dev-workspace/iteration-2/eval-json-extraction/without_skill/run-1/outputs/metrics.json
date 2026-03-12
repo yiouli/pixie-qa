@@ -1,0 +1,28 @@
+{
+  "files_modified": 1,
+  "files_created": 2,
+  "instrumentation_added": true,
+  "instrumentation_method": "@px.observe decorator",
+  "dataset_name": "email-classifier-golden",
+  "dataset_items": 5,
+  "dataset_categories_covered": ["billing", "technical", "account", "general"],
+  "dataset_priorities_covered": ["low", "medium", "high"],
+  "test_functions": 6,
+  "evaluators_written": 6,
+  "evaluators_heuristic": 6,
+  "evaluators_llm_judge": 0,
+  "uses_assert_pass": true,
+  "uses_assert_dataset_pass": true,
+  "uses_ScoreThreshold": true,
+  "pixie_api_used": [
+    "pixie.instrumentation.init",
+    "pixie.instrumentation.observe",
+    "pixie.instrumentation.flush",
+    "pixie.dataset.DatasetStore",
+    "pixie.storage.evaluable.Evaluable",
+    "pixie.evals.assert_pass",
+    "pixie.evals.assert_dataset_pass",
+    "pixie.evals.Evaluation",
+    "pixie.evals.ScoreThreshold"
+  ]
+}

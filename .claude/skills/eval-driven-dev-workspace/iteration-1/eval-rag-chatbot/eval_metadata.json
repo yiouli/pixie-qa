@@ -1,0 +1,14 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-rag-chatbot",
+  "prompt": "I've been building a Python chatbot that answers questions about our internal docs using Claude. It retrieves relevant chunks and then generates answers. Works okay manually but I'm worried about regressions every time I tweak the prompt. How do I set up a proper eval pipeline for this with pixie?",
+  "assertions": [
+    "Explains instrumentation with @observe or start_observation around the relevant function",
+    "Shows or explains enable_storage() for persisting traces",
+    "Shows pixie dataset create and pixie dataset save CLI commands",
+    "Shows assert_dataset_pass or assert_pass in a test file",
+    "Recommends an appropriate evaluator (e.g. FactualityEval, ClosedQAEval)",
+    "Explains how to run tests with pixie-test",
+    "Mentions documenting understanding in memory files"
+  ]
+}

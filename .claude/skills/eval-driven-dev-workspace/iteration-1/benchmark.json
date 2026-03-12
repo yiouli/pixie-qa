@@ -1,0 +1,363 @@
+{
+  "metadata": {
+    "skill_name": "eval-driven-dev",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-03-12T05:36:09Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 69.8,
+        "tokens": 20219,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Suggests running pixie-test -v for verbose output showing per-case reasoning",
+          "passed": true,
+          "evidence": "Step 1 explicitly shows 'pixie-test -v' and describes the per-case output with scores and reasoning strings. Repeated in the cheat-sheet at the end."
+        },
+        {
+          "text": "Explains how to find trace_id in eval_metadata of failing dataset items",
+          "passed": true,
+          "evidence": "Step 2 shows Python code iterating dataset items and calling 'item.eval_metadata.get(\"trace_id\")' with an explanation that trace_id links the item to the execution trace in pixie_observations.db."
+        },
+        {
+          "text": "Shows code to inspect a trace using ObservationStore.get_trace() or similar",
+          "passed": true,
+          "evidence": "Step 3 shows an async function using 'ObservationStore' and 'await store.get_trace(trace_id)' followed by 'root.to_text()'. Repeated in the cheat-sheet."
+        },
+        {
+          "text": "Covers possible root causes (bad prompt, retrieval issue, wrong expected_output, criteria too strict)",
+          "passed": true,
+          "evidence": "Step 4 provides a table covering: empty output (app crashed), 'answer contradicts reference' (bad prompt or retrieval), 'expected output is vague' (wrong expected_output), all cases fail at similar scores (ScoreThreshold too strict), and specific-input failures (edge case)."
+        },
+        {
+          "text": "Explains the iteration loop: fix -> re-run -> compare",
+          "passed": true,
+          "evidence": "Step 7 explicitly describes the loop: run 'pixie-test -v', check if failing cases improved and passing cases didn't regress, and 'Keep cycling through steps 1-6 until all tests pass'."
+        },
+        {
+          "text": "Mentions ScoreThreshold as a way to relax criteria if expectations were too strict",
+          "passed": true,
+          "evidence": "Step 6 under 'Relax the pass criteria' shows a code example using 'ScoreThreshold(threshold=0.5, pct=0.8)' with explanation that it allows 80% to pass instead of requiring 100%."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 73.1,
+        "tokens": 18569,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends @observe or start_observation decorator on the extraction function",
+          "passed": true,
+          "evidence": "Stage 3 explicitly shows adding '@px.observe(name=\"extract_from_email\")' to the extraction function, with a before/after code example. The key points section explains that pixie will record eval_input and eval_output."
+        },
+        {
+          "text": "Shows how to attach expected_output to dataset items (echo piped to --expected-output flag or Python API)",
+          "passed": true,
+          "evidence": "Step 4b shows: 'echo '{...}' | pixie dataset save email-extraction --expected-output --notes ...'. Step 4c (build_dataset.py) shows the Python API using 'Evaluable(eval_input=..., expected_output=...)' with DatasetStore.append()."
+        },
+        {
+          "text": "Recommends ValidJSONEval, JSONDiffEval, or a custom evaluator for structured output validation",
+          "passed": true,
+          "evidence": "Stage 2 evaluation plan table recommends 'ValidJSONEval(schema=...)' for parseable JSON validation. Stage 5 test code uses 'ValidJSONEval()' in test_extraction_structure(). A custom 'has_required_fields' evaluator is also provided for field-level validation. Note: JSONDiffEval is not mentioned, but ValidJSONEval and a custom evaluator are present."
+        },
+        {
+          "text": "Shows a complete test function using assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "Stage 5 provides two complete async test functions (test_extraction_structure and test_extraction_quality) both using 'await assert_dataset_pass(runnable=..., dataset_name=..., evaluators=[...], pass_criteria=..., from_trace=root)'."
+        },
+        {
+          "text": "Explains running tests with pixie-test",
+          "passed": true,
+          "evidence": "After Stage 5 code, a bash block shows: 'pixie-test', 'pixie-test -k structure', 'pixie-test -k quality', and 'pixie-test -v' with explanations. Stage 6 also references 'pixie-test -v' for investigating failures."
+        },
+        {
+          "text": "Addresses how to handle partial pass criteria (ScoreThreshold)",
+          "passed": true,
+          "evidence": "Both test functions use ScoreThreshold: test_extraction_structure uses 'ScoreThreshold(threshold=1.0, pct=1.0)' (must be perfect), and test_extraction_quality uses 'ScoreThreshold(threshold=0.7, pct=0.8)' (80% must score >= 0.7), demonstrating partial pass criteria."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.857,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 77.8,
+        "tokens": 18474,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Explains instrumentation with @observe or start_observation around the relevant function",
+          "passed": true,
+          "evidence": "Stage 3 shows @px.observe(name=\"answer_question\") decorating the answer function, with explanation that it captures kwargs as eval_input and return value as eval_output. Also shown in the Quick-Start Checklist and Key pixie APIs section."
+        },
+        {
+          "text": "Shows or explains enable_storage() for persisting traces",
+          "passed": true,
+          "evidence": "enable_storage() is shown in Stage 3 Step 1 with explicit code: 'from pixie import enable_storage; enable_storage()'. It is also shown in the dataset build section, test file, and checklist."
+        },
+        {
+          "text": "Shows pixie dataset create and pixie dataset save CLI commands",
+          "passed": true,
+          "evidence": "Stage 4 shows both commands: 'pixie dataset create rag-golden-set' and 'pixie dataset save rag-golden-set --notes \"password reset question\"'. Both are also listed in the Quick-Start Checklist."
+        },
+        {
+          "text": "Shows assert_dataset_pass or assert_pass in a test file",
+          "passed": true,
+          "evidence": "Stage 5 shows a complete test file tests/test_rag_chatbot.py with assert_dataset_pass used in three async test functions (test_faithfulness, test_answer_relevancy, test_answer_correctness)."
+        },
+        {
+          "text": "Recommends an appropriate evaluator (e.g. FactualityEval, ClosedQAEval)",
+          "passed": true,
+          "evidence": "Stage 2 recommends FaithfulnessEval, AnswerRelevancyEval, AnswerCorrectnessEval, and ContextRelevancyEval in a table. The response explicitly recommends starting with FaithfulnessEval + AnswerRelevancyEval as they require no reference answers."
+        },
+        {
+          "text": "Explains how to run tests with pixie-test",
+          "passed": true,
+          "evidence": "Stage 5 shows three variations: 'pixie-test tests/' to run all tests, 'pixie-test -k faithfulness' to run specific tests, and 'pixie-test -v' for verbose output. Stage 7 also recommends running pixie-test in CI."
+        },
+        {
+          "text": "Mentions documenting understanding in memory files",
+          "passed": false,
+          "evidence": "The response does not mention memory files, CLAUDE.md, or documenting understanding in any persistent memory/documentation files anywhere in the output."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.333,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 71.3,
+        "tokens": 26186,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Suggests running pixie-test -v for verbose output showing per-case reasoning",
+          "passed": true,
+          "evidence": "Step 1 explicitly recommends 'pixie-test -v' and explains that the -v flag causes format_results in runner.py to print the full failure message for each failed test, including the EvalAssertionError message."
+        },
+        {
+          "text": "Explains how to find trace_id in eval_metadata of failing dataset items",
+          "passed": false,
+          "evidence": "The response mentions eval_metadata only in passing ('their eval_input, expected_output, and any eval_metadata') when listing dataset file contents, but never explains how to find a trace_id within eval_metadata of failing dataset items. No trace_id lookup is described."
+        },
+        {
+          "text": "Shows code to inspect a trace using ObservationStore.get_trace() or similar",
+          "passed": false,
+          "evidence": "There is no mention of ObservationStore, get_trace(), or any API to retrieve and inspect a stored trace by ID. The response only discusses inspecting the EvalAssertionError.results tensor and adding a debug_evaluator, not trace-level inspection."
+        },
+        {
+          "text": "Covers possible root causes (bad prompt, retrieval issue, wrong expected_output, criteria too strict)",
+          "passed": false,
+          "evidence": "Step 7 covers app regression (which could include bad prompts), stale/wrong expected_output, evaluator misconfiguration (criteria too strict), and evaluator errors. However, 'retrieval issue' as a distinct root cause is never mentioned, making the coverage incomplete against the expected set."
+        },
+        {
+          "text": "Explains the iteration loop: fix -> re-run -> compare",
+          "passed": false,
+          "evidence": "Step 7 and the summary mention fixing app/dataset/evaluator and re-running pixie-test, but the response never explicitly frames this as an iteration loop with a compare step. The concept of comparing results before and after a fix to track improvement is absent."
+        },
+        {
+          "text": "Mentions ScoreThreshold as a way to relax criteria if expectations were too strict",
+          "passed": true,
+          "evidence": "Step 7 item 5 explicitly shows 'ScoreThreshold(threshold=0.5, pct=0.8)' with a complete code example, describing it as a way to tolerate occasional borderline outputs when using an LLM-as-judge evaluator."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 76.0,
+        "tokens": 18669,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends @observe or start_observation decorator on the extraction function",
+          "passed": true,
+          "evidence": "Step 1 shows `with px.start_observation(input=email_text, name=\"email_extraction\") as observation:` wrapping the OpenAI call inside `extract_from_email`. The complete test file in Step 4 also uses `px.start_observation` in the instrumented function. The `@observe` decorator form is not shown, but `start_observation` is the context-manager equivalent and is correctly applied to the extraction function."
+        },
+        {
+          "text": "Shows how to attach expected_output to dataset items (echo piped to --expected-output flag or Python API)",
+          "passed": true,
+          "evidence": "Step 3 shows the Python API: `Evaluable(eval_input=..., expected_output=json.dumps({...}))` when calling `store.create(...)`. The CLI approach is also shown at the end: `echo '{...}' | pixie dataset save email-extraction-golden --expected-output`. Both methods are covered."
+        },
+        {
+          "text": "Recommends ValidJSONEval, JSONDiffEval, or a custom evaluator for structured output validation",
+          "passed": true,
+          "evidence": "Section 2a shows a custom `has_required_fields` evaluator that validates JSON structure. Section 2c explicitly shows `JSONDiffEval` from `pixie.evals`. `ValidJSONEval` is referenced in the import list in Step 4 (`from pixie.evals import ... ValidJSONEval ...`) and mentioned in the workflow summary table. All three recommended options are addressed."
+        },
+        {
+          "text": "Shows a complete test function using assert_dataset_pass or assert_pass",
+          "passed": true,
+          "evidence": "Step 4 contains three complete pytest async test functions: `test_extraction_produces_valid_schema` uses `assert_pass`, `test_extraction_matches_golden_dataset` uses `assert_dataset_pass`, and `test_extraction_passes_at_80_pct` uses `assert_pass` with partial pass criteria. All are complete with runnable, eval_inputs/dataset_name, evaluators, and pass_criteria arguments."
+        },
+        {
+          "text": "Explains running tests with pixie-test",
+          "passed": true,
+          "evidence": "Step 5 shows: `pixie-test test_extraction.py -v` as one of the run commands alongside the standard pytest invocation."
+        },
+        {
+          "text": "Addresses how to handle partial pass criteria (ScoreThreshold)",
+          "passed": true,
+          "evidence": "The response uses `ScoreThreshold` throughout: `pass_criteria=ScoreThreshold(threshold=1.0, pct=1.0)` for strict tests and `pass_criteria=ScoreThreshold(threshold=1.0, pct=0.8)` for the 80% lenient test in `test_extraction_passes_at_80_pct`. The 'Key Decisions to Make' section also explains choosing between `pct=1.0` and `pct=0.8` thresholds depending on the type of check."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.714,
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "time_seconds": 67.3,
+        "tokens": 17493,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Explains instrumentation with @observe or start_observation around the relevant function",
+          "passed": true,
+          "evidence": "Step 1 clearly shows px.start_observation used as a context manager wrapping the answer_question function, with input and output captured via obs.set_output()."
+        },
+        {
+          "text": "Shows or explains enable_storage() for persisting traces",
+          "passed": true,
+          "evidence": "Step 1 imports and calls enable_storage() with an explanation: 'One-time setup \u2014 creates SQLite DB and registers the storage handler'. The summary also mentions it explicitly."
+        },
+        {
+          "text": "Shows pixie dataset create and pixie dataset save CLI commands",
+          "passed": false,
+          "evidence": "pixie dataset save is shown multiple times (Steps 2 and 6), but pixie dataset create as a CLI command is never shown. Step 2 uses the Python API (DatasetStore.create()) instead of the CLI command."
+        },
+        {
+          "text": "Shows assert_dataset_pass or assert_pass in a test file",
+          "passed": true,
+          "evidence": "Step 4 shows a complete test file tests/test_rag_chatbot_eval.py with three test functions all using await assert_dataset_pass() with dataset_name, evaluators, and pass_criteria parameters."
+        },
+        {
+          "text": "Recommends an appropriate evaluator (e.g. FactualityEval, ClosedQAEval)",
+          "passed": true,
+          "evidence": "FactualityEval is recommended and used in tests. Additional RAG-appropriate evaluators are also recommended: FaithfulnessEval, AnswerRelevancyEval, AnswerCorrectnessEval, ContextRelevancyEval, EmbeddingSimilarityEval."
+        },
+        {
+          "text": "Explains how to run tests with pixie-test",
+          "passed": true,
+          "evidence": "Step 5 shows multiple pixie-test invocations: 'pixie-test tests/', 'pixie-test tests/test_rag_chatbot_eval.py -v', and 'pixie-test tests/ -k faithfulness'. The CI section also uses uv run pixie-test."
+        },
+        {
+          "text": "Mentions documenting understanding in memory files",
+          "passed": false,
+          "evidence": "No mention of memory files, documentation of understanding, or any memory-related workflow anywhere in the response."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.9523,
+        "stddev": 0.0826,
+        "min": 0.857,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 73.5667,
+        "stddev": 4.0204,
+        "min": 69.8,
+        "max": 77.8
+      },
+      "tokens": {
+        "mean": 19087.3333,
+        "stddev": 981.2025,
+        "min": 18474,
+        "max": 20219
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.6823,
+        "stddev": 0.3346,
+        "min": 0.333,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 71.5333,
+        "stddev": 4.3547,
+        "min": 67.3,
+        "max": 76.0
+      },
+      "tokens": {
+        "mean": 20782.6667,
+        "stddev": 4716.2223,
+        "min": 17493,
+        "max": 26186
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.27",
+      "time_seconds": "+2.0",
+      "tokens": "-1695"
+    }
+  },
+  "notes": []
+}
