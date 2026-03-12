@@ -1,24 +1,24 @@
-# pixie Python Package
+# pixie-qa Python Package
 
-`pixie` is the Python library that powers eval-driven development for LLM applications. It handles tracing, dataset management, and evaluation harness so you can write tests that measure quality.
+`pixie-qa` (imported as `pixie`) is the Python library that powers eval-driven development for LLM applications. It handles tracing, dataset management, and evaluation harness so you can write tests that measure quality.
 
 ## Installation
 
 ```bash
-pip install pixie
+pip install pixie-qa
 # or, if you use uv:
-uv add pixie
+uv add pixie-qa
 ```
 
 Provider instrumentation extras (auto-trace LLM API calls):
 
 ```bash
-pip install "pixie[openai]"       # OpenAI
-pip install "pixie[anthropic]"    # Anthropic
-pip install "pixie[langchain]"    # LangChain
-pip install "pixie[google]"       # Google Generative AI
-pip install "pixie[dspy]"         # DSPy
-pip install "pixie[all]"          # all of the above
+pip install "pixie-qa[openai]"       # OpenAI
+pip install "pixie-qa[anthropic]"    # Anthropic
+pip install "pixie-qa[langchain]"    # LangChain
+pip install "pixie-qa[google]"       # Google Generative AI
+pip install "pixie-qa[dspy]"         # DSPy
+pip install "pixie-qa[all]"          # all of the above
 ```
 
 ## Configuration

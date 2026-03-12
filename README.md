@@ -27,19 +27,19 @@ If you are using an openskills-compatible agent host:
 npx openskills install anthropics/skills
 ```
 
-### 2. Install the `pixie` package in your project
+### 2. Install the `pixie-qa` package in your project
 
 ```bash
-pip install pixie          # or: uv add pixie
+pip install pixie-qa          # or: uv add pixie-qa
 ```
 
 Provider instrumentation extras:
 
 ```bash
-pip install "pixie[openai]"       # OpenAI
-pip install "pixie[anthropic]"    # Anthropic
-pip install "pixie[langchain]"    # LangChain
-pip install "pixie[all]"          # all providers
+pip install "pixie-qa[openai]"       # OpenAI
+pip install "pixie-qa[anthropic]"    # Anthropic
+pip install "pixie-qa[langchain]"    # LangChain
+pip install "pixie-qa[all]"          # all providers
 ```
 
 ### 3. Ask Claude to set up evals
@@ -94,4 +94,4 @@ changelogs/     Per-feature change history
 
 ## Python Package
 
-The `pixie` Python package is what Claude installs and uses inside your project. For the package API and CLI reference, see [docs/package.md](docs/package.md).
+The `pixie-qa` Python package (imported as `pixie`) is what Claude installs and uses inside your project. For the package API and CLI reference, see [docs/package.md](docs/package.md).

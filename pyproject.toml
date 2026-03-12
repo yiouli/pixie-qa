@@ -1,9 +1,21 @@
 [project]
-name = "pixie"
+name = "pixie-qa"
 version = "0.1.0"
 description = "Automated quality assurance for AI applications"
-requires-python = ">=3.10"
-
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["llm", "evals", "testing", "ai", "observability", "opentelemetry"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "opentelemetry-sdk>=1.27.0",
     "opentelemetry-api>=1.27.0",
@@ -13,6 +25,12 @@ dependencies = [
     "pydantic>=2.0",
     "jsonpickle>=4.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/yiouli/pixie-qa"
+Repository = "https://github.com/yiouli/pixie-qa"
+Documentation = "https://yiouli.github.io/pixie-qa/"
+"Bug Tracker" = "https://github.com/yiouli/pixie-qa/issues"
 
 [project.optional-dependencies]
 openai = ["openinference-instrumentation-openai"]
@@ -28,21 +46,25 @@ all = [
     "openinference-instrumentation-dspy",
 ]
 
+[project.scripts]
+pixie = "pixie.cli.main:main"
+pixie-test = "pixie.cli.test_command:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "mypy>=1.10",
     "ruff>=0.4",
     "pytest-asyncio>=1.3.0",
+    "pdoc>=14.0",
 ]
-
-[project.scripts]
-pixie = "pixie.cli.main:main"
-pixie-test = "pixie.cli.test_command:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pixie"]
 
 [tool.mypy]
 python_version = "3.11"
