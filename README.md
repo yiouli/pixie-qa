@@ -2,8 +2,6 @@
 
 An agent skill for **eval-driven development** of LLM-powered applications.
 
-Use this skill to instrument your app, build golden datasets from real runs, write eval-based tests, and catch regressions before they ship — all from a single conversation with Claude.
-
 ## What the Skill Does
 
 The `eval-driven-dev` skill guides your coding agent through the full QA loop for LLM applications:
