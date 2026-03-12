@@ -109,7 +109,9 @@ def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
         output_text = "".join(parts) if parts else None
 
     # Convert input_messages to JSON-compatible list of dicts
-    input_data: JsonValue = [_make_json_compatible(asdict(msg)) for msg in span.input_messages]
+    input_data: JsonValue = [
+        _make_json_compatible(asdict(msg)) for msg in span.input_messages
+    ]
 
     metadata: dict[str, Any] = {
         "trace_id": span.trace_id,
@@ -124,7 +126,9 @@ def _llm_span_to_evaluable(span: LLMSpan) -> Evaluable:
         "cache_creation_tokens": span.cache_creation_tokens,
         "finish_reasons": list(span.finish_reasons),
         "error_type": span.error_type,
-        "tool_definitions": [_make_json_compatible(asdict(td)) for td in span.tool_definitions],
+        "tool_definitions": [
+            _make_json_compatible(asdict(td)) for td in span.tool_definitions
+        ],
     }
 
     return Evaluable(

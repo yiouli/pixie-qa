@@ -94,25 +94,35 @@ class TestAsEvaluableObserveSpan:
         result = as_evaluable(sample_observe_span)
         assert isinstance(result, Evaluable)
 
-    def test_eval_input_from_observe_span(self, sample_observe_span: ObserveSpan) -> None:
+    def test_eval_input_from_observe_span(
+        self, sample_observe_span: ObserveSpan
+    ) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.eval_input == {"query": "What is our refund policy?"}
 
-    def test_eval_output_from_observe_span(self, sample_observe_span: ObserveSpan) -> None:
+    def test_eval_output_from_observe_span(
+        self, sample_observe_span: ObserveSpan
+    ) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.eval_output == "You can return items within 30 days."
 
-    def test_eval_metadata_from_observe_span(self, sample_observe_span: ObserveSpan) -> None:
+    def test_eval_metadata_from_observe_span(
+        self, sample_observe_span: ObserveSpan
+    ) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.eval_metadata is not None
         assert result.eval_metadata["env"] == "test"
 
-    def test_trace_id_in_observe_span_metadata(self, sample_observe_span: ObserveSpan) -> None:
+    def test_trace_id_in_observe_span_metadata(
+        self, sample_observe_span: ObserveSpan
+    ) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.eval_metadata is not None
         assert result.eval_metadata["trace_id"] == "bbbb0000000000000000000000000001"
 
-    def test_span_id_in_observe_span_metadata(self, sample_observe_span: ObserveSpan) -> None:
+    def test_span_id_in_observe_span_metadata(
+        self, sample_observe_span: ObserveSpan
+    ) -> None:
         result = as_evaluable(sample_observe_span)
         assert result.eval_metadata is not None
         assert result.eval_metadata["span_id"] == "aaaa000000000001"
@@ -142,7 +152,9 @@ class TestAsEvaluableLLMSpan:
         result = as_evaluable(sample_llm_span)
         assert result.eval_output == "You can return items within 30 days."
 
-    def test_eval_output_none_when_empty(self, sample_llm_span_empty_output: LLMSpan) -> None:
+    def test_eval_output_none_when_empty(
+        self, sample_llm_span_empty_output: LLMSpan
+    ) -> None:
         result = as_evaluable(sample_llm_span_empty_output)
         assert result.eval_output is None
 
@@ -151,7 +163,9 @@ class TestAsEvaluableLLMSpan:
         assert isinstance(result.eval_input, list)
         assert len(result.eval_input) == 2  # SystemMessage + UserMessage
 
-    def test_eval_metadata_contains_expected_keys(self, sample_llm_span: LLMSpan) -> None:
+    def test_eval_metadata_contains_expected_keys(
+        self, sample_llm_span: LLMSpan
+    ) -> None:
         result = as_evaluable(sample_llm_span)
         assert result.eval_metadata is not None
         meta = result.eval_metadata

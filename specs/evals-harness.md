@@ -116,7 +116,7 @@ async def evaluate(
 1. If `evaluator` is a sync callable (not a coroutine function), wrap it with `asyncio.to_thread`.
 2. Call the evaluator with `evaluable` and `trace`. If `expected_output` is not `None`, also pass it as a keyword argument.
 3. Validate the returned `Evaluation`: clamp `score` to [0.0, 1.0], ensure `reasoning` is a non-empty string.
-4. If the evaluator raises an exception, **let it propagate** to the caller.  Evaluator errors (missing API keys, network failures, etc.) must never be silently converted to a zero score.
+4. If the evaluator raises an exception, **let it propagate** to the caller. Evaluator errors (missing API keys, network failures, etc.) must never be silently converted to a zero score.
 5. Return the `Evaluation`.
 
 ---

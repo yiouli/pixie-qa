@@ -36,14 +36,17 @@ Both `_observe_span_to_evaluable()` and `_llm_span_to_evaluable()` now inject th
 ## Files Affected
 
 ### Package
+
 - `pixie/__init__.py` — re-exports all public API symbols
 - `pixie/storage/evaluable.py` — `as_evaluable()` includes trace_id/span_id
 
 ### Tests
+
 - `tests/pixie/test_init.py` — **new** — 27 tests verifying root package exports
 - `tests/pixie/observation_store/test_evaluable.py` — added trace_id/span_id assertions
 
 ### Docs
+
 - `README.md` — code examples updated to top-level imports
 - `docs/package.md` — all import examples updated
 - `.claude/skills/eval-driven-dev/SKILL.md` — full skill instruction rewrite

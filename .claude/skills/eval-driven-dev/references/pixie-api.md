@@ -4,11 +4,11 @@
 
 All settings read from environment variables at call time:
 
-| Variable            | Default                 | Description                         |
-|---------------------|-------------------------|-------------------------------------|
-| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path           |
-| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine (currently sqlite)  |
-| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files    |
+| Variable            | Default                 | Description                        |
+| ------------------- | ----------------------- | ---------------------------------- |
+| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path          |
+| `PIXIE_DB_ENGINE`   | `sqlite`                | Database engine (currently sqlite) |
+| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files   |
 
 ---
 
@@ -18,14 +18,14 @@ All settings read from environment variables at call time:
 from pixie import enable_storage, observe, start_observation, flush, init, add_handler
 ```
 
-| Function / Decorator | Signature | Notes |
-|---|---|---|
-| `enable_storage()` | `() → StorageHandler` | Idempotent. Creates DB, registers handler. Call at app startup. |
-| `init()` | `(*, capture_content=True, queue_size=1000) → None` | Called internally by `enable_storage`. Idempotent. |
-| `observe` | `(name=None) → decorator` | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
-| `start_observation` | `(*, input, name=None) → ContextManager[ObservationContext]` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside. |
-| `flush` | `(timeout_seconds=5.0) → bool` | Drains the queue. Call after a run before using CLI commands. |
-| `add_handler` | `(handler) → None` | Register a custom handler (must call `init()` first). |
+| Function / Decorator | Signature                                                    | Notes                                                                                               |
+| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `enable_storage()`   | `() → StorageHandler`                                        | Idempotent. Creates DB, registers handler. Call at app startup.                                     |
+| `init()`             | `(*, capture_content=True, queue_size=1000) → None`          | Called internally by `enable_storage`. Idempotent.                                                  |
+| `observe`            | `(name=None) → decorator`                                    | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
+| `start_observation`  | `(*, input, name=None) → ContextManager[ObservationContext]` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside.                    |
+| `flush`              | `(timeout_seconds=5.0) → bool`                               | Drains the queue. Call after a run before using CLI commands.                                       |
+| `add_handler`        | `(handler) → None`                                           | Register a custom handler (must call `init()` first).                                               |
 
 ---
 
@@ -46,6 +46,7 @@ pixie-test [path] [-k filter_substring] [-v]
 ```
 
 **`pixie dataset save` selection modes:**
+
 - `root` (default) — the outermost `@observe` or `start_observation` span
 - `last_llm_call` — the most recent LLM API call span in the trace
 - `by_name` — a span matching the `--span-name` argument (takes the last matching span)
@@ -66,6 +67,7 @@ from pixie import (
 ### Key functions
 
 **`assert_dataset_pass(runnable, dataset_name, evaluators, *, dataset_dir=None, passes=1, pass_criteria=None, from_trace=None)`**
+
 - Loads dataset by name, runs `assert_pass` with all items.
 - `runnable`: callable `(eval_input) → None` (sync or async). Must instrument itself.
 - `evaluators`: list of evaluator callables.
@@ -73,12 +75,15 @@ from pixie import (
 - `from_trace`: `last_llm_call` or `root` — selects which span to evaluate.
 
 **`assert_pass(runnable, eval_inputs, evaluators, *, evaluables=None, passes=1, pass_criteria=None, from_trace=None)`**
+
 - Same, but takes explicit inputs (and optionally `Evaluable` items for expected outputs).
 
 **`run_and_evaluate(evaluator, runnable, eval_input, *, expected_output=..., from_trace=None)`**
+
 - Runs `runnable(eval_input)`, captures traces, evaluates. Returns one `Evaluation`.
 
 **`ScoreThreshold(threshold=0.5, pct=1.0)`**
+
 - `threshold`: min score per item (default 0.5).
 - `pct`: fraction of items that must meet threshold (default 1.0 = all).
 - Example: `ScoreThreshold(0.7, pct=0.8)` = 80% of cases must score ≥ 0.7.
@@ -95,36 +100,36 @@ from pixie import (
 
 ### Heuristic (no LLM needed)
 
-| Evaluator | Use when |
-|---|---|
-| `ExactMatchEval(expected=...)` | Output must exactly equal the expected string |
-| `LevenshteinMatch(expected=...)` | Partial string similarity (edit distance) |
-| `NumericDiffEval(expected=...)` | Normalised numeric difference |
-| `JSONDiffEval(expected=...)` | Structural JSON comparison |
-| `ValidJSONEval(schema=None)` | Output is valid JSON (optionally matching a schema) |
-| `ListContainsEval(expected=...)` | Output list contains expected items |
+| Evaluator                        | Use when                                            |
+| -------------------------------- | --------------------------------------------------- |
+| `ExactMatchEval(expected=...)`   | Output must exactly equal the expected string       |
+| `LevenshteinMatch(expected=...)` | Partial string similarity (edit distance)           |
+| `NumericDiffEval(expected=...)`  | Normalised numeric difference                       |
+| `JSONDiffEval(expected=...)`     | Structural JSON comparison                          |
+| `ValidJSONEval(schema=None)`     | Output is valid JSON (optionally matching a schema) |
+| `ListContainsEval(expected=...)` | Output list contains expected items                 |
 
 ### LLM-as-judge (require OpenAI key or compatible client)
 
-| Evaluator | Use when |
-|---|---|
+| Evaluator                                             | Use when                                  |
+| ----------------------------------------------------- | ----------------------------------------- |
 | `FactualityEval(expected=..., model=..., client=...)` | Output is factually accurate vs reference |
-| `ClosedQAEval(expected=..., model=..., client=...)` | Closed-book QA comparison |
-| `SummaryEval(expected=..., model=..., client=...)` | Summarisation quality |
-| `TranslationEval(expected=..., language=..., ...)` | Translation quality |
-| `PossibleEval(model=..., client=...)` | Output is feasible / plausible |
-| `SecurityEval(model=..., client=...)` | No security vulnerabilities in output |
-| `ModerationEval(threshold=..., client=...)` | Content moderation |
-| `BattleEval(expected=..., model=..., client=...)` | Head-to-head comparison |
+| `ClosedQAEval(expected=..., model=..., client=...)`   | Closed-book QA comparison                 |
+| `SummaryEval(expected=..., model=..., client=...)`    | Summarisation quality                     |
+| `TranslationEval(expected=..., language=..., ...)`    | Translation quality                       |
+| `PossibleEval(model=..., client=...)`                 | Output is feasible / plausible            |
+| `SecurityEval(model=..., client=...)`                 | No security vulnerabilities in output     |
+| `ModerationEval(threshold=..., client=...)`           | Content moderation                        |
+| `BattleEval(expected=..., model=..., client=...)`     | Head-to-head comparison                   |
 
 ### RAG / retrieval
 
-| Evaluator | Use when |
-|---|---|
-| `ContextRelevancyEval(expected=..., client=...)` | Retrieved context is relevant to query |
-| `FaithfulnessEval(client=...)` | Answer is faithful to the provided context |
-| `AnswerRelevancyEval(client=...)` | Answer addresses the question |
-| `AnswerCorrectnessEval(expected=..., client=...)` | Answer is correct vs reference |
+| Evaluator                                         | Use when                                   |
+| ------------------------------------------------- | ------------------------------------------ |
+| `ContextRelevancyEval(expected=..., client=...)`  | Retrieved context is relevant to query     |
+| `FaithfulnessEval(client=...)`                    | Answer is faithful to the provided context |
+| `AnswerRelevancyEval(client=...)`                 | Answer addresses the question              |
+| `AnswerCorrectnessEval(expected=..., client=...)` | Answer is correct vs reference             |
 
 ### Custom evaluator template
 
@@ -157,6 +162,7 @@ store.delete("my-dataset")                          # delete entirely
 ```
 
 **`Evaluable` fields:**
+
 - `eval_input`: the input (what `@observe` captured as function kwargs)
 - `eval_output`: the output (return value of the observed function)
 - `eval_metadata`: dict of extra info (trace_id, span_id, provider, token counts, etc.) — always includes `trace_id` and `span_id`
