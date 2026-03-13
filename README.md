@@ -6,7 +6,7 @@ An agent skill for **eval-driven development** of LLM-powered applications.
 
 The `eval-driven-dev` skill guides your coding agent through the full QA loop for LLM applications:
 
-1. **Understand the app** — read the codebase, trace the data flow, learn what the app is supposed to do
+1. **Understand the code** — read the codebase, trace the data flow, learn what the code is supposed to do
 2. **Instrument it** — add `enable_storage()` and `@observe` so every run is captured to a local SQLite database
 3. **Build a dataset** — save representative traces as test cases with `pixie dataset save`
 4. **Write eval tests** — generate `test_*.py` files with `assert_dataset_pass` and appropriate evaluators
@@ -18,7 +18,7 @@ The `eval-driven-dev` skill guides your coding agent through the full QA loop fo
 ### 1. Add the skill to your coding agent
 
 ```bash
-npx openskills install yiouli/pixie-qa
+npx skills add yiouli/pixie-qa
 ```
 
 The accompanying python package would be installed by the skill automatically when it's used.
