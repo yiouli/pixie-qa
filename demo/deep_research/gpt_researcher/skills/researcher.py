@@ -76,7 +76,7 @@ class ResearchConductor:
             parent_query=self.researcher.parent_query,
             report_type=self.researcher.report_type,
             cost_callback=self.researcher.add_costs,
-            retriever_names=retriever_names,  # Pass retriever names for MCP optimization
+            retriever_names=retriever_names,
             **self.researcher.kwargs
         )
         self.logger.info(f"Research outline planned: {outline}")
