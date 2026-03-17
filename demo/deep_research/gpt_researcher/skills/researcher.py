@@ -14,7 +14,7 @@ from ..actions.agent_creator import choose_agent
 from ..actions.query_processing import get_search_results, plan_research_outline
 from ..actions.utils import stream_output
 from ..document import DocumentLoader, LangChainDocumentLoader, OnlineDocumentLoader
-from ..utils.enum import ReportSource, ReportType
+from ..utils.enum import ReportSource
 from ..utils.logging_config import get_json_handler
 
 
@@ -38,7 +38,7 @@ class ResearchConductor:
             researcher: The GPTResearcher instance that owns this conductor.
         """
         self.researcher = researcher
-        self.logger = logging.getLogger('research')
+        self.logger = logging.getLogger("research")
         self.json_handler = get_json_handler()
 
     async def plan_research(self, query, query_domains=None):
@@ -55,13 +55,17 @@ class ResearchConductor:
             self.researcher.websocket,
         )
 
-        search_results = await get_search_results(query, self.researcher.retrievers[0], query_domains, researcher=self.researcher)
-        self.logger.info(f"Initial search results obtained: {len(search_results)} results")
+        search_results = await get_search_results(
+            query, self.researcher.retrievers[0], query_domains
+        )
+        self.logger.info(
+            f"Initial search results obtained: {len(search_results)} results"
+        )
 
         await stream_output(
             "logs",
             "planning_research",
-            f"🤔 Planning the research strategy and subtasks...",
+            "🤔 Planning the research strategy and subtasks...",
             self.researcher.websocket,
         )
 
@@ -77,7 +81,7 @@ class ResearchConductor:
             report_type=self.researcher.report_type,
             cost_callback=self.researcher.add_costs,
             retriever_names=retriever_names,
-            **self.researcher.kwargs
+            **self.researcher.kwargs,
         )
         self.logger.info(f"Research outline planned: {outline}")
         return outline
@@ -86,13 +90,13 @@ class ResearchConductor:
         """Runs the GPT Researcher to conduct research"""
         if self.json_handler:
             self.json_handler.update_content("query", self.researcher.query)
-        
+
         self.logger.info(f"Starting research for query: {self.researcher.query}")
-        
+
         # Log active retrievers once at the start of research
         retriever_names = [r.__name__ for r in self.researcher.retrievers]
         self.logger.info(f"Active retrievers: {retriever_names}")
-        
+
         # Reset visited_urls and source_urls at the start of each research task
         self.researcher.visited_urls.clear()
         research_data = []
@@ -108,7 +112,7 @@ class ResearchConductor:
                 "logs",
                 "agent_generated",
                 self.researcher.agent,
-                self.researcher.websocket
+                self.researcher.websocket,
             )
 
         # Choose agent and role if not already defined
@@ -119,9 +123,9 @@ class ResearchConductor:
                 parent_query=self.researcher.parent_query,
                 cost_callback=self.researcher.add_costs,
                 headers=self.researcher.headers,
-                prompt_family=self.researcher.prompt_family
+                prompt_family=self.researcher.prompt_family,
             )
-                
+
         # Conduct research based on the source type
         if self.researcher.source_urls:
             self.logger.info("Using provided source URLs")
@@ -130,16 +134,20 @@ class ResearchConductor:
                 await stream_output(
                     "logs",
                     "answering_from_memory",
-                    f"🧐 I was unable to find relevant context in the provided sources...",
+                    "🧐 I was unable to find relevant context in the provided sources...",
                     self.researcher.websocket,
                 )
             if self.researcher.complement_source_urls:
                 self.logger.info("Complementing with web search")
-                additional_research = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
-                research_data += ' '.join(additional_research)
+                additional_research = await self._get_context_by_web_search(
+                    self.researcher.query, [], self.researcher.query_domains
+                )
+                research_data += " ".join(additional_research)
         elif self.researcher.report_source == ReportSource.Web.value:
             self.logger.info("Using web search with all configured retrievers")
-            research_data = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
+            research_data = await self._get_context_by_web_search(
+                self.researcher.query, [], self.researcher.query_domains
+            )
         elif self.researcher.report_source == ReportSource.Local.value:
             self.logger.info("Using local search")
             document_data = await DocumentLoader(self.researcher.cfg.doc_path).load()
@@ -147,28 +155,45 @@ class ResearchConductor:
             if self.researcher.vector_store:
                 self.researcher.vector_store.load(document_data)
 
-            research_data = await self._get_context_by_web_search(self.researcher.query, document_data, self.researcher.query_domains)
+            research_data = await self._get_context_by_web_search(
+                self.researcher.query, document_data, self.researcher.query_domains
+            )
         # Hybrid search including both local documents and web sources
         elif self.researcher.report_source == ReportSource.Hybrid.value:
             if self.researcher.document_urls:
-                document_data = await OnlineDocumentLoader(self.researcher.document_urls).load()
+                document_data = await OnlineDocumentLoader(
+                    self.researcher.document_urls
+                ).load()
             else:
-                document_data = await DocumentLoader(self.researcher.cfg.doc_path).load()
+                document_data = await DocumentLoader(
+                    self.researcher.cfg.doc_path
+                ).load()
             if self.researcher.vector_store:
                 self.researcher.vector_store.load(document_data)
-            docs_context = await self._get_context_by_web_search(self.researcher.query, document_data, self.researcher.query_domains)
-            web_context = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
-            research_data = self.researcher.prompt_family.join_local_web_documents(docs_context, web_context)
+            docs_context = await self._get_context_by_web_search(
+                self.researcher.query, document_data, self.researcher.query_domains
+            )
+            web_context = await self._get_context_by_web_search(
+                self.researcher.query, [], self.researcher.query_domains
+            )
+            research_data = self.researcher.prompt_family.join_local_web_documents(
+                docs_context, web_context
+            )
         elif self.researcher.report_source == ReportSource.Azure.value:
             from ..document.azure_document_loader import AzureDocumentLoader
+
             azure_loader = AzureDocumentLoader(
                 container_name=os.getenv("AZURE_CONTAINER_NAME"),
-                connection_string=os.getenv("AZURE_CONNECTION_STRING")
+                connection_string=os.getenv("AZURE_CONNECTION_STRING"),
             )
             azure_files = await azure_loader.load()
-            document_data = await DocumentLoader(azure_files).load()  # Reuse existing loader
-            research_data = await self._get_context_by_web_search(self.researcher.query, document_data)
-            
+            document_data = await DocumentLoader(
+                azure_files
+            ).load()  # Reuse existing loader
+            research_data = await self._get_context_by_web_search(
+                self.researcher.query, document_data
+            )
+
         elif self.researcher.report_source == ReportSource.LangChainDocuments.value:
             langchain_documents_data = await LangChainDocumentLoader(
                 self.researcher.documents
@@ -176,16 +201,22 @@ class ResearchConductor:
             if self.researcher.vector_store:
                 self.researcher.vector_store.load(langchain_documents_data)
             research_data = await self._get_context_by_web_search(
-                self.researcher.query, langchain_documents_data, self.researcher.query_domains
+                self.researcher.query,
+                langchain_documents_data,
+                self.researcher.query_domains,
             )
         elif self.researcher.report_source == ReportSource.LangChainVectorStore.value:
-            research_data = await self._get_context_by_vectorstore(self.researcher.query, self.researcher.vector_store_filter)
+            research_data = await self._get_context_by_vectorstore(
+                self.researcher.query, self.researcher.vector_store_filter
+            )
 
         # Rank and curate the sources
         self.researcher.context = research_data
         if self.researcher.cfg.curate_sources:
             self.logger.info("Curating sources")
-            self.researcher.context = await self.researcher.source_curator.curate_sources(research_data)
+            self.researcher.context = (
+                await self.researcher.source_curator.curate_sources(research_data)
+            )
 
         if self.researcher.verbose:
             await stream_output(
@@ -198,17 +229,21 @@ class ResearchConductor:
                 self.json_handler.update_content("costs", self.researcher.get_costs())
                 self.json_handler.update_content("context", self.researcher.context)
 
-        self.logger.info(f"Research completed. Context size: {len(str(self.researcher.context))}")
+        self.logger.info(
+            f"Research completed. Context size: {len(str(self.researcher.context))}"
+        )
         return self.researcher.context
 
     async def _get_context_by_urls(self, urls):
         """Scrapes and compresses the context from the given urls"""
         self.logger.info(f"Getting context from URLs: {urls}")
-        
+
         new_search_urls = await self._get_new_urls(urls)
         self.logger.info(f"New URLs to process: {new_search_urls}")
 
-        scraped_content = await self.researcher.scraper_manager.browse_urls(new_search_urls)
+        scraped_content = await self.researcher.scraper_manager.browse_urls(
+            new_search_urls
+        )
         self.logger.info(f"Scraped content from {len(scraped_content)} URLs")
 
         if self.researcher.vector_store:
@@ -254,14 +289,16 @@ class ResearchConductor:
         )
         return context
 
-    async def _get_context_by_web_search(self, query, scraped_data: list | None = None, query_domains: list | None = None):
+    async def _get_context_by_web_search(
+        self, query, scraped_data: list | None = None, query_domains: list | None = None
+    ):
         """
         Generates the context for the research task by searching the query and scraping the results
         Returns:
             context: List of context
         """
         self.logger.info(f"Starting web search for query: {query}")
-        
+
         if scraped_data is None:
             scraped_data = []
         if query_domains is None:
@@ -270,7 +307,7 @@ class ResearchConductor:
         # Generate Sub-Queries including original query
         sub_queries = await self.plan_research(query, query_domains)
         self.logger.info(f"Generated sub-queries: {sub_queries}")
-        
+
         # If this is not part of a sub researcher, add original query to research for better results
         if self.researcher.report_type != "subtopic_report":
             sub_queries.append(query)
@@ -305,14 +342,16 @@ class ResearchConductor:
             self.logger.error(f"Error during web search: {e}", exc_info=True)
             return []
 
-    async def _process_sub_query(self, sub_query: str, scraped_data: list = [], query_domains: list = []):
+    async def _process_sub_query(
+        self, sub_query: str, scraped_data: list = [], query_domains: list = []
+    ):
         """Takes in a sub query and scrapes urls based on it and gathers context."""
         if self.json_handler:
-            self.json_handler.log_event("sub_query", {
-                "query": sub_query,
-                "scraped_data_size": len(scraped_data)
-            })
-        
+            self.json_handler.log_event(
+                "sub_query",
+                {"query": sub_query, "scraped_data_size": len(scraped_data)},
+            )
+
         if self.researcher.verbose:
             await stream_output(
                 "logs",
@@ -330,8 +369,14 @@ class ResearchConductor:
             # Get similar content based on scraped data
             context = ""
             if scraped_data:
-                context = await self.researcher.context_manager.get_similar_content_by_query(sub_query, scraped_data)
-                self.logger.info(f"Web content found for sub-query: {len(str(context)) if context else 0} chars")
+                context = (
+                    await self.researcher.context_manager.get_similar_content_by_query(
+                        sub_query, scraped_data
+                    )
+                )
+                self.logger.info(
+                    f"Web content found for sub-query: {len(str(context)) if context else 0} chars"
+                )
 
             if context:
                 context_length = len(str(context))
@@ -345,17 +390,22 @@ class ResearchConductor:
                         f"🤷 No content found for '{sub_query}'...",
                         self.researcher.websocket,
                     )
-            
+
             if context and self.json_handler:
-                self.json_handler.log_event("content_found", {
-                    "sub_query": sub_query,
-                    "content_size": len(str(context)),
-                })
-                
+                self.json_handler.log_event(
+                    "content_found",
+                    {
+                        "sub_query": sub_query,
+                        "content_size": len(str(context)),
+                    },
+                )
+
             return context
-            
+
         except Exception as e:
-            self.logger.error(f"Error processing sub-query {sub_query}: {e}", exc_info=True)
+            self.logger.error(
+                f"Error processing sub-query {sub_query}: {e}", exc_info=True
+            )
             if self.researcher.verbose:
                 await stream_output(
                     "logs",
@@ -365,7 +415,9 @@ class ResearchConductor:
                 )
             return ""
 
-    async def _process_sub_query_with_vectorstore(self, sub_query: str, filter: dict | None = None):
+    async def _process_sub_query_with_vectorstore(
+        self, sub_query: str, filter: dict | None = None
+    ):
         """Takes in a sub query and gathers context from the user provided vector store
 
         Args:
@@ -382,7 +434,9 @@ class ResearchConductor:
                 self.researcher.websocket,
             )
 
-        context = await self.researcher.context_manager.get_similar_content_by_query_with_vectorstore(sub_query, filter)
+        context = await self.researcher.context_manager.get_similar_content_by_query_with_vectorstore(
+            sub_query, filter
+        )
 
         return context
 
@@ -409,7 +463,9 @@ class ResearchConductor:
 
         return new_urls
 
-    async def _search_relevant_source_urls(self, query, query_domains: list | None = None):
+    async def _search_relevant_source_urls(
+        self, query, query_domains: list | None = None
+    ):
         new_search_urls = []
         if query_domains is None:
             query_domains = []
@@ -423,14 +479,19 @@ class ResearchConductor:
 
                 # Perform the search using the current retriever
                 search_results = await asyncio.to_thread(
-                    retriever.search, max_results=self.researcher.cfg.max_search_results_per_query
+                    retriever.search,
+                    max_results=self.researcher.cfg.max_search_results_per_query,
                 )
 
                 # Collect new URLs from search results
-                search_urls = [url.get("href") for url in search_results if url.get("href")]
+                search_urls = [
+                    url.get("href") for url in search_results if url.get("href")
+                ]
                 new_search_urls.extend(search_urls)
             except Exception as e:
-                self.logger.error(f"Error searching with {retriever_class.__name__}: {e}")
+                self.logger.error(
+                    f"Error searching with {retriever_class.__name__}: {e}"
+                )
 
         # Get unique URLs
         new_search_urls = await self._get_new_urls(new_search_urls)
@@ -451,19 +512,23 @@ class ResearchConductor:
         if query_domains is None:
             query_domains = []
 
-        new_search_urls = await self._search_relevant_source_urls(sub_query, query_domains)
+        new_search_urls = await self._search_relevant_source_urls(
+            sub_query, query_domains
+        )
 
         # Log the research process if verbose mode is on
         if self.researcher.verbose:
             await stream_output(
                 "logs",
                 "researching",
-                f"🤔 Researching for relevant information across multiple sources...\n",
+                "🤔 Researching for relevant information across multiple sources...\n",
                 self.researcher.websocket,
             )
 
         # Scrape the new URLs
-        scraped_content = await self.researcher.scraper_manager.browse_urls(new_search_urls)
+        scraped_content = await self.researcher.scraper_manager.browse_urls(
+            new_search_urls
+        )
 
         if self.researcher.vector_store:
             self.researcher.vector_store.load(scraped_content)
@@ -473,112 +538,116 @@ class ResearchConductor:
     async def _search(self, retriever, query):
         """
         Perform a search using the specified retriever.
-        
+
         Args:
             retriever: The retriever class to use
             query: The search query
-            
+
         Returns:
             list: Search results
         """
         retriever_name = retriever.__name__
-        
+
         self.logger.info(f"Searching with {retriever_name} for query: {query}")
-        
+
         try:
             # Instantiate the retriever
             retriever_instance = retriever(
-                query=query, 
+                query=query,
                 headers=self.researcher.headers,
                 query_domains=self.researcher.query_domains,
             )
-            
+
             # Perform the search
-            if hasattr(retriever_instance, 'search'):
+            if hasattr(retriever_instance, "search"):
                 results = retriever_instance.search(
                     max_results=self.researcher.cfg.max_search_results_per_query
                 )
-                
+
                 # Log result information
                 if results:
                     result_count = len(results)
-                    self.logger.info(f"Received {result_count} results from {retriever_name}")
+                    self.logger.info(
+                        f"Received {result_count} results from {retriever_name}"
+                    )
                 else:
                     self.logger.info(f"No results returned from {retriever_name}")
-                
+
                 return results
             else:
-                self.logger.error(f"Retriever {retriever_name} does not have a search method")
+                self.logger.error(
+                    f"Retriever {retriever_name} does not have a search method"
+                )
                 return []
         except Exception as e:
             self.logger.error(f"Error searching with {retriever_name}: {str(e)}")
             return []
-            
+
     async def _extract_content(self, results):
         """
         Extract content from search results using the browser manager.
-        
+
         Args:
             results: Search results
-            
+
         Returns:
             list: Extracted content
         """
         self.logger.info(f"Extracting content from {len(results)} search results")
-        
+
         # Get the URLs from the search results
         urls = []
         for result in results:
             if isinstance(result, dict) and "href" in result:
                 urls.append(result["href"])
-        
+
         # Skip if no URLs found
         if not urls:
             return []
-            
+
         # Make sure we don't visit URLs we've already visited
         new_urls = [url for url in urls if url not in self.researcher.visited_urls]
-        
+
         # Return empty if no new URLs
         if not new_urls:
             return []
-            
+
         # Scrape the content from the URLs
         scraped_content = await self.researcher.scraper_manager.browse_urls(new_urls)
-        
+
         # Add the URLs to visited_urls
         self.researcher.visited_urls.update(new_urls)
-        
+
         return scraped_content
-        
+
     async def _summarize_content(self, query, content):
         """
         Summarize the extracted content.
-        
+
         Args:
             query: The search query
             content: The extracted content
-            
+
         Returns:
             str: Summarized content
         """
         self.logger.info(f"Summarizing content for query: {query}")
-        
+
         # Skip if no content
         if not content:
             return ""
-            
+
         # Summarize the content using the context manager
         summary = await self.researcher.context_manager.get_similar_content_by_query(
             query, content
         )
-        
+
         return summary
-        
+
     async def _update_search_progress(self, current, total):
         """
         Update the search progress.
-        
+
         Args:
             current: Current number of sub-queries processed
             total: Total number of sub-queries
@@ -591,10 +660,5 @@ class ResearchConductor:
                 f"📊 Research Progress: {progress}%",
                 self.researcher.websocket,
                 True,
-                {
-                    "current": current,
-                    "total": total,
-                    "progress": progress
-                }
+                {"current": current, "total": total, "progress": progress},
             )
-

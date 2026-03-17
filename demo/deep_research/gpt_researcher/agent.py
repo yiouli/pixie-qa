@@ -5,7 +5,6 @@ autonomous research and report generation using LLMs and web search.
 """
 
 import json
-import os
 from typing import Any
 
 from .actions import (
@@ -18,7 +17,6 @@ from .actions import (
     table_of_contents,
 )
 from .config import Config
-from .llm_provider import GenericLLMProvider
 from .memory import Memory
 from .prompts import get_prompt_family
 from .skills.browser import BrowserManager
@@ -69,11 +67,15 @@ class GPTResearcher:
         max_subtopics: int = 5,
         log_handler=None,
         prompt_family: str | None = None,
-        **kwargs
+        vector_store=None,
+        vector_store_filter: dict | None = None,
+        document_urls: list[str] | None = None,
+        documents=None,
+        **kwargs,
     ):
         """
         Initialize a GPT Researcher instance.
-        
+
         Args:
             query (str): The research query or question.
             report_type (str): Type of report to generate.
@@ -102,14 +104,22 @@ class GPTResearcher:
         self.report_type = report_type
         self.cfg = Config(config_path)
         self.cfg.set_verbose(verbose)
-        self.report_source = report_source if report_source else getattr(self.cfg, 'report_source', None)
+        self.report_source = (
+            report_source if report_source else getattr(self.cfg, "report_source", None)
+        )
         self.report_format = report_format
         self.max_subtopics = max_subtopics
         self.tone = tone if isinstance(tone, Tone) else Tone.Objective
         self.source_urls = source_urls
         self.complement_source_urls = complement_source_urls
         self.query_domains = query_domains or []
-        self.research_sources = []  # The list of scraped sources including title, content and images
+        self.vector_store = vector_store
+        self.vector_store_filter = vector_store_filter
+        self.document_urls = document_urls
+        self.documents = documents
+        self.research_sources = (
+            []
+        )  # The list of scraped sources including title, content and images
         self.research_images = []  # The list of selected research images
         self.websocket = websocket
         self.agent = agent
@@ -124,16 +134,22 @@ class GPTResearcher:
         self.step_costs: dict[str, float] = {}
         self._current_step: str = "general"
         self.log_handler = log_handler
-        self.prompt_family = get_prompt_family(prompt_family or self.cfg.prompt_family, self.cfg)
-        
+        self.prompt_family = get_prompt_family(
+            prompt_family or self.cfg.prompt_family, self.cfg
+        )
+
         self.retrievers = get_retrievers(self.headers, self.cfg)
         self.memory = Memory(
-            self.cfg.embedding_provider, self.cfg.embedding_model, **self.cfg.embedding_kwargs
+            self.cfg.embedding_provider,
+            self.cfg.embedding_model,
+            **self.cfg.embedding_kwargs,
         )
-        
+
         # Set default encoding to utf-8
-        self.encoding = kwargs.get('encoding', 'utf-8')
-        self.kwargs.pop('encoding', None)  # Remove encoding from kwargs to avoid passing it to LLM calls
+        self.encoding = kwargs.get("encoding", "utf-8")
+        self.kwargs.pop(
+            "encoding", None
+        )  # Remove encoding from kwargs to avoid passing it to LLM calls
 
         # Initialize components
         self.research_conductor: ResearchConductor = ResearchConductor(self)
@@ -141,26 +157,36 @@ class GPTResearcher:
         self.context_manager: ContextManager = ContextManager(self)
         self.scraper_manager: BrowserManager = BrowserManager(self)
         self.source_curator: SourceCurator = SourceCurator(self)
-    
+
     async def _log_event(self, event_type: str, **kwargs):
         """Helper method to handle logging events"""
         if self.log_handler:
             try:
                 if event_type == "tool":
-                    await self.log_handler.on_tool_start(kwargs.get('tool_name', ''), **kwargs)
+                    await self.log_handler.on_tool_start(
+                        kwargs.get("tool_name", ""), **kwargs
+                    )
                 elif event_type == "action":
-                    await self.log_handler.on_agent_action(kwargs.get('action', ''), **kwargs)
+                    await self.log_handler.on_agent_action(
+                        kwargs.get("action", ""), **kwargs
+                    )
                 elif event_type == "research":
-                    await self.log_handler.on_research_step(kwargs.get('step', ''), kwargs.get('details', {}))
+                    await self.log_handler.on_research_step(
+                        kwargs.get("step", ""), kwargs.get("details", {})
+                    )
 
                 # Add direct logging as backup
                 import logging
-                research_logger = logging.getLogger('research')
+
+                research_logger = logging.getLogger("research")
                 research_logger.info(f"{event_type}: {json.dumps(kwargs, default=str)}")
 
             except Exception as e:
                 import logging
-                logging.getLogger('research').error(f"Error in _log_event: {e}", exc_info=True)
+
+                logging.getLogger("research").error(
+                    f"Error in _log_event: {e}", exc_info=True
+                )
 
     async def conduct_research(self, on_progress=None):
         """Conduct the research process.
@@ -174,12 +200,16 @@ class GPTResearcher:
         Returns:
             The accumulated research context.
         """
-        await self._log_event("research", step="start", details={
-            "query": self.query,
-            "report_type": self.report_type,
-            "agent": self.agent,
-            "role": self.role
-        })
+        await self._log_event(
+            "research",
+            step="start",
+            details={
+                "query": self.query,
+                "report_type": self.report_type,
+                "agent": self.agent,
+                "role": self.role,
+            },
+        )
 
         if not (self.agent and self.role):
             self._current_step = "agent_selection"
@@ -196,22 +226,26 @@ class GPTResearcher:
                 **self.kwargs,
                 # **filtered_kwargs
             )
-            await self._log_event("action", action="agent_selected", details={
-                "agent": self.agent,
-                "role": self.role
-            })
+            await self._log_event(
+                "action",
+                action="agent_selected",
+                details={"agent": self.agent, "role": self.role},
+            )
 
-        await self._log_event("research", step="conducting_research", details={
-            "agent": self.agent,
-            "role": self.role
-        })
+        await self._log_event(
+            "research",
+            step="conducting_research",
+            details={"agent": self.agent, "role": self.role},
+        )
         self._current_step = "research"
         self.context = await self.research_conductor.conduct_research()
 
-        await self._log_event("research", step="research_completed", details={
-            "context_length": len(self.context)
-        })
-        
+        await self._log_event(
+            "research",
+            step="research_completed",
+            details={"context_length": len(self.context)},
+        )
+
         return self.context
 
     async def write_report(
@@ -233,10 +267,14 @@ class GPTResearcher:
             The generated report as a string.
         """
         self._current_step = "report_writing"
-        await self._log_event("research", step="writing_report", details={
-            "existing_headers": existing_headers,
-            "context_source": "external" if ext_context else "internal",
-        })
+        await self._log_event(
+            "research",
+            step="writing_report",
+            details={
+                "existing_headers": existing_headers,
+                "context_source": "external" if ext_context else "internal",
+            },
+        )
 
         report = await self.report_generator.write_report(
             existing_headers=existing_headers,
@@ -245,9 +283,13 @@ class GPTResearcher:
             custom_prompt=custom_prompt,
         )
 
-        await self._log_event("research", step="report_completed", details={
-            "report_length": len(report),
-        })
+        await self._log_event(
+            "research",
+            step="report_completed",
+            details={
+                "report_length": len(report),
+            },
+        )
         return report
 
     async def write_report_conclusion(self, report_body: str) -> str:
@@ -275,7 +317,12 @@ class GPTResearcher:
         await self._log_event("research", step="introduction_completed")
         return intro
 
-    async def quick_search(self, query: str, query_domains: list[str] = None, aggregated_summary: bool = False) -> list[Any] | str:
+    async def quick_search(
+        self,
+        query: str,
+        query_domains: list[str] = None,
+        aggregated_summary: bool = False,
+    ) -> list[Any] | str:
         """Perform a quick search without full research workflow.
 
         Args:
@@ -286,7 +333,9 @@ class GPTResearcher:
         Returns:
             List of search results or a synthesized summary string.
         """
-        search_results = await get_search_results(query, self.retrievers[0], query_domains=query_domains)
+        search_results = await get_search_results(
+            query, self.retrievers[0], query_domains=query_domains
+        )
 
         if not aggregated_summary:
             return search_results
@@ -304,7 +353,7 @@ class GPTResearcher:
             llm_provider=self.cfg.smart_llm_provider,
             max_tokens=self.cfg.smart_token_limit,
             llm_kwargs=self.cfg.llm_kwargs,
-            cost_callback=self.add_costs
+            cost_callback=self.add_costs,
         )
 
         return summary
@@ -333,7 +382,7 @@ class GPTResearcher:
         current_subtopic: str,
         draft_section_titles: list[str],
         written_contents: list[dict],
-        max_results: int = 10
+        max_results: int = 10,
     ) -> list[str]:
         """Find similar previously written contents based on section titles.
 
@@ -347,10 +396,7 @@ class GPTResearcher:
             List of similar content strings.
         """
         return await self.context_manager.get_similar_written_contents_by_draft_section_titles(
-            current_subtopic,
-            draft_section_titles,
-            written_contents,
-            max_results
+            current_subtopic, draft_section_titles, written_contents, max_results
         )
 
     # Utility methods
@@ -369,6 +415,22 @@ class GPTResearcher:
             sources: List of source dictionaries to add.
         """
         self.research_sources.extend(sources)
+
+    def get_research_images(self) -> list[str]:
+        """Get all research images collected during research.
+
+        Returns:
+            List of image URL strings.
+        """
+        return self.research_images
+
+    def add_research_images(self, images: list[str]) -> None:
+        """Add image URLs to the research image collection.
+
+        Args:
+            images: List of image URL strings to add.
+        """
+        self.research_images.extend(images)
 
     def add_references(self, report_markdown: str, visited_urls: set) -> str:
         """Add reference section to a markdown report.
@@ -472,8 +534,8 @@ class GPTResearcher:
         step = self._current_step
         self.step_costs[step] = self.step_costs.get(step, 0.0) + cost
         if self.log_handler:
-            self._log_event("research", step="cost_update", details={
-                "cost": cost,
-                "total_cost": self.research_costs,
-                "step_name": step,
-            })
+            import logging as _logging
+
+            _logging.getLogger("research").info(
+                f"cost_update: cost={cost}, total={self.research_costs}, step={step}"
+            )
