@@ -851,7 +851,6 @@ report_type_mapping = {
     ReportType.OutlineReport.value: "generate_outline_report_prompt",
     ReportType.CustomReport.value: "generate_custom_report_prompt",
     ReportType.SubtopicReport.value: "generate_subtopic_report_prompt",
-    ReportType.DeepResearch.value: "generate_deep_research_prompt",
 }
 
 

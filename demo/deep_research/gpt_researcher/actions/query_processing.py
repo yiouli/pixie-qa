@@ -139,21 +139,6 @@ async def plan_research_outline(
     # Handle the case where retriever_names is not provided
     if retriever_names is None:
         retriever_names = []
-    
-    # For MCP retrievers, we may want to skip sub-query generation
-    # Check if MCP is the only retriever or one of multiple retrievers
-    if retriever_names and ("mcp" in retriever_names or "MCPRetriever" in retriever_names):
-        mcp_only = (len(retriever_names) == 1 and 
-                   ("mcp" in retriever_names or "MCPRetriever" in retriever_names))
-        
-        if mcp_only:
-            # If MCP is the only retriever, skip sub-query generation
-            logger.info("Using MCP retriever only - skipping sub-query generation")
-            # Return the original query to prevent additional search iterations
-            return [query]
-        else:
-            # If MCP is one of multiple retrievers, generate sub-queries for the others
-            logger.info("Using MCP with other retrievers - generating sub-queries for non-MCP retrievers")
 
     # Generate sub-queries for research outline
     sub_queries = await generate_sub_queries(
