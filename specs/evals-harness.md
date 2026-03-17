@@ -325,6 +325,45 @@ For each discovered test function:
 
 **Exit code:** 0 if all tests pass, 1 if any test fails or errors.
 
+#### HTML Scorecard
+
+After all tests complete, the runner generates a self-contained HTML scorecard
+and saves it to `{config.root}/scorecards/<YYYYMMDD-HHMMSS-normalized-args>.html`.
+
+**Data flow:**
+
+1. Before each test function, the runner activates a `ScorecardCollector`
+   (context-var based). While active, every `assert_pass` /
+   `assert_dataset_pass` call pushes an `AssertRecord` to the collector.
+2. After the test function returns (or raises), the runner drains the
+   collector and attaches the records to the `EvalTestResult`.
+3. After all tests, the CLI builds a `ScorecardReport` from the enriched
+   results, generates HTML via `generate_scorecard_html()`, and writes it
+   to disk via `save_scorecard()`.
+4. The CLI prints the path: `See <path> for test details`.
+
+**Scorecard contents:**
+
+- **Test run overview** — command args, timestamp, X/N passed summary, and a
+  table of all tests with status badges.
+- **Per-test detail** — for each test function:
+  - Each `assert_pass` / `assert_dataset_pass` call becomes an
+    "Assertion #N" card showing:
+    - Scoring strategy description (derived from the pass criteria).
+    - Per-evaluator pass rate summary table (X/N passed).
+    - Input × evaluator score grid with hover tooltips.
+  - Multi-pass runs get a tabbed view (one tab per pass).
+
+**Key types** (in `pixie/evals/scorecard.py`):
+
+- `AssertRecord` — frozen dataclass: evaluator names, input labels,
+  results tensor, passed flag, criteria message, scoring strategy.
+- `TestRecord` — mutable dataclass: test name, status, message, list of
+  `AssertRecord`s.
+- `ScorecardReport` — command args, list of `TestRecord`s, timestamp.
+- `ScorecardCollector` — thread-safe accumulator with
+  `activate()` / `deactivate()` / `record()` / `drain()`.
+
 #### Output format
 
 **Normal mode:**
@@ -505,15 +544,20 @@ async def test_trace_inspection():
 
 ## 6. File Structure
 
-```
+```text
 pixie/
 ├── eval/
 │   ├── __init__.py          # exports Evaluation, Evaluator, evaluate,
 │   │                        #   run_and_evaluate, assert_pass,
-│   │                        #   EvalAssertionError, capture_traces
+│   │                        #   EvalAssertionError, capture_traces,
+│   │                        #   ScorecardCollector, ScorecardReport,
+│   │                        #   generate_scorecard_html, save_scorecard
 │   ├── evaluation.py        # Evaluation, Evaluator protocol, evaluate()
 │   ├── eval_utils.py        # run_and_evaluate, assert_pass, EvalAssertionError
 │   ├── runner.py            # test discovery, CLI runner
+│   ├── scorecard.py         # AssertRecord, TestRecord, ScorecardReport,
+│   │                        #   ScorecardCollector, HTML generation,
+│   │                        #   save_scorecard()
 │   └── trace_capture.py     # MemoryTraceHandler, capture_traces
 ├── cli/
 │   └── test_command.py      # `pixie test` CLI entry point
@@ -522,6 +566,7 @@ pixie/
         ├── test_evaluation.py
         ├── test_eval_utils.py
         ├── test_runner.py
+        ├── test_scorecard.py
         └── test_trace_capture.py
 ```
 

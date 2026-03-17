@@ -658,7 +658,7 @@ sqlite = [
 
 [[package]]
 name = "pixie-qa"
-version = "0.1.2"
+version = "0.1.7"
 source = { editable = "." }
 dependencies = [
     { name = "autoevals" },
