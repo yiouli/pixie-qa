@@ -2,3 +2,4 @@
 !.claude/skills/eval-driven-dev/
 !.claude/skills/eval-driven-dev-workspace/
 __pycache__
+pixie_qa/

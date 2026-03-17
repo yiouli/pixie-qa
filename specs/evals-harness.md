@@ -403,6 +403,60 @@ test_my_app.py::test_batch ✗
 ==================== 1 passed, 1 failed ====================
 ```
 
+#### E2E Test Suite
+
+The `pixie test` command has a dedicated e2e test suite that ensures the full
+lifecycle works correctly — test discovery, execution, console output, exit
+codes, and HTML scorecard generation. The suite has two complementary layers:
+
+**1. Realistic fixture tests (`TestPixieTestRealisticE2E`, 10 tests)**
+
+These tests run `pixie test` on a realistic test file that mirrors how a real
+user would configure datasets, evaluators, and test functions:
+
+- **`e2e_fixtures/datasets/customer-faq.json`** — a 5-item golden dataset
+  with FAQ questions, chatbot answers, and reference answers (Evaluable items).
+- **`e2e_fixtures/mock_evaluators.py`** — 4 deterministic mock evaluators
+  (MockFactuality, MockClosedQA, MockHallucination, MockStrictTone) that
+  replace LLM-as-judge evaluators to avoid flakiness and cost.
+- **`e2e_fixtures/test_customer_faq.py`** — a realistic test file using
+  `assert_dataset_pass` with different scoring strategies (pct thresholds,
+  multi-evaluator, always-pass, always-fail).
+
+Expected results: `test_faq_factuality` PASS, `test_faq_multi_evaluator` FAIL,
+`test_faq_no_hallucinations` PASS, `test_faq_tone_check` FAIL → console shows
+"2 passed, 2 failed", scorecard HTML has evaluator names, scores, badges.
+
+**2. Edge-case tests (`TestPixieTestEdgeCases`, 32 tests)**
+
+- **`tests/pixie/cli/e2e_cases.json`** — a JSON array of scenario objects.
+  Each scenario is a self-contained test case that specifies which files to
+  scaffold, which CLI arguments to pass, and what to assert in the output.
+- **`tests/pixie/cli/test_e2e_pixie_test.py`** — parametrised pytest tests
+  that load the JSON dataset and run 4 checks per scenario (exit code,
+  console contains, console not-contains, scorecard HTML). New scenarios are
+  added by editing the JSON file only — no code changes required.
+
+**Edge-case scenario schema:**
+
+```json
+{
+  "id": "unique_id",
+  "description": "Human-readable purpose",
+  "test_files": { "test_foo.py": "def test_bar():\n    assert True\n" },
+  "argv": ["-k", "bar"],
+  "argv_use_file": "test_foo.py",
+  "expected_exit_code": 0,
+  "console_contains": ["1 passed"],
+  "console_not_contains": ["failed"],
+  "scorecard_html_contains": ["PASS"]
+}
+```
+
+Fields `argv` and `argv_use_file` are mutually exclusive for the path
+argument. `argv` items are appended after the path; `argv_use_file` replaces
+the default directory path with a single-file target.
+
 ---
 
 ## 4. In-Memory Trace Capture

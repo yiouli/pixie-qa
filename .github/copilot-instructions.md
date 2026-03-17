@@ -144,6 +144,103 @@ uv run pytest -k "test_function_name"   # Run specific test
 uv run pytest --cov=pixie               # Run with coverage report
 ```
 
+### 4a. End-to-End Tests for `pixie test`
+
+The `pixie test` CLI command has a dedicated e2e test suite that verifies the full
+command lifecycle — test discovery, execution, console output, exit codes, and
+HTML scorecard generation. The suite uses **realistic fixtures** that mirror how
+a real user would configure datasets, evaluators, and test files.
+
+**Fixture layout:**
+
+```
+tests/pixie/cli/
+  e2e_fixtures/
+    datasets/
+      customer-faq.json          # 5-item golden dataset (Evaluable items)
+    mock_evaluators.py           # Deterministic mock evaluators (no LLM calls)
+    test_customer_faq.py         # Realistic test file using assert_dataset_pass
+  e2e_cases.json                 # Edge-case scenario definitions
+  test_e2e_pixie_test.py         # Automated pytest e2e tests
+```
+
+The automated pytest file (`test_e2e_pixie_test.py`) contains two test classes:
+
+1. **`TestPixieTestRealisticE2E`** (10 tests) — Runs `pixie test` on the
+   realistic fixture (`test_customer_faq.py`) that uses 4 evaluator/criteria
+   combinations against the customer-FAQ dataset. Verifies exit code, console
+   summary, test names, check/cross marks, scorecard HTML generation, evaluator
+   names, PASS/FAIL badges, per-input scores, summary counts, and scoring
+   strategy descriptions.
+
+2. **`TestPixieTestEdgeCases`** (32 tests) — Parametrised from `e2e_cases.json`
+   covering empty dirs, filters, verbose mode, single file targeting, etc.
+
+**Mock evaluators** (`e2e_fixtures/mock_evaluators.py`) are deterministic
+replacements for LLM-as-judge evaluators. They use string similarity, keyword
+overlap, or fixed scores to produce realistic but reproducible results:
+- `MockFactualityEval` — SequenceMatcher string similarity (most items pass)
+- `MockClosedQAEval` — keyword overlap ratio (strict; some items fail)
+- `MockHallucinationEval` — always returns score 0.95
+- `MockFailingEval` (name="MockStrictTone") — always returns score 0.2
+
+**Expected realistic fixture results:**
+- `test_faq_factuality` → PASS (MockFactuality, threshold=0.6, pct=0.8)
+- `test_faq_multi_evaluator` → FAIL (MockFactuality+MockClosedQA, threshold=0.5, pct=1.0)
+- `test_faq_no_hallucinations` → PASS (MockHallucination, threshold=0.5, pct=1.0)
+- `test_faq_tone_check` → FAIL (MockStrictTone, threshold=0.5, pct=1.0)
+- Console: "2 passed, 2 failed", exit code 1
+- Scorecard: HTML with evaluator names, scores, PASS/FAIL badges
+
+**When to run e2e tests:**
+
+Run the e2e suite whenever you change anything in:
+- `pixie/cli/test_command.py` — the `pixie test` entry point
+- `pixie/evals/runner.py` — test discovery, execution, formatting
+- `pixie/evals/scorecard.py` — scorecard models, HTML generation
+- `pixie/evals/eval_utils.py` — `assert_pass` / `assert_dataset_pass`
+- `pixie/evals/criteria.py` — pass criteria
+
+```bash
+uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Run all 42 e2e tests
+```
+
+**Agent verification protocol (manual inspection):**
+
+In addition to the automated pytest tests, the coding agent should manually
+verify the `pixie test` output after making changes to CLI/eval/scorecard code:
+
+1. **Run the realistic fixture directly:**
+   ```bash
+   PIXIE_ROOT=/tmp/pixie_e2e_verify uv run pixie test tests/pixie/cli/e2e_fixtures/test_customer_faq.py
+   ```
+
+2. **Inspect the console output** — verify that:
+   - All 4 test names appear with correct ✓/✗ marks
+   - Summary shows "2 passed, 2 failed"
+   - No unexpected errors or tracebacks
+
+3. **Inspect the HTML scorecard** — open the generated file and verify:
+   - All 4 evaluator names appear (MockFactuality, MockClosedQA, etc.)
+   - Per-input score cells show reasonable numeric values
+   - PASS/FAIL badges match expectations (2 PASS, 2 FAIL)
+   - Scoring strategy descriptions are human-readable
+   - The scorecard is well-formatted and renders correctly
+
+4. **Evaluate holistically** — given the dataset contents and evaluator
+   definitions, do the scores and pass/fail outcomes make sense? For example,
+   MockFactuality should score high on items where `eval_output` is similar to
+   `expected_output`, and MockStrictTone should always fail.
+
+This manual step catches rendering issues, layout regressions, and semantic
+correctness problems that simple string assertions can miss.
+
+**Adding new edge-case scenarios:**
+
+1. Add a new object to `tests/pixie/cli/e2e_cases.json`.
+2. Run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` to verify.
+3. No code changes needed in the test file — it auto-discovers all cases.
+
 ### 5. Test Quality Guidelines
 
 **Good tests are:**
@@ -344,9 +441,15 @@ uv run ruff format .             # Format code
 Before committing, run:
 
 ```bash
-uv run pytest                    # All tests must pass
+uv run pytest                    # All tests must pass (includes e2e)
 uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
+```
+
+When changing `pixie test` or scorecard-related code, also run e2e explicitly:
+
+```bash
+uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Verify pixie test e2e
 ```
 
 Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch type mismatches that mypy misses for untyped third-party packages).
@@ -509,6 +612,8 @@ This project has strict error-handling conventions due to operating inside OTel 
 6. ✅ Update docstrings / `README.md` / relevant `specs/` docs
 7. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
 8. ✅ Verify functionality works as expected
+9. ✅ If touching `pixie test` / scorecard / runner / eval code, run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` — all 42 e2e tests must pass (10 realistic + 32 edge-case)
+10. ✅ If touching `pixie test` / scorecard code, also run the **agent verification protocol** (section 4a) — manually run `pixie test` on the realistic fixture and inspect console + scorecard output
 
 **Development cycle:**
 
@@ -519,8 +624,9 @@ This project has strict error-handling conventions due to operating inside OTel 
 5. Implement feature (reuse existing code when possible)
 6. After each task: run tests and type check
 7. Run linting (`uv run ruff check .`)
-8. Update docs and changelog for the task
-9. Fix any issues
-10. Commit
+8. Run `pixie test` e2e suite if CLI/eval/scorecard code changed
+9. Update docs and changelog for the task
+10. Fix any issues
+11. Commit
 
 Following these practices ensures high code quality, type safety, maintainability, and reliability.
