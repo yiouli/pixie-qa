@@ -239,10 +239,10 @@ class TestPixieTestRealisticE2E:
         _pixie_test_main([str(_TEST_FILE)])
         html = _find_scorecard_html(pixie_root / "scorecards")
         assert html is not None
-        assert "Pixie QA" in html
+        assert "brand-name" in html
         assert "Share feedback" in html
-        assert "★ Star yiouli/pixie-qa" in html
-        assert 'action="https://feedback.gopixie.ai"' in html
+        assert "★ Star on GitHub" in html
+        assert 'data-action="https://feedback.gopixie.ai"' in html
 
 
 # ======================================================================

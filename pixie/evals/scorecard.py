@@ -210,29 +210,19 @@ def _render_brand_header(command_args: str, timestamp: str) -> str:
     h = html.escape
     return "\n".join(
         [
-            '<section class="brand-header" aria-label="Pixie scorecard header">',
+            '<header class="brand-header" aria-label="Pixie scorecard header">',
             '  <div class="brand-lockup">',
-            '    <div class="brand-logo" aria-hidden="true">',
-            '      <span class="brand-logo-fallback">P</span>',
-            f'      <img src="{h(_PIXIE_BRAND_ICON_URL)}" alt="Pixie logo" loading="lazy" '
-            'referrerpolicy="no-referrer">',
-            "    </div>",
-            '    <div class="brand-copy">',
-            '      <p class="eyebrow">Pixie QA</p>',
-            "      <h1>Pixie Test Scorecard</h1>",
-            '      <p class="brand-description">'
-            "Inspect your eval results, star the project, and share feedback directly "
-            "from this report."
-            "</p>",
-            "    </div>",
+            f'    <img src="{h(_PIXIE_BRAND_ICON_URL)}" class="brand-icon" alt="Pixie" '
+            'loading="lazy" referrerpolicy="no-referrer">',
+            '    <span class="brand-name">Pixie</span>',
             "  </div>",
             '  <div class="brand-actions">',
-            '    <button type="button" class="action-btn action-btn-secondary" '
+            '    <button type="button" class="feedback-btn" '
             'onclick="toggleFeedbackModal(true)">Share feedback</button>',
             f'    <a class="action-btn action-btn-primary" href="{h(_PIXIE_REPO_URL)}" '
-            'target="_blank" rel="noreferrer">★ Star yiouli/pixie-qa</a>',
+            'target="_blank" rel="noreferrer">★ Star on GitHub</a>',
             "  </div>",
-            "</section>",
+            "</header>",
             '<div id="feedback-modal" class="modal-backdrop" hidden>',
             '  <div class="modal-card" role="dialog" aria-modal="true" '
             'aria-labelledby="feedback-modal-title">',
@@ -243,14 +233,14 @@ def _render_brand_header(command_args: str, timestamp: str) -> str:
             "Tell us what worked, what felt confusing, or attach text artifacts that help "
             "us improve the scorecard experience."
             "</p>",
-            f'    <form class="feedback-form" action="{h(_PIXIE_FEEDBACK_URL)}" '
-            'method="post" enctype="multipart/form-data" target="_blank">',
+            f'    <form id="feedback-form" class="feedback-form" '
+            f'data-action="{h(_PIXIE_FEEDBACK_URL)}">',
             '      <input type="hidden" name="source" value="pixie-scorecard">',
             f'      <input type="hidden" name="command_args" value="{h(command_args)}">',
             f'      <input type="hidden" name="generated_at" value="{h(timestamp)}">',
             '      <label class="field-label" for="feedback-text">Feedback</label>',
             '      <textarea id="feedback-text" name="feedback" rows="6" required '
-            'placeholder="Share your feedback about Pixie, this scorecard, or your eval workflow..."></textarea>',
+            'placeholder="Share your feedback..."></textarea>',
             '      <label class="field-label" for="feedback-email">Email (optional)</label>',
             '      <input id="feedback-email" name="email" type="email" '
             'placeholder="you@example.com">',
@@ -258,12 +248,12 @@ def _render_brand_header(command_args: str, timestamp: str) -> str:
             "Text attachments (optional)</label>",
             '      <input id="feedback-attachments" name="attachments" type="file" multiple '
             'accept=".txt,.md,.log,.json,text/plain">',
-            '      <p class="form-note">Submitting opens a new tab and posts your feedback '
-            f'to <code>{h(_PIXIE_FEEDBACK_URL)}</code>.</p>',
             '      <div class="modal-actions">',
-            '        <button type="button" class="action-btn action-btn-secondary" '
+            '        <button type="button" class="action-btn action-btn-primary" '
+            'style="background:#e2e8f0;color:var(--text);box-shadow:none" '
             'onclick="toggleFeedbackModal(false)">Cancel</button>',
-            '        <button type="submit" class="action-btn action-btn-primary">Submit feedback</button>',
+            '        <button type="submit" '
+            'class="action-btn action-btn-primary">Submit feedback</button>',
             "      </div>",
             "    </form>",
             "  </div>",
@@ -549,48 +539,35 @@ _HTML_HEAD = """\
     padding-bottom: .5rem; }
   h3 { margin-bottom: .75rem; font-size: 1.1rem; }
   .brand-header {
-    background: linear-gradient(135deg, rgba(124,58,237,.12), rgba(15,23,42,.98));
-    color: #fff; border-radius: 16px; padding: 1.5rem;
-    margin-bottom: 1.5rem; display: flex; gap: 1.5rem;
-    align-items: center; justify-content: space-between;
-    box-shadow: 0 20px 35px rgba(15,23,42,.16);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 0; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
   }
-  .brand-lockup { display: flex; align-items: center; gap: 1rem; }
-  .brand-logo {
-    position: relative; width: 72px; height: 72px; border-radius: 22px;
-    background: linear-gradient(135deg, #8b5cf6, #0f172a);
-    overflow: hidden; flex: 0 0 auto;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  .brand-lockup { display: flex; align-items: center; gap: .5rem; }
+  .brand-icon { width: 24px; height: 24px; border-radius: 4px; display: block; }
+  .brand-name {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1rem; font-weight: 700; color: var(--text);
   }
-  .brand-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .brand-logo-fallback {
-    display: flex; align-items: center; justify-content: center; height: 100%;
-    font-size: 2rem; font-weight: 800; letter-spacing: .06em;
-  }
-  .eyebrow {
-    color: rgba(255,255,255,.74); text-transform: uppercase; letter-spacing: .14em;
-    font-size: .78rem; font-weight: 700; margin-bottom: .35rem;
-  }
-  .brand-copy { max-width: 42rem; }
-  .brand-description { color: rgba(255,255,255,.82); max-width: 44rem; }
   .brand-actions {
-    display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
-    justify-content: flex-end;
+    display: flex; gap: .5rem; align-items: center;
   }
+  .feedback-btn {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    font-size: .9rem; padding: .4rem .75rem; border-radius: 6px;
+    transition: color .12s ease; font-family: inherit;
+  }
+  .feedback-btn:hover { color: var(--text); }
   .action-btn {
-    border: 0; border-radius: 999px; padding: .85rem 1.15rem;
-    font-weight: 700; font-size: .95rem; text-decoration: none; cursor: pointer;
+    border: 0; border-radius: 999px; padding: .45rem 1rem;
+    font-weight: 700; font-size: .9rem; text-decoration: none; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    transition: transform .12s ease, box-shadow .12s ease;
   }
   .action-btn:hover { transform: translateY(-1px); }
   .action-btn-primary {
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff;
-    box-shadow: 0 10px 24px rgba(124,58,237,.28);
-  }
-  .action-btn-secondary {
-    background: rgba(255,255,255,.1); color: #fff;
-    border: 1px solid rgba(255,255,255,.18);
+    background: var(--brand); color: #fff;
+    box-shadow: 0 4px 12px rgba(124,58,237,.28);
   }
   .section {
     background: var(--card); border: 1px solid var(--border);
@@ -647,6 +624,7 @@ _HTML_HEAD = """\
     position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 20;
     display: flex; align-items: center; justify-content: center; padding: 1.5rem;
   }
+  .modal-backdrop[hidden] { display: none !important; }
   .modal-card {
     position: relative; width: min(100%, 680px); max-height: 100%;
     overflow-y: auto; background: var(--card); border-radius: 16px;
@@ -721,6 +699,18 @@ document.addEventListener('click', function(event) {
     toggleFeedbackModal(false);
   }
 });
+(function() {
+  var form = document.getElementById('feedback-form');
+  if (!form) return;
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    var action = form.getAttribute('data-action');
+    var data = new FormData(form);
+    fetch(action, { method: 'POST', body: data }).catch(function() {});
+    toggleFeedbackModal(false);
+    form.reset();
+  });
+})();
 </script>
 </body>
 </html>
