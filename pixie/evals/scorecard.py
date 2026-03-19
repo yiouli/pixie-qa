@@ -13,6 +13,7 @@ This module provides:
 from __future__ import annotations
 
 import html
+import json
 import os
 import threading
 from contextvars import ContextVar
@@ -284,6 +285,7 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
     parts: list[str] = []
     parts.append(_HTML_HEAD.replace("{{TITLE}}", f"Pixie Test Scorecard — {ts}"))
     parts.append(_render_brand_header(report.command_args, ts))
+    parts.append(_render_eval_detail_modal())
 
     # ── Overview section ──────────────────────────────────────────────
     parts.append('<div class="section">')
@@ -382,6 +384,37 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
     return "\n".join(parts)
 
 
+def _render_eval_detail_modal() -> str:
+    """Render the reusable eval-detail modal (hidden by default)."""
+    return """\
+<div id="eval-detail-modal" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="eval-detail-title">
+    <button type="button" class="modal-close" aria-label="Close detail view"
+      onclick="closeEvalDetailModal()">&times;</button>
+    <h2 id="eval-detail-title">Evaluation detail</h2>
+    <div class="eval-detail-body">
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Score</span>
+        <span id="eval-detail-score" class="eval-detail-score-pass"></span>
+      </div>
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Reasoning</span>
+        <span id="eval-detail-reasoning" class="eval-detail-value"></span>
+      </div>
+      <div class="eval-detail-row" id="eval-detail-extra-row">
+        <span class="eval-detail-label">Details</span>
+        <pre id="eval-detail-extra" class="eval-detail-json"></pre>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:1rem">
+      <button type="button" class="action-btn action-btn-primary"
+        style="background:#e2e8f0;color:var(--text);box-shadow:none"
+        onclick="closeEvalDetailModal()">Close</button>
+    </div>
+  </div>
+</div>"""
+
+
 def _render_pass_table(
     pass_results: list[list[Evaluation]],
     evaluator_names: tuple[str, ...],
@@ -423,9 +456,22 @@ def _render_pass_table(
                 if e_idx < len(inp_evals):
                     ev = inp_evals[e_idx]
                     cls = "score-pass" if ev.score >= 0.5 else "score-fail"
+                    eval_data = h(
+                        json.dumps(
+                            {
+                                "score": ev.score,
+                                "reasoning": ev.reasoning,
+                                "details": ev.details,
+                            }
+                        )
+                    )
                     lines.append(
-                        f'<td class="{cls}" title="{h(ev.reasoning)}">'
-                        f"{ev.score:.2f}</td>"
+                        f'<td class="{cls}">'
+                        f"{ev.score:.2f}"
+                        f' <a href="#" class="details-link"'
+                        f' data-eval="{eval_data}"'
+                        f' onclick="showEvalDetail(this);return false;">details</a>'
+                        f"</td>"
                     )
                 else:
                     lines.append("<td>—</td>")
@@ -620,6 +666,26 @@ _HTML_HEAD = """\
   }
   .tab-btn.active { background: #f1f5f9; font-weight: 600; border-bottom-color: #f1f5f9; }
   .tab-content { /* toggled via JS */ }
+  .details-link {
+    font-size: .75rem; color: var(--muted); margin-left: .3rem;
+    text-decoration: none; white-space: nowrap;
+  }
+  .details-link:hover { color: var(--brand); text-decoration: underline; }
+  .eval-detail-body { display: grid; gap: .75rem; }
+  .eval-detail-row { display: flex; flex-direction: column; gap: .2rem; }
+  .eval-detail-label {
+    font-size: .72rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .eval-detail-value { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
+  .eval-detail-score-pass { color: var(--pass); font-weight: 700; font-size: 1.2rem; }
+  .eval-detail-score-fail { color: var(--fail); font-weight: 700; font-size: 1.2rem; }
+  .eval-detail-json {
+    background: #f1f5f9; padding: .75rem 1rem; border-radius: 6px;
+    font-size: .82rem; font-family: 'Courier New', monospace;
+    white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+    overflow-x: hidden; margin: 0;
+  }
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 20;
     display: flex; align-items: center; justify-content: center; padding: 1.5rem;
@@ -627,7 +693,7 @@ _HTML_HEAD = """\
   .modal-backdrop[hidden] { display: none !important; }
   .modal-card {
     position: relative; width: min(100%, 680px); max-height: 100%;
-    overflow-y: auto; background: var(--card); border-radius: 16px;
+    overflow-y: auto; overflow-x: hidden; background: var(--card); border-radius: 16px;
     padding: 1.5rem; box-shadow: 0 24px 60px rgba(15,23,42,.28);
   }
   .modal-close {
@@ -688,15 +754,47 @@ function toggleFeedbackModal(open) {
   modal.hidden = !open;
   document.body.classList.toggle('modal-open', open);
 }
+function showEvalDetail(link) {
+  var modal = document.getElementById('eval-detail-modal');
+  if (!modal) return;
+  var data = JSON.parse(link.getAttribute('data-eval'));
+  var scoreEl = document.getElementById('eval-detail-score');
+  var reasoningEl = document.getElementById('eval-detail-reasoning');
+  var detailsEl = document.getElementById('eval-detail-extra');
+  var detailsRow = document.getElementById('eval-detail-extra-row');
+  var passed = data.score >= 0.5;
+  scoreEl.textContent = data.score.toFixed(2) + (passed ? ' \u2713' : ' \u2717');
+  scoreEl.className = passed ? 'eval-detail-score-pass' : 'eval-detail-score-fail';
+  reasoningEl.textContent = data.reasoning || '(none)';
+  if (data.details && Object.keys(data.details).length > 0) {
+    detailsEl.textContent = JSON.stringify(data.details, null, 2);
+    detailsRow.style.display = '';
+  } else {
+    detailsRow.style.display = 'none';
+  }
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+function closeEvalDetailModal() {
+  var modal = document.getElementById('eval-detail-modal');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
 document.addEventListener('keydown', function(event) {
   if (event.key === 'Escape') {
     toggleFeedbackModal(false);
+    closeEvalDetailModal();
   }
 });
 document.addEventListener('click', function(event) {
-  var modal = document.getElementById('feedback-modal');
-  if (modal && event.target === modal) {
+  var feedbackModal = document.getElementById('feedback-modal');
+  if (feedbackModal && event.target === feedbackModal) {
     toggleFeedbackModal(false);
+  }
+  var evalModal = document.getElementById('eval-detail-modal');
+  if (evalModal && event.target === evalModal) {
+    closeEvalDetailModal();
   }
 });
 (function() {
