@@ -1,0 +1,45 @@
+{
+    "name": "customer-faq",
+    "items": [
+        {
+            "eval_input": {
+                "user_message": "What is the baggage allowance?"
+            },
+            "eval_output": "You may bring one carry-on bag weighing up to 50 pounds, with maximum dimensions of 22 x 14 x 9 inches.",
+            "eval_metadata": null,
+            "expected_output": "You are allowed one bag under 50 pounds and 22 x 14 x 9 inches."
+        },
+        {
+            "eval_input": {
+                "user_message": "How many seats are on the plane?"
+            },
+            "eval_output": "There are 120 seats total — 22 business class and 98 economy. Exit rows are at rows 4 and 16.",
+            "eval_metadata": null,
+            "expected_output": "There are 120 seats: 22 business class and 98 economy."
+        },
+        {
+            "eval_input": {
+                "user_message": "Is there wifi on the plane?"
+            },
+            "eval_output": "Yes, we offer complimentary wifi. Connect to the network named Airline-Wifi once on board.",
+            "eval_metadata": null,
+            "expected_output": "We have free wifi on the plane, join Airline-Wifi."
+        },
+        {
+            "eval_input": {
+                "user_message": "What is the cancellation policy?"
+            },
+            "eval_output": "You can cancel your booking up to 24 hours before departure for a full refund. Cancellations within 24 hours incur a $50 fee.",
+            "eval_metadata": null,
+            "expected_output": "Full refund for cancellations 24+ hours before departure; $50 fee within 24 hours."
+        },
+        {
+            "eval_input": {
+                "user_message": "Do you serve meals on the flight?"
+            },
+            "eval_output": "We serve complimentary snacks and beverages on all flights. Business class passengers receive a full meal service.",
+            "eval_metadata": null,
+            "expected_output": "Complimentary snacks for all; full meals in business class."
+        }
+    ]
+}

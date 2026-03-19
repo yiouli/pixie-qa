@@ -42,6 +42,46 @@ def _default_pass_criteria(
     return (passed, f"Average score: {avg:.2f}, all >= 0.5: {passed}")
 
 
+def _publish_to_scorecard(
+    *,
+    evaluators: list[Callable[..., Any]],
+    eval_inputs: list[Any],
+    results: list[list[list[Evaluation]]],
+    passed: bool,
+    criteria_message: str,
+    criteria: object,
+) -> None:
+    """Push an :class:`AssertRecord` to the active scorecard collector.
+
+    This is a no-op when no collector is active (i.e. when tests are
+    not run via ``pixie test``).
+    """
+    from pixie.evals.scorecard import (
+        AssertRecord,
+        _describe_criteria,
+        _evaluator_display_name,
+        _input_label,
+        get_active_collector,
+    )
+
+    collector = get_active_collector()
+    if collector is None:
+        return
+
+    evaluator_names = tuple(_evaluator_display_name(ev) for ev in evaluators)
+    input_labels = tuple(_input_label(inp) for inp in eval_inputs)
+
+    record = AssertRecord(
+        evaluator_names=evaluator_names,
+        input_labels=input_labels,
+        results=results,
+        passed=passed,
+        criteria_message=criteria_message,
+        scoring_strategy=_describe_criteria(criteria),
+    )
+    collector.record(record)
+
+
 async def run_and_evaluate(
     evaluator: Callable[..., Any],
     runnable: Callable[..., Any],
@@ -121,7 +161,9 @@ async def assert_pass(
     *,
     evaluables: list[Evaluable] | None = None,
     passes: int = 1,
-    pass_criteria: (Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None) = None,
+    pass_criteria: (
+        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
+    ) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Run evaluators against a runnable over multiple inputs and passes.
@@ -170,7 +212,9 @@ async def assert_pass(
             if evaluables is not None:
                 # Use provided evaluable directly — skip trace capture
                 ev_item = evaluables[idx]
-                eval_coros = [evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators]
+                eval_coros = [
+                    evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
+                ]
             else:
                 eval_coros = [
                     run_and_evaluate(
@@ -186,6 +230,17 @@ async def assert_pass(
         results.append(pass_results)
 
     passed, message = criteria(results)
+
+    # ── Publish to scorecard collector (if active) ─────────────────
+    _publish_to_scorecard(
+        evaluators=evaluators,
+        eval_inputs=eval_inputs,
+        results=results,
+        passed=passed,
+        criteria_message=message,
+        criteria=criteria,
+    )
+
     if not passed:
         raise EvalAssertionError(message, results=results)
 
@@ -197,7 +252,9 @@ async def assert_dataset_pass(
     *,
     dataset_dir: str | None = None,
     passes: int = 1,
-    pass_criteria: (Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None) = None,
+    pass_criteria: (
+        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
+    ) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Load a dataset by name, then run ``assert_pass`` with its items.

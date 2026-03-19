@@ -40,11 +40,14 @@ class EvalTestResult:
         name: The test name (``file.py::function``).
         status: ``'passed'``, ``'failed'``, or ``'error'``.
         message: Failure / error message, or None on pass.
+        assert_records: Detailed evaluation records collected during
+            the test via the scorecard collector.
     """
 
     name: str
     status: Literal["passed", "failed", "error"]
     message: str | None = None
+    assert_records: tuple[Any, ...] = ()
 
 
 def discover_tests(
@@ -177,17 +180,40 @@ def run_tests(cases: list[TestCase]) -> list[EvalTestResult]:
 
 def _run_single(case: TestCase) -> EvalTestResult:
     """Execute a single test case and return the result."""
+    from pixie.evals.scorecard import ScorecardCollector
+
+    collector = ScorecardCollector()
+    collector.activate()
     try:
         if case.is_async:
             asyncio.run(case.func())
         else:
             case.func()
-        return EvalTestResult(name=case.name, status="passed")
+        records = tuple(collector.drain())
+        return EvalTestResult(
+            name=case.name,
+            status="passed",
+            assert_records=records,
+        )
     except AssertionError as e:
-        return EvalTestResult(name=case.name, status="failed", message=str(e))
+        records = tuple(collector.drain())
+        return EvalTestResult(
+            name=case.name,
+            status="failed",
+            message=str(e),
+            assert_records=records,
+        )
     except Exception as e:
         tb = traceback.format_exc()
-        return EvalTestResult(name=case.name, status="error", message=f"{e}\n{tb}")
+        records = tuple(collector.drain())
+        return EvalTestResult(
+            name=case.name,
+            status="error",
+            message=f"{e}\n{tb}",
+            assert_records=records,
+        )
+    finally:
+        collector.deactivate()
 
 
 def format_results(results: list[EvalTestResult], *, verbose: bool = False) -> str:

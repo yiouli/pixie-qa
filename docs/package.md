@@ -188,13 +188,32 @@ All evaluators are importable from `pixie` (e.g. `from pixie import FactualityEv
 
 ## Running Tests
 
-Use `pixie-test` (not bare `pytest`) to run eval tests. It sets up the async environment and provides eval-specific output formatting:
+Use `pixie test` (or the equivalent `pixie-test` entry point, not bare `pytest`)
+to run eval tests. It sets up the async environment and provides eval-specific
+output formatting:
 
 ```bash
-pixie-test                 # run all test_*.py in the current directory
-pixie-test tests/          # specify a path
-pixie-test -k factuality   # filter by name substring
-pixie-test -v              # verbose: shows per-case scores and reasoning
+pixie test                 # run all test_*.py in the current directory
+pixie test tests/          # specify a path
+pixie test -k factuality   # filter by name substring
+pixie test -v              # verbose: shows per-case scores and reasoning
+```
+
+### HTML Scorecard
+
+Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. The scorecard contains:
+
+- **Test run overview** — command args, pass/fail summary, and a table of all tests with their status.
+- **Per-test detail** — for each test function that calls `assert_pass` / `assert_dataset_pass`:
+  - Scoring strategy description (human-readable).
+  - Per-evaluator pass rate table.
+  - Per-input × per-evaluator score grid with tooltips showing reasoning.
+  - **Tabbed view** for multi-pass runs (one tab per pass).
+
+After the test run, the CLI prints the scorecard path:
+
+```text
+See /path/to/pixie_qa/scorecards/20250615-120000-pixie-test.html for test details
 ```
 
 ---

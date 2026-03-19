@@ -46,6 +46,12 @@ from pixie.evals.eval_utils import (
     run_and_evaluate,
 )
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
+from pixie.evals.scorecard import (
+    ScorecardCollector,
+    ScorecardReport,
+    generate_scorecard_html,
+    save_scorecard,
+)
 from pixie.evals.scorers import (
     AnswerCorrectnessEval,
     AnswerRelevancyEval,
@@ -96,6 +102,8 @@ __all__ = [
     "NumericDiffEval",
     "PossibleEval",
     "ScoreThreshold",
+    "ScorecardCollector",
+    "ScorecardReport",
     "SecurityEval",
     "SqlEval",
     "SummaryEval",
@@ -105,7 +113,9 @@ __all__ = [
     "assert_pass",
     "capture_traces",
     "evaluate",
+    "generate_scorecard_html",
     "last_llm_call",
     "root",
     "run_and_evaluate",
+    "save_scorecard",
 ]
