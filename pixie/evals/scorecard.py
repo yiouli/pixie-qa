@@ -19,7 +19,7 @@ import threading
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from pixie.evals.evaluation import Evaluation
 
@@ -48,6 +48,7 @@ class AssertRecord:
     passed: bool
     criteria_message: str
     scoring_strategy: str
+    evaluable_dicts: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -343,7 +344,8 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
                     pass_results = ar.results[0] if ar.results else []
                     parts.append(
                         _render_pass_table(
-                            pass_results, ar.evaluator_names, ar.input_labels
+                            pass_results, ar.evaluator_names, ar.input_labels,
+                            ar.evaluable_dicts
                         )
                     )
                 else:
@@ -370,7 +372,8 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
                         )
                         parts.append(
                             _render_pass_table(
-                                pass_results, ar.evaluator_names, ar.input_labels
+                                pass_results, ar.evaluator_names, ar.input_labels,
+                                ar.evaluable_dicts
                             )
                         )
                         parts.append("</div>")  # tab-content
@@ -388,7 +391,7 @@ def _render_eval_detail_modal() -> str:
     """Render the reusable eval-detail modal (hidden by default)."""
     return """\
 <div id="eval-detail-modal" class="modal-backdrop" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="eval-detail-title">
+  <div class="modal-card eval-detail-modal-card" role="dialog" aria-modal="true" aria-labelledby="eval-detail-title">
     <button type="button" class="modal-close" aria-label="Close detail view"
       onclick="closeEvalDetailModal()">&times;</button>
     <h2 id="eval-detail-title">Evaluation detail</h2>
@@ -401,9 +404,21 @@ def _render_eval_detail_modal() -> str:
         <span class="eval-detail-label">Reasoning</span>
         <span id="eval-detail-reasoning" class="eval-detail-value"></span>
       </div>
-      <div class="eval-detail-row" id="eval-detail-extra-row">
-        <span class="eval-detail-label">Details</span>
-        <pre id="eval-detail-extra" class="eval-detail-json"></pre>
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Input</span>
+        <pre id="eval-detail-input" class="eval-detail-json"></pre>
+      </div>
+      <div class="eval-detail-row" id="eval-detail-expected-row">
+        <span class="eval-detail-label">Expected output</span>
+        <pre id="eval-detail-expected" class="eval-detail-json"></pre>
+      </div>
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Actual output</span>
+        <pre id="eval-detail-actual" class="eval-detail-json"></pre>
+      </div>
+      <div class="eval-detail-row" id="eval-detail-metadata-row">
+        <span class="eval-detail-label">Metadata</span>
+        <pre id="eval-detail-metadata" class="eval-detail-json"></pre>
       </div>
     </div>
     <div class="modal-actions" style="margin-top:1rem">
@@ -419,6 +434,7 @@ def _render_pass_table(
     pass_results: list[list[Evaluation]],
     evaluator_names: tuple[str, ...],
     input_labels: tuple[str, ...],
+    evaluable_dicts: tuple[dict[str, Any], ...] = (),
 ) -> str:
     """Render the evaluator × input result table for a single pass."""
     h = html.escape
@@ -451,7 +467,20 @@ def _render_pass_table(
             label = (
                 input_labels[i_idx] if i_idx < len(input_labels) else f"#{i_idx + 1}"
             )
-            lines.append(f"<tr><td class='input-label'>{h(label)}</td>")
+            row_ctx = evaluable_dicts[i_idx] if i_idx < len(evaluable_dicts) else {}
+            full_input = row_ctx.get("input")
+            # Build input cell with optional show-more toggle
+            if full_input is not None and full_input != label:
+                input_cell = (
+                    f'<span class="input-text">{h(label)}</span>'
+                    f' <a href="#" class="show-more-link"'
+                    f' data-preview="{h(label)}"'
+                    f' data-full="{h(full_input)}"'
+                    f' onclick="toggleInput(this);return false;">show more</a>'
+                )
+            else:
+                input_cell = f'<span class="input-text">{h(label)}</span>'
+            lines.append(f"<tr><td class='input-label-cell'>{input_cell}</td>")
             for e_idx in range(n_evaluators):
                 if e_idx < len(inp_evals):
                     ev = inp_evals[e_idx]
@@ -461,7 +490,10 @@ def _render_pass_table(
                             {
                                 "score": ev.score,
                                 "reasoning": ev.reasoning,
-                                "details": ev.details,
+                                "input": row_ctx.get("input"),
+                                "expected_output": row_ctx.get("expected_output"),
+                                "actual_output": row_ctx.get("actual_output"),
+                                "metadata": row_ctx.get("metadata"),
                             }
                         )
                     )
@@ -644,8 +676,13 @@ _HTML_HEAD = """\
   th { background: #f1f5f9; font-weight: 600; }
   .score-pass { color: var(--pass); font-weight: 600; }
   .score-fail { color: var(--fail); font-weight: 600; }
-  .input-label { max-width: 300px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; }
+  .input-label-cell { max-width: 300px; }
+  .input-text { word-break: break-word; white-space: pre-wrap; font-size: .875rem; }
+  .show-more-link {
+    font-size: .75rem; color: var(--muted); text-decoration: none; display: inline-block;
+    margin-top: .2rem;
+  }
+  .show-more-link:hover { color: var(--brand); text-decoration: underline; }
   .assert-card {
     border: 1px solid var(--border); border-radius: 6px;
     padding: 1rem; margin: 1rem 0; background: #fafbfc;
@@ -692,10 +729,11 @@ _HTML_HEAD = """\
   }
   .modal-backdrop[hidden] { display: none !important; }
   .modal-card {
-    position: relative; width: min(100%, 680px); max-height: 100%;
+    position: relative; width: 100%; max-height: 100%;
     overflow-y: auto; overflow-x: hidden; background: var(--card); border-radius: 16px;
     padding: 1.5rem; box-shadow: 0 24px 60px rgba(15,23,42,.28);
   }
+  .eval-detail-modal-card { max-height: 90vh; }
   .modal-close {
     position: absolute; top: 1rem; right: 1rem; width: 2rem; height: 2rem;
     border: 0; border-radius: 999px; background: #e2e8f0; color: var(--text);
@@ -760,20 +798,43 @@ function showEvalDetail(link) {
   var data = JSON.parse(link.getAttribute('data-eval'));
   var scoreEl = document.getElementById('eval-detail-score');
   var reasoningEl = document.getElementById('eval-detail-reasoning');
-  var detailsEl = document.getElementById('eval-detail-extra');
-  var detailsRow = document.getElementById('eval-detail-extra-row');
+  var inputEl = document.getElementById('eval-detail-input');
+  var expectedEl = document.getElementById('eval-detail-expected');
+  var expectedRow = document.getElementById('eval-detail-expected-row');
+  var actualEl = document.getElementById('eval-detail-actual');
+  var metadataEl = document.getElementById('eval-detail-metadata');
+  var metadataRow = document.getElementById('eval-detail-metadata-row');
   var passed = data.score >= 0.5;
   scoreEl.textContent = data.score.toFixed(2) + (passed ? ' \u2713' : ' \u2717');
   scoreEl.className = passed ? 'eval-detail-score-pass' : 'eval-detail-score-fail';
   reasoningEl.textContent = data.reasoning || '(none)';
-  if (data.details && Object.keys(data.details).length > 0) {
-    detailsEl.textContent = JSON.stringify(data.details, null, 2);
-    detailsRow.style.display = '';
+  inputEl.textContent = data.input || '(none)';
+  if (data.expected_output != null) {
+    expectedEl.textContent = data.expected_output;
+    expectedRow.style.display = '';
   } else {
-    detailsRow.style.display = 'none';
+    expectedRow.style.display = 'none';
+  }
+  actualEl.textContent = data.actual_output || '(none)';
+  if (data.metadata && Object.keys(data.metadata).length > 0) {
+    metadataEl.textContent = JSON.stringify(data.metadata, null, 2);
+    metadataRow.style.display = '';
+  } else {
+    metadataRow.style.display = 'none';
   }
   modal.hidden = false;
   document.body.classList.add('modal-open');
+}
+function toggleInput(link) {
+  var textEl = link.previousElementSibling;
+  if (!textEl || !textEl.classList.contains('input-text')) return;
+  if (link.textContent.trim() === 'show more') {
+    textEl.textContent = link.getAttribute('data-full');
+    link.textContent = 'show less';
+  } else {
+    textEl.textContent = link.getAttribute('data-preview');
+    link.textContent = 'show more';
+  }
 }
 function closeEvalDetailModal() {
   var modal = document.getElementById('eval-detail-modal');
