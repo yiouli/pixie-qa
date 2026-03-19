@@ -20,6 +20,7 @@ import json
 import sys
 from typing import TextIO
 
+from dotenv import load_dotenv
 from piccolo.engine.sqlite import SQLiteEngine
 from pydantic import JsonValue
 
@@ -182,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 1
+
+    load_dotenv()
 
     if args.command == "dataset":
         if args.dataset_action is None:

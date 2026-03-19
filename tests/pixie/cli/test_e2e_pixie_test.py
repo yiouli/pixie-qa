@@ -227,6 +227,23 @@ class TestPixieTestRealisticE2E:
         html_lower = html.lower()
         assert "score must be" in html_lower or "must pass" in html_lower
 
+    def test_scorecard_has_branding_and_feedback_actions(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Scorecard HTML includes the branded header, CTA, and feedback modal."""
+        pixie_root = tmp_path / "pixie_qa"
+        monkeypatch.setenv("PIXIE_ROOT", str(pixie_root))
+        _pixie_test_main([str(_TEST_FILE)])
+        html = _find_scorecard_html(pixie_root / "scorecards")
+        assert html is not None
+        assert "brand-name" in html
+        assert "Share feedback" in html
+        assert "★ Star on GitHub" in html
+        assert 'data-action="https://feedback.gopixie.ai"' in html
+
 
 # ======================================================================
 # 2. Edge-case tests (parametrised from e2e_cases.json)

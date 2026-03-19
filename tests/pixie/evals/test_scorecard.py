@@ -212,12 +212,31 @@ class TestGenerateScorecardHtml:
         html_out = generate_scorecard_html(report)
 
         assert "<!DOCTYPE html>" in html_out
+        assert "Pixie QA" in html_out
+        assert "Share feedback" in html_out
+        assert "★ Star yiouli/pixie-qa" in html_out
         assert "1/2 tests passed" in html_out
         assert "test_a.py::test_one" in html_out
         assert "test_b.py::test_two" in html_out
         assert "PASS" in html_out
         assert "FAIL" in html_out
         assert "pixie test ." in html_out
+
+    def test_feedback_modal_posts_to_feedback_service(self) -> None:
+        report = ScorecardReport(
+            command_args='pixie test tests/ --flag "quoted"',
+            test_records=[TestRecord(name="test_eval.py::test_fn", status="passed")],
+            timestamp=datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc),
+        )
+        html_out = generate_scorecard_html(report)
+
+        assert 'id="feedback-modal"' in html_out
+        assert 'action="https://feedback.gopixie.ai"' in html_out
+        assert 'name="feedback"' in html_out
+        assert 'name="email"' in html_out
+        assert 'name="attachments"' in html_out
+        assert 'accept=".txt,.md,.log,.json,text/plain"' in html_out
+        assert "pixie test tests/ --flag &quot;quoted&quot;" in html_out
 
     def test_assert_records_rendered(self) -> None:
         ar = _make_assert_record(

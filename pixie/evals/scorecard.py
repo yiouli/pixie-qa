@@ -13,6 +13,7 @@ This module provides:
 from __future__ import annotations
 
 import html
+import json
 import os
 import threading
 from contextvars import ContextVar
@@ -198,6 +199,69 @@ def _describe_criteria(criteria: object) -> str:
 # HTML generation
 # ---------------------------------------------------------------------------
 
+_PIXIE_REPO_URL = "https://github.com/yiouli/pixie-qa"
+_PIXIE_FEEDBACK_URL = "https://feedback.gopixie.ai"
+_PIXIE_BRAND_ICON_URL = (
+    "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af"
+)
+
+
+def _render_brand_header(command_args: str, timestamp: str) -> str:
+    """Render the branded scorecard header and feedback modal."""
+    h = html.escape
+    return "\n".join(
+        [
+            '<header class="brand-header" aria-label="Pixie scorecard header">',
+            '  <div class="brand-lockup">',
+            f'    <img src="{h(_PIXIE_BRAND_ICON_URL)}" class="brand-icon" alt="Pixie" '
+            'loading="lazy" referrerpolicy="no-referrer">',
+            '    <span class="brand-name">Pixie</span>',
+            "  </div>",
+            '  <div class="brand-actions">',
+            '    <button type="button" class="feedback-btn" '
+            'onclick="toggleFeedbackModal(true)">Share feedback</button>',
+            f'    <a class="action-btn action-btn-primary" href="{h(_PIXIE_REPO_URL)}" '
+            'target="_blank" rel="noreferrer">★ Star on GitHub</a>',
+            "  </div>",
+            "</header>",
+            '<div id="feedback-modal" class="modal-backdrop" hidden>',
+            '  <div class="modal-card" role="dialog" aria-modal="true" '
+            'aria-labelledby="feedback-modal-title">',
+            '    <button type="button" class="modal-close" aria-label="Close feedback form" '
+            'onclick="toggleFeedbackModal(false)">×</button>',
+            '    <h2 id="feedback-modal-title">Send feedback to Pixie</h2>',
+            '    <p class="modal-description">'
+            "Tell us what worked, what felt confusing, or attach text artifacts that help "
+            "us improve the scorecard experience."
+            "</p>",
+            f'    <form id="feedback-form" class="feedback-form" '
+            f'data-action="{h(_PIXIE_FEEDBACK_URL)}">',
+            '      <input type="hidden" name="source" value="pixie-scorecard">',
+            f'      <input type="hidden" name="command_args" value="{h(command_args)}">',
+            f'      <input type="hidden" name="generated_at" value="{h(timestamp)}">',
+            '      <label class="field-label" for="feedback-text">Feedback</label>',
+            '      <textarea id="feedback-text" name="feedback" rows="6" required '
+            'placeholder="Share your feedback..."></textarea>',
+            '      <label class="field-label" for="feedback-email">Email (optional)</label>',
+            '      <input id="feedback-email" name="email" type="email" '
+            'placeholder="you@example.com">',
+            '      <label class="field-label" for="feedback-attachments">'
+            "Text attachments (optional)</label>",
+            '      <input id="feedback-attachments" name="attachments" type="file" multiple '
+            'accept=".txt,.md,.log,.json,text/plain">',
+            '      <div class="modal-actions">',
+            '        <button type="button" class="action-btn action-btn-primary" '
+            'style="background:#e2e8f0;color:var(--text);box-shadow:none" '
+            'onclick="toggleFeedbackModal(false)">Cancel</button>',
+            '        <button type="submit" '
+            'class="action-btn action-btn-primary">Submit feedback</button>',
+            "      </div>",
+            "    </form>",
+            "  </div>",
+            "</div>",
+        ]
+    )
+
 
 def generate_scorecard_html(report: ScorecardReport) -> str:
     """Render a :class:`ScorecardReport` as a self-contained HTML page.
@@ -220,6 +284,8 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
 
     parts: list[str] = []
     parts.append(_HTML_HEAD.replace("{{TITLE}}", f"Pixie Test Scorecard — {ts}"))
+    parts.append(_render_brand_header(report.command_args, ts))
+    parts.append(_render_eval_detail_modal())
 
     # ── Overview section ──────────────────────────────────────────────
     parts.append('<div class="section">')
@@ -318,6 +384,37 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
     return "\n".join(parts)
 
 
+def _render_eval_detail_modal() -> str:
+    """Render the reusable eval-detail modal (hidden by default)."""
+    return """\
+<div id="eval-detail-modal" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="eval-detail-title">
+    <button type="button" class="modal-close" aria-label="Close detail view"
+      onclick="closeEvalDetailModal()">&times;</button>
+    <h2 id="eval-detail-title">Evaluation detail</h2>
+    <div class="eval-detail-body">
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Score</span>
+        <span id="eval-detail-score" class="eval-detail-score-pass"></span>
+      </div>
+      <div class="eval-detail-row">
+        <span class="eval-detail-label">Reasoning</span>
+        <span id="eval-detail-reasoning" class="eval-detail-value"></span>
+      </div>
+      <div class="eval-detail-row" id="eval-detail-extra-row">
+        <span class="eval-detail-label">Details</span>
+        <pre id="eval-detail-extra" class="eval-detail-json"></pre>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:1rem">
+      <button type="button" class="action-btn action-btn-primary"
+        style="background:#e2e8f0;color:var(--text);box-shadow:none"
+        onclick="closeEvalDetailModal()">Close</button>
+    </div>
+  </div>
+</div>"""
+
+
 def _render_pass_table(
     pass_results: list[list[Evaluation]],
     evaluator_names: tuple[str, ...],
@@ -359,9 +456,22 @@ def _render_pass_table(
                 if e_idx < len(inp_evals):
                     ev = inp_evals[e_idx]
                     cls = "score-pass" if ev.score >= 0.5 else "score-fail"
+                    eval_data = h(
+                        json.dumps(
+                            {
+                                "score": ev.score,
+                                "reasoning": ev.reasoning,
+                                "details": ev.details,
+                            }
+                        )
+                    )
                     lines.append(
-                        f'<td class="{cls}" title="{h(ev.reasoning)}">'
-                        f"{ev.score:.2f}</td>"
+                        f'<td class="{cls}">'
+                        f"{ev.score:.2f}"
+                        f' <a href="#" class="details-link"'
+                        f' data-eval="{eval_data}"'
+                        f' onclick="showEvalDetail(this);return false;">details</a>'
+                        f"</td>"
                     )
                 else:
                     lines.append("<td>—</td>")
@@ -457,6 +567,9 @@ _HTML_HEAD = """\
     --border: #e2e8f0;
     --text: #1e293b;
     --muted: #64748b;
+    --brand: #7c3aed;
+    --brand-dark: #0f172a;
+    --brand-surface: #eef2ff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -465,11 +578,43 @@ _HTML_HEAD = """\
     background: var(--bg); color: var(--text);
     padding: 2rem; line-height: 1.6;
   }
-  h1 { margin-bottom: 1.5rem; font-size: 1.5rem; }
+  body.modal-open { overflow: hidden; }
+  h1 { margin-bottom: .5rem; font-size: 2rem; line-height: 1.15; }
   h2 { margin-bottom: 1rem; font-size: 1.25rem;
     border-bottom: 2px solid var(--border);
     padding-bottom: .5rem; }
   h3 { margin-bottom: .75rem; font-size: 1.1rem; }
+  .brand-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 0; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-lockup { display: flex; align-items: center; gap: .5rem; }
+  .brand-icon { width: 24px; height: 24px; border-radius: 4px; display: block; }
+  .brand-name {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1rem; font-weight: 700; color: var(--text);
+  }
+  .brand-actions {
+    display: flex; gap: .5rem; align-items: center;
+  }
+  .feedback-btn {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    font-size: .9rem; padding: .4rem .75rem; border-radius: 6px;
+    transition: color .12s ease; font-family: inherit;
+  }
+  .feedback-btn:hover { color: var(--text); }
+  .action-btn {
+    border: 0; border-radius: 999px; padding: .45rem 1rem;
+    font-weight: 700; font-size: .9rem; text-decoration: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .action-btn:hover { transform: translateY(-1px); }
+  .action-btn-primary {
+    background: var(--brand); color: #fff;
+    box-shadow: 0 4px 12px rgba(124,58,237,.28);
+  }
   .section {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
@@ -521,10 +666,66 @@ _HTML_HEAD = """\
   }
   .tab-btn.active { background: #f1f5f9; font-weight: 600; border-bottom-color: #f1f5f9; }
   .tab-content { /* toggled via JS */ }
+  .details-link {
+    font-size: .75rem; color: var(--muted); margin-left: .3rem;
+    text-decoration: none; white-space: nowrap;
+  }
+  .details-link:hover { color: var(--brand); text-decoration: underline; }
+  .eval-detail-body { display: grid; gap: .75rem; }
+  .eval-detail-row { display: flex; flex-direction: column; gap: .2rem; }
+  .eval-detail-label {
+    font-size: .72rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .eval-detail-value { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
+  .eval-detail-score-pass { color: var(--pass); font-weight: 700; font-size: 1.2rem; }
+  .eval-detail-score-fail { color: var(--fail); font-weight: 700; font-size: 1.2rem; }
+  .eval-detail-json {
+    background: #f1f5f9; padding: .75rem 1rem; border-radius: 6px;
+    font-size: .82rem; font-family: 'Courier New', monospace;
+    white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+    overflow-x: hidden; margin: 0;
+  }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 20;
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .modal-backdrop[hidden] { display: none !important; }
+  .modal-card {
+    position: relative; width: min(100%, 680px); max-height: 100%;
+    overflow-y: auto; overflow-x: hidden; background: var(--card); border-radius: 16px;
+    padding: 1.5rem; box-shadow: 0 24px 60px rgba(15,23,42,.28);
+  }
+  .modal-close {
+    position: absolute; top: 1rem; right: 1rem; width: 2rem; height: 2rem;
+    border: 0; border-radius: 999px; background: #e2e8f0; color: var(--text);
+    cursor: pointer; font-size: 1.1rem; line-height: 1;
+  }
+  .modal-description, .form-note { color: var(--muted); margin-bottom: 1rem; }
+  .feedback-form { display: grid; gap: .75rem; }
+  .field-label { font-weight: 600; color: var(--text); }
+  .feedback-form textarea,
+  .feedback-form input[type="email"],
+  .feedback-form input[type="file"] {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px;
+    padding: .85rem 1rem; font: inherit; background: #fff;
+  }
+  .feedback-form textarea { min-height: 9rem; resize: vertical; }
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 780px) {
+    body { padding: 1rem; }
+    .brand-header { flex-direction: column; align-items: flex-start; }
+    .brand-lockup { align-items: flex-start; }
+    .brand-actions, .modal-actions { width: 100%; justify-content: stretch; }
+    .action-btn { width: 100%; }
+    .input-label { max-width: 180px; }
+  }
 </style>
 </head>
 <body>
-<h1>Pixie Test Scorecard</h1>
 """
 
 _HTML_FOOT = """\
@@ -547,6 +748,67 @@ function switchTab(group, idx) {
     }
   });
 }
+function toggleFeedbackModal(open) {
+  var modal = document.getElementById('feedback-modal');
+  if (!modal) return;
+  modal.hidden = !open;
+  document.body.classList.toggle('modal-open', open);
+}
+function showEvalDetail(link) {
+  var modal = document.getElementById('eval-detail-modal');
+  if (!modal) return;
+  var data = JSON.parse(link.getAttribute('data-eval'));
+  var scoreEl = document.getElementById('eval-detail-score');
+  var reasoningEl = document.getElementById('eval-detail-reasoning');
+  var detailsEl = document.getElementById('eval-detail-extra');
+  var detailsRow = document.getElementById('eval-detail-extra-row');
+  var passed = data.score >= 0.5;
+  scoreEl.textContent = data.score.toFixed(2) + (passed ? ' \u2713' : ' \u2717');
+  scoreEl.className = passed ? 'eval-detail-score-pass' : 'eval-detail-score-fail';
+  reasoningEl.textContent = data.reasoning || '(none)';
+  if (data.details && Object.keys(data.details).length > 0) {
+    detailsEl.textContent = JSON.stringify(data.details, null, 2);
+    detailsRow.style.display = '';
+  } else {
+    detailsRow.style.display = 'none';
+  }
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+function closeEvalDetailModal() {
+  var modal = document.getElementById('eval-detail-modal');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    toggleFeedbackModal(false);
+    closeEvalDetailModal();
+  }
+});
+document.addEventListener('click', function(event) {
+  var feedbackModal = document.getElementById('feedback-modal');
+  if (feedbackModal && event.target === feedbackModal) {
+    toggleFeedbackModal(false);
+  }
+  var evalModal = document.getElementById('eval-detail-modal');
+  if (evalModal && event.target === evalModal) {
+    closeEvalDetailModal();
+  }
+});
+(function() {
+  var form = document.getElementById('feedback-form');
+  if (!form) return;
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    var action = form.getAttribute('data-action');
+    var data = new FormData(form);
+    fetch(action, { method: 'POST', body: data }).catch(function() {});
+    toggleFeedbackModal(false);
+    form.reset();
+  });
+})();
 </script>
 </body>
 </html>
