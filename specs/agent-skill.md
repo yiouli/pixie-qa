@@ -1,5 +1,12 @@
 A skill for developing llm-powered python software with eval-driven-development.
 
+At the beginning of each skill invocation, the agent should check whethere there is a newer version of the skill by running:
+`check_version.py`. That script reads
+the local `.claude/skills/eval-driven-dev/resources/version.json`, fetches the
+latest version metadata from the matching raw GitHub URL on `main`, and, when
+outdated, runs `npx skills add yiouli/pixie-qa` plus a package-manager-specific
+upgrade for `pixie-qa`.
+
 instrument application, build golden datasets, build evals-based tests, run those tests and root-cause test failures during development cycle,
 
 use whenever user is developing a python-based and llm-powered software project, or whenever user want to evaluate, verify, test, qa, or benchmark such project.

@@ -188,13 +188,15 @@ All evaluators are importable from `pixie` (e.g. `from pixie import FactualityEv
 
 ## Running Tests
 
-Use `pixie-test` (not bare `pytest`) to run eval tests. It sets up the async environment and provides eval-specific output formatting:
+Use `pixie test` (or the equivalent `pixie-test` entry point, not bare `pytest`)
+to run eval tests. It sets up the async environment and provides eval-specific
+output formatting:
 
 ```bash
-pixie-test                 # run all test_*.py in the current directory
-pixie-test tests/          # specify a path
-pixie-test -k factuality   # filter by name substring
-pixie-test -v              # verbose: shows per-case scores and reasoning
+pixie test                 # run all test_*.py in the current directory
+pixie test tests/          # specify a path
+pixie test -k factuality   # filter by name substring
+pixie test -v              # verbose: shows per-case scores and reasoning
 ```
 
 ### HTML Scorecard

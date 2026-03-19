@@ -344,6 +344,10 @@ and saves it to `{config.root}/scorecards/<YYYYMMDD-HHMMSS-normalized-args>.html
 
 **Scorecard contents:**
 
+- **Branded header** — Pixie lockup, a star-the-repo CTA that links to
+  `https://github.com/yiouli/pixie-qa`, and a feedback CTA.
+- **Feedback modal** — opened from the header; submits text feedback, optional
+  email, and optional text attachments to `https://feedback.gopixie.ai`.
 - **Test run overview** — command args, timestamp, X/N passed summary, and a
   table of all tests with status badges.
 - **Per-test detail** — for each test function:

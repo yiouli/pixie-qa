@@ -7,6 +7,12 @@ description: Instrument Python LLM apps, build golden datasets, write eval-based
 
 This skill is about doing the work, not describing it. When a user asks you to set up evals for their app, you should be reading their code, editing their files, running commands, and producing a working test pipeline — not writing a plan for them to follow later.
 
+## Version check (always first)
+
+Before doing anything else with this skill, check whether a newer version of the skill is available on github by running the script `check_version.py`.
+
+If there is a newer version, You should reinstall the skill by running `npx skills add yiouli/pixie-qa` and also upgrade the `pixie-qa` package in the user's environment (e.g. `pip install --upgrade pixie-qa`, or `uv`, or `poetry` etc).
+
 **All pixie-generated files live in a single `pixie_qa` directory** at the project root:
 
 ```

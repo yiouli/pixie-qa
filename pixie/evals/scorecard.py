@@ -198,6 +198,79 @@ def _describe_criteria(criteria: object) -> str:
 # HTML generation
 # ---------------------------------------------------------------------------
 
+_PIXIE_REPO_URL = "https://github.com/yiouli/pixie-qa"
+_PIXIE_FEEDBACK_URL = "https://feedback.gopixie.ai"
+_PIXIE_BRAND_ICON_URL = (
+    "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af"
+)
+
+
+def _render_brand_header(command_args: str, timestamp: str) -> str:
+    """Render the branded scorecard header and feedback modal."""
+    h = html.escape
+    return "\n".join(
+        [
+            '<section class="brand-header" aria-label="Pixie scorecard header">',
+            '  <div class="brand-lockup">',
+            '    <div class="brand-logo" aria-hidden="true">',
+            '      <span class="brand-logo-fallback">P</span>',
+            f'      <img src="{h(_PIXIE_BRAND_ICON_URL)}" alt="Pixie logo" loading="lazy" '
+            'referrerpolicy="no-referrer">',
+            "    </div>",
+            '    <div class="brand-copy">',
+            '      <p class="eyebrow">Pixie QA</p>',
+            "      <h1>Pixie Test Scorecard</h1>",
+            '      <p class="brand-description">'
+            "Inspect your eval results, star the project, and share feedback directly "
+            "from this report."
+            "</p>",
+            "    </div>",
+            "  </div>",
+            '  <div class="brand-actions">',
+            '    <button type="button" class="action-btn action-btn-secondary" '
+            'onclick="toggleFeedbackModal(true)">Share feedback</button>',
+            f'    <a class="action-btn action-btn-primary" href="{h(_PIXIE_REPO_URL)}" '
+            'target="_blank" rel="noreferrer">★ Star yiouli/pixie-qa</a>',
+            "  </div>",
+            "</section>",
+            '<div id="feedback-modal" class="modal-backdrop" hidden>',
+            '  <div class="modal-card" role="dialog" aria-modal="true" '
+            'aria-labelledby="feedback-modal-title">',
+            '    <button type="button" class="modal-close" aria-label="Close feedback form" '
+            'onclick="toggleFeedbackModal(false)">×</button>',
+            '    <h2 id="feedback-modal-title">Send feedback to Pixie</h2>',
+            '    <p class="modal-description">'
+            "Tell us what worked, what felt confusing, or attach text artifacts that help "
+            "us improve the scorecard experience."
+            "</p>",
+            f'    <form class="feedback-form" action="{h(_PIXIE_FEEDBACK_URL)}" '
+            'method="post" enctype="multipart/form-data" target="_blank">',
+            '      <input type="hidden" name="source" value="pixie-scorecard">',
+            f'      <input type="hidden" name="command_args" value="{h(command_args)}">',
+            f'      <input type="hidden" name="generated_at" value="{h(timestamp)}">',
+            '      <label class="field-label" for="feedback-text">Feedback</label>',
+            '      <textarea id="feedback-text" name="feedback" rows="6" required '
+            'placeholder="Share your feedback about Pixie, this scorecard, or your eval workflow..."></textarea>',
+            '      <label class="field-label" for="feedback-email">Email (optional)</label>',
+            '      <input id="feedback-email" name="email" type="email" '
+            'placeholder="you@example.com">',
+            '      <label class="field-label" for="feedback-attachments">'
+            "Text attachments (optional)</label>",
+            '      <input id="feedback-attachments" name="attachments" type="file" multiple '
+            'accept=".txt,.md,.log,.json,text/plain">',
+            '      <p class="form-note">Submitting opens a new tab and posts your feedback '
+            f'to <code>{h(_PIXIE_FEEDBACK_URL)}</code>.</p>',
+            '      <div class="modal-actions">',
+            '        <button type="button" class="action-btn action-btn-secondary" '
+            'onclick="toggleFeedbackModal(false)">Cancel</button>',
+            '        <button type="submit" class="action-btn action-btn-primary">Submit feedback</button>',
+            "      </div>",
+            "    </form>",
+            "  </div>",
+            "</div>",
+        ]
+    )
+
 
 def generate_scorecard_html(report: ScorecardReport) -> str:
     """Render a :class:`ScorecardReport` as a self-contained HTML page.
@@ -220,6 +293,7 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
 
     parts: list[str] = []
     parts.append(_HTML_HEAD.replace("{{TITLE}}", f"Pixie Test Scorecard — {ts}"))
+    parts.append(_render_brand_header(report.command_args, ts))
 
     # ── Overview section ──────────────────────────────────────────────
     parts.append('<div class="section">')
@@ -457,6 +531,9 @@ _HTML_HEAD = """\
     --border: #e2e8f0;
     --text: #1e293b;
     --muted: #64748b;
+    --brand: #7c3aed;
+    --brand-dark: #0f172a;
+    --brand-surface: #eef2ff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -465,11 +542,56 @@ _HTML_HEAD = """\
     background: var(--bg); color: var(--text);
     padding: 2rem; line-height: 1.6;
   }
-  h1 { margin-bottom: 1.5rem; font-size: 1.5rem; }
+  body.modal-open { overflow: hidden; }
+  h1 { margin-bottom: .5rem; font-size: 2rem; line-height: 1.15; }
   h2 { margin-bottom: 1rem; font-size: 1.25rem;
     border-bottom: 2px solid var(--border);
     padding-bottom: .5rem; }
   h3 { margin-bottom: .75rem; font-size: 1.1rem; }
+  .brand-header {
+    background: linear-gradient(135deg, rgba(124,58,237,.12), rgba(15,23,42,.98));
+    color: #fff; border-radius: 16px; padding: 1.5rem;
+    margin-bottom: 1.5rem; display: flex; gap: 1.5rem;
+    align-items: center; justify-content: space-between;
+    box-shadow: 0 20px 35px rgba(15,23,42,.16);
+  }
+  .brand-lockup { display: flex; align-items: center; gap: 1rem; }
+  .brand-logo {
+    position: relative; width: 72px; height: 72px; border-radius: 22px;
+    background: linear-gradient(135deg, #8b5cf6, #0f172a);
+    overflow: hidden; flex: 0 0 auto;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .brand-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .brand-logo-fallback {
+    display: flex; align-items: center; justify-content: center; height: 100%;
+    font-size: 2rem; font-weight: 800; letter-spacing: .06em;
+  }
+  .eyebrow {
+    color: rgba(255,255,255,.74); text-transform: uppercase; letter-spacing: .14em;
+    font-size: .78rem; font-weight: 700; margin-bottom: .35rem;
+  }
+  .brand-copy { max-width: 42rem; }
+  .brand-description { color: rgba(255,255,255,.82); max-width: 44rem; }
+  .brand-actions {
+    display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .action-btn {
+    border: 0; border-radius: 999px; padding: .85rem 1.15rem;
+    font-weight: 700; font-size: .95rem; text-decoration: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .action-btn:hover { transform: translateY(-1px); }
+  .action-btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff;
+    box-shadow: 0 10px 24px rgba(124,58,237,.28);
+  }
+  .action-btn-secondary {
+    background: rgba(255,255,255,.1); color: #fff;
+    border: 1px solid rgba(255,255,255,.18);
+  }
   .section {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
@@ -521,10 +643,45 @@ _HTML_HEAD = """\
   }
   .tab-btn.active { background: #f1f5f9; font-weight: 600; border-bottom-color: #f1f5f9; }
   .tab-content { /* toggled via JS */ }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 20;
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .modal-card {
+    position: relative; width: min(100%, 680px); max-height: 100%;
+    overflow-y: auto; background: var(--card); border-radius: 16px;
+    padding: 1.5rem; box-shadow: 0 24px 60px rgba(15,23,42,.28);
+  }
+  .modal-close {
+    position: absolute; top: 1rem; right: 1rem; width: 2rem; height: 2rem;
+    border: 0; border-radius: 999px; background: #e2e8f0; color: var(--text);
+    cursor: pointer; font-size: 1.1rem; line-height: 1;
+  }
+  .modal-description, .form-note { color: var(--muted); margin-bottom: 1rem; }
+  .feedback-form { display: grid; gap: .75rem; }
+  .field-label { font-weight: 600; color: var(--text); }
+  .feedback-form textarea,
+  .feedback-form input[type="email"],
+  .feedback-form input[type="file"] {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px;
+    padding: .85rem 1rem; font: inherit; background: #fff;
+  }
+  .feedback-form textarea { min-height: 9rem; resize: vertical; }
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 780px) {
+    body { padding: 1rem; }
+    .brand-header { flex-direction: column; align-items: flex-start; }
+    .brand-lockup { align-items: flex-start; }
+    .brand-actions, .modal-actions { width: 100%; justify-content: stretch; }
+    .action-btn { width: 100%; }
+    .input-label { max-width: 180px; }
+  }
 </style>
 </head>
 <body>
-<h1>Pixie Test Scorecard</h1>
 """
 
 _HTML_FOOT = """\
@@ -547,6 +704,23 @@ function switchTab(group, idx) {
     }
   });
 }
+function toggleFeedbackModal(open) {
+  var modal = document.getElementById('feedback-modal');
+  if (!modal) return;
+  modal.hidden = !open;
+  document.body.classList.toggle('modal-open', open);
+}
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    toggleFeedbackModal(false);
+  }
+});
+document.addEventListener('click', function(event) {
+  var modal = document.getElementById('feedback-modal');
+  if (modal && event.target === modal) {
+    toggleFeedbackModal(false);
+  }
+});
 </script>
 </body>
 </html>
