@@ -41,7 +41,7 @@ def main() -> int:
     local_data = _load_local_version(resource_dir)
     skill_location = local_data.get(
         "skill_location",
-        "/yiouli/pixie-qa/main/.claude/skills/eval-driven-dev/",
+        "/yiouli/pixie-qa/main/skills/eval-driven-dev/",
     )
     version_url = f"https://raw.githubusercontent.com{skill_location}version.json"
     local_version = local_data.get("version", "0.0.0")
