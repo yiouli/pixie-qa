@@ -173,6 +173,14 @@ class AutoevalsAdapter:
         self._extra_metadata_keys = extra_metadata_keys
         self._scorer_kwargs = scorer_kwargs
 
+    @property
+    def name(self) -> str:
+        """Return the underlying scorer's display name."""
+        scorer_name = getattr(self._scorer, "name", None)
+        if isinstance(scorer_name, str):
+            return scorer_name
+        return type(self._scorer).__name__
+
     async def __call__(
         self,
         evaluable: Evaluable,

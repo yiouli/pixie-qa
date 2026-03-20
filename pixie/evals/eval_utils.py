@@ -50,6 +50,7 @@ def _publish_to_scorecard(
     passed: bool,
     criteria_message: str,
     criteria: object,
+    evaluables: list[Evaluable] | None = None,
 ) -> None:
     """Push an :class:`AssertRecord` to the active scorecard collector.
 
@@ -63,6 +64,7 @@ def _publish_to_scorecard(
         _input_label,
         get_active_collector,
     )
+    from pixie.storage.evaluable import _Unset
 
     collector = get_active_collector()
     if collector is None:
@@ -71,6 +73,27 @@ def _publish_to_scorecard(
     evaluator_names = tuple(_evaluator_display_name(ev) for ev in evaluators)
     input_labels = tuple(_input_label(inp) for inp in eval_inputs)
 
+    # Build per-row context for the scorecard detail modal
+    if evaluables is not None:
+        ev_dicts: tuple[dict[str, Any], ...] = tuple(
+            {
+                "input": str(ev.eval_input) if ev.eval_input is not None else None,
+                "expected_output": (
+                    None
+                    if isinstance(ev.expected_output, _Unset)
+                    else (str(ev.expected_output) if ev.expected_output is not None else None)
+                ),
+                "actual_output": str(ev.eval_output) if ev.eval_output is not None else None,
+                "metadata": ev.eval_metadata,
+            }
+            for ev in evaluables
+        )
+    else:
+        ev_dicts = tuple(
+            {"input": str(inp), "expected_output": None, "actual_output": None, "metadata": None}
+            for inp in eval_inputs
+        )
+
     record = AssertRecord(
         evaluator_names=evaluator_names,
         input_labels=input_labels,
@@ -78,6 +101,7 @@ def _publish_to_scorecard(
         passed=passed,
         criteria_message=criteria_message,
         scoring_strategy=_describe_criteria(criteria),
+        evaluable_dicts=ev_dicts,
     )
     collector.record(record)
 
@@ -239,6 +263,7 @@ async def assert_pass(
         passed=passed,
         criteria_message=message,
         criteria=criteria,
+        evaluables=evaluables,
     )
 
     if not passed:
