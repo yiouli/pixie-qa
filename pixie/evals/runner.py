@@ -75,10 +75,22 @@ def discover_tests(
     target = Path(path)
     test_files: list[Path] = []
 
+    _SKIP_DIRS = {
+        ".venv",
+        "venv",
+        ".git",
+        "__pycache__",
+        "node_modules",
+        ".tox",
+        ".nox",
+    }
+
     if target.is_file():
         test_files.append(target)
     elif target.is_dir():
         for p in sorted(target.rglob("*.py")):
+            if any(part in _SKIP_DIRS for part in p.parts):
+                continue
             if p.stem.startswith("test_") or p.stem.endswith("_test"):
                 test_files.append(p)
 

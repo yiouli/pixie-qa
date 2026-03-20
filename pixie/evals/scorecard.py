@@ -201,7 +201,7 @@ def _describe_criteria(criteria: object) -> str:
 # ---------------------------------------------------------------------------
 
 _PIXIE_REPO_URL = "https://github.com/yiouli/pixie-qa"
-_PIXIE_FEEDBACK_URL = "https://feedback.gopixie.ai"
+_PIXIE_FEEDBACK_URL = "https://feedback.gopixie.ai/feedback"
 _PIXIE_BRAND_ICON_URL = (
     "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af"
 )
@@ -236,7 +236,7 @@ def _render_brand_header(command_args: str, timestamp: str) -> str:
             "us improve the scorecard experience."
             "</p>",
             f'    <form id="feedback-form" class="feedback-form" '
-            f'data-action="{h(_PIXIE_FEEDBACK_URL)}">',
+            f'data-action="{h(_PIXIE_FEEDBACK_URL)}" method="POST">',
             '      <input type="hidden" name="source" value="pixie-scorecard">',
             f'      <input type="hidden" name="command_args" value="{h(command_args)}">',
             f'      <input type="hidden" name="generated_at" value="{h(timestamp)}">',
@@ -344,8 +344,10 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
                     pass_results = ar.results[0] if ar.results else []
                     parts.append(
                         _render_pass_table(
-                            pass_results, ar.evaluator_names, ar.input_labels,
-                            ar.evaluable_dicts
+                            pass_results,
+                            ar.evaluator_names,
+                            ar.input_labels,
+                            ar.evaluable_dicts,
                         )
                     )
                 else:
@@ -372,8 +374,10 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
                         )
                         parts.append(
                             _render_pass_table(
-                                pass_results, ar.evaluator_names, ar.input_labels,
-                                ar.evaluable_dicts
+                                pass_results,
+                                ar.evaluator_names,
+                                ar.input_labels,
+                                ar.evaluable_dicts,
                             )
                         )
                         parts.append("</div>")  # tab-content
@@ -753,6 +757,21 @@ _HTML_HEAD = """\
     display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem;
     flex-wrap: wrap;
   }
+  .btn-spinner {
+    display: inline-block; width: .9em; height: .9em;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .6s linear infinite;
+    margin-right: .4em; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .submit-success {
+    background: var(--pass) !important; box-shadow: none !important;
+    pointer-events: none;
+  }
+  .submit-error {
+    background: var(--fail) !important; box-shadow: none !important;
+    pointer-events: none;
+  }
   @media (max-width: 780px) {
     body { padding: 1rem; }
     .brand-header { flex-direction: column; align-items: flex-start; }
@@ -865,9 +884,30 @@ document.addEventListener('click', function(event) {
     event.preventDefault();
     var action = form.getAttribute('data-action');
     var data = new FormData(form);
-    fetch(action, { method: 'POST', body: data }).catch(function() {});
-    toggleFeedbackModal(false);
-    form.reset();
+    var submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="btn-spinner"></span>Sending…';
+    }
+    fetch(action, { method: 'POST', body: data })
+      .then(function(res) {
+        if (submitBtn) {
+          submitBtn.classList.add('submit-success');
+          submitBtn.innerHTML = '\u2713 Sent!';
+        }
+        setTimeout(function() { toggleFeedbackModal(false); form.reset(); }, 1200);
+      })
+      .catch(function() {
+        if (submitBtn) {
+          submitBtn.classList.add('submit-error');
+          submitBtn.innerHTML = '\u2717 Failed — try again';
+          setTimeout(function() {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('submit-error');
+            submitBtn.innerHTML = 'Submit feedback';
+          }, 2000);
+        }
+      });
   });
 })();
 </script>
