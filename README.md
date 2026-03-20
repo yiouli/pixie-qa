@@ -1,10 +1,10 @@
 # pixie-qa
 
-An agent skill for **eval-driven development** of LLM-powered applications.
+An agent skill that make coding agent the QA engineer for LLM applications.
 
 ## What the Skill Does
 
-The `eval-driven-dev` skill guides your coding agent through the full QA loop for LLM applications:
+The `qa-eval` skill guides your coding agent through the full eval-based QA loop for LLM applications:
 
 1. **Understand the code** — read the codebase, trace the data flow, learn what the code is supposed to do
 2. **Instrument it** — add `enable_storage()` and `@observe` so every run is captured to a local SQLite database

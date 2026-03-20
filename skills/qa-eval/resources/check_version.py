@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check whether the eval-driven-dev skill is outdated and update it if needed."""
+"""Check whether the qa-eval skill is outdated and update it if needed."""
 
 from __future__ import annotations
 
@@ -9,9 +9,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 SKILL_REPO = "/yiouli/pixie-qa/"
-SKILL_URL = (
-    f"https://raw.githubusercontent.com{SKILL_REPO}main/skills/eval-driven-dev/SKILL.md"
-)
+SKILL_URL = f"https://raw.githubusercontent.com{SKILL_REPO}main/skills/qa-eval/SKILL.md"
 
 _RE_FRONTMATTER = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
 _RE_NAME = re.compile(r"^name:\s*(.+)$", re.MULTILINE)
@@ -57,7 +55,7 @@ def _normalise_version(version: str) -> tuple[int, ...]:
 
 def main() -> int:
     resource_dir = Path(__file__).resolve().parent
-    skill_dir = resource_dir.parent  # skills/eval-driven-dev/
+    skill_dir = resource_dir.parent  # skills/ai-qa/
 
     local_data = _load_local_version(skill_dir)
     local_version = local_data.get("version", "0.0.0")
