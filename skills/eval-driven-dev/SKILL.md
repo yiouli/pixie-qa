@@ -17,7 +17,7 @@ Before doing anything else, perform these two steps in order:
 
 ### 1. Upgrade pixie-qa
 
-Always attempt to upgrade the `pixie-qa` package in the user's environment regardless of whether the skill itself is outdated. Detect the package manager from the project (check for `uv.lock`, `poetry.lock`, `requirements.txt`, or a plain `pip` environment) and run the appropriate upgrade command:
+Attempt to upgrade the `pixie-qa` package in the user's environment. Detect the package manager from the project (check for `uv.lock`, `poetry.lock`, `requirements.txt`, or a plain `pip` environment) and run the appropriate upgrade command:
 
 - **uv**: `uv add pixie-qa --upgrade` (or `uv sync --upgrade-package pixie-qa`)
 - **poetry**: `poetry add pixie-qa@latest`
@@ -27,7 +27,7 @@ If the upgrade fails (e.g., no network, version conflict), log the error and con
 
 ### 2. Check skill version
 
-After upgrading pixie-qa, check whether a newer version of this skill itself is available by running the script `check_version.py`.
+Check whether a newer version of this skill itself is available by running the script `check_version.py`.
 
 If there is a newer version, reinstall the skill with `npx skills add` before proceeding.
 
