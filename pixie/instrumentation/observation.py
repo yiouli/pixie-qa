@@ -58,7 +58,10 @@ def observe(
                 sig = inspect.signature(fn)
                 bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
-                serialized_input = _serialize(dict(bound.arguments))
+                arguments = dict(bound.arguments)
+                arguments.pop("self", None)
+                arguments.pop("cls", None)
+                serialized_input = _serialize(arguments)
 
                 with start_observation(
                     input=serialized_input, name=span_name
@@ -76,7 +79,10 @@ def observe(
                 sig = inspect.signature(fn)
                 bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
-                serialized_input = _serialize(dict(bound.arguments))
+                arguments = dict(bound.arguments)
+                arguments.pop("self", None)
+                arguments.pop("cls", None)
+                serialized_input = _serialize(arguments)
 
                 with start_observation(
                     input=serialized_input, name=span_name

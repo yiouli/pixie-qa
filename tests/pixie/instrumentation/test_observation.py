@@ -148,3 +148,49 @@ class TestObserveDecorator:
         # Both positional args should appear in the serialized input
         assert "a" in obs.input
         assert "b" in obs.input
+
+    def test_self_excluded_from_input(
+        self, recording_handler: RecordingHandler
+    ) -> None:
+        """@observe on a method strips 'self' from captured input."""
+        px.init()
+        px.add_handler(recording_handler)
+
+        class Agent:
+            secret_key = "sk-SHOULD-NOT-APPEAR"
+
+            @observe()
+            def respond(self, message: str) -> str:
+                return f"Got: {message}"
+
+        agent = Agent()
+        result = agent.respond("hello")
+        px.flush()
+
+        assert result == "Got: hello"
+        obs = recording_handler.observe_spans[0]
+        assert "hello" in obs.input
+        assert "self" not in obs.input
+        assert "sk-SHOULD-NOT-APPEAR" not in obs.input
+
+    def test_cls_excluded_from_input(self, recording_handler: RecordingHandler) -> None:
+        """@observe on a classmethod strips 'cls' from captured input."""
+        px.init()
+        px.add_handler(recording_handler)
+
+        class Service:
+            api_key = "sk-SECRET"
+
+            @classmethod
+            @observe()
+            def handle(cls, query: str) -> str:
+                return f"Handled: {query}"
+
+        result = Service.handle("test")
+        px.flush()
+
+        assert result == "Handled: test"
+        obs = recording_handler.observe_spans[0]
+        assert "test" in obs.input
+        assert "cls" not in obs.input
+        assert "sk-SECRET" not in obs.input
