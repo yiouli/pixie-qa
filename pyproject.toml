@@ -1,6 +1,6 @@
 [project]
 name = "pixie-qa"
-version = "0.1.10"
+version = "0.1.11"
 description = "Automated quality assurance for AI applications"
 readme = "README.md"
 requires-python = ">=3.11"
