@@ -212,9 +212,9 @@ class TestGenerateScorecardHtml:
         html_out = generate_scorecard_html(report)
 
         assert "<!DOCTYPE html>" in html_out
-        assert "Pixie QA" in html_out
+        assert "Pixie" in html_out
         assert "Share feedback" in html_out
-        assert "★ Star yiouli/pixie-qa" in html_out
+        assert "★ Star on GitHub" in html_out
         assert "1/2 tests passed" in html_out
         assert "test_a.py::test_one" in html_out
         assert "test_b.py::test_two" in html_out
@@ -231,7 +231,7 @@ class TestGenerateScorecardHtml:
         html_out = generate_scorecard_html(report)
 
         assert 'id="feedback-modal"' in html_out
-        assert 'action="https://feedback.gopixie.ai"' in html_out
+        assert 'data-action="https://feedback.gopixie.ai/feedback"' in html_out
         assert 'name="feedback"' in html_out
         assert 'name="email"' in html_out
         assert 'name="attachments"' in html_out
