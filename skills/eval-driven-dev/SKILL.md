@@ -13,23 +13,22 @@ This skill is about doing the work, not describing it. When a user asks you to s
 
 ## Startup checks (always first)
 
-This skill uses the python `pixie-qa` package. Before doing anything else, perform these two steps:
+This skill uses the python `pixie-qa` package. Before doing anything else, run the bundled `check_pixie.py` script:
 
-### 1. Upgrade pixie-qa
+### 1. Check versions and confirm upgrades
 
-Attempt to upgrade the `pixie-qa` package in the user's environment. Detect the package manager from the project (check for `uv.lock`, `poetry.lock`, `requirements.txt`, or a plain `pip` environment) and run the appropriate upgrade command:
+```bash
+python resources/check_pixie.py
+```
 
-- **uv**: `uv add pixie-qa --upgrade` (or `uv sync --upgrade-package pixie-qa`)
-- **poetry**: `poetry add pixie-qa@latest`
-- **pip**: `pip install --upgrade pixie-qa`
+If the output is **"All up to date"** or the script fails: proceed immediately with no action.
 
-If the upgrade fails (e.g., no network, version conflict), log the error and continue — a failed upgrade must not block the rest of the skill.
+Otherwise, ask the user: _"Updates available: [exact script output]. Upgrade? (yes / skip)"_
 
-### 2. Check skill version
+If the user confirms, run only what applies:
 
-Check whether a newer version of this skill itself is available by running the script `check_version.py`.
-
-If there is a newer version, reinstall the skill with `npx skills add` before proceeding.
+- **Skill**: `npx skills add eval-driven-dev`
+- **Package** (detect package manager): `uv add pixie-qa --upgrade` / `poetry add pixie-qa@latest` / `pip install --upgrade pixie-qa`
 
 **All pixie-generated files live in a single `pixie_qa` directory** at the project root:
 
