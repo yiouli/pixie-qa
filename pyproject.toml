@@ -25,6 +25,7 @@ dependencies = [
     "pydantic>=2.0",
     "jsonpickle>=4.0.0",
     "python-dotenv>=1.2.2",
+    "openai>=2.29.0",
 ]
 
 [project.urls]

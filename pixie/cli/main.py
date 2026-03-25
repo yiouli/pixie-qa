@@ -30,6 +30,7 @@ from pixie.cli.dataset_command import (
     dataset_save,
     format_dataset_table,
 )
+from pixie.cli.trace_command import trace_last, trace_list, trace_show
 from pixie.config import get_config
 from pixie.dataset.store import DatasetStore
 from pixie.storage.evaluable import UNSET, _Unset
@@ -86,6 +87,58 @@ def _build_parser() -> argparse.ArgumentParser:
         "--notes",
         default=None,
         help="Optional notes to attach to the evaluable metadata",
+    )
+
+    # -- pixie trace ---------------------------------------------------------
+    trace_parser = subparsers.add_parser("trace", help="Inspect captured traces")
+    trace_sub = trace_parser.add_subparsers(dest="trace_action", help="Trace actions")
+
+    # pixie trace list [--limit N] [--errors]
+    trace_list_parser = trace_sub.add_parser("list", help="List recent traces")
+    trace_list_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Maximum number of traces to show (default: 10)",
+    )
+    trace_list_parser.add_argument(
+        "--errors",
+        action="store_true",
+        default=False,
+        help="Show only traces with errors",
+    )
+
+    # pixie trace show <trace_id> [-v] [--json]
+    trace_show_parser = trace_sub.add_parser("show", help="Show span tree for a trace")
+    trace_show_parser.add_argument(
+        "trace_id",
+        help="Trace ID (or prefix, minimum 8 characters)",
+    )
+    trace_show_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Show full input/output data for each span",
+    )
+    trace_show_parser.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        default=False,
+        help="Output as JSON",
+    )
+
+    # pixie trace last [--json]
+    trace_last_parser = trace_sub.add_parser(
+        "last", help="Show the most recent trace (verbose)"
+    )
+    trace_last_parser.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        default=False,
+        help="Output as JSON",
     )
 
     # -- pixie test ----------------------------------------------------------
@@ -210,6 +263,29 @@ def main(argv: list[str] | None = None) -> int:
             FileNotFoundError,
             json.JSONDecodeError,
         ) as exc:
+            print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
+            return 1
+
+    elif args.command == "trace":
+        if args.trace_action is None:
+            parser.parse_args(["trace", "--help"])
+            return 1
+
+        try:
+            if args.trace_action == "list":
+                return trace_list(
+                    limit=args.limit,
+                    errors_only=args.errors,
+                )
+            elif args.trace_action == "show":
+                return trace_show(
+                    trace_id=args.trace_id,
+                    verbose=args.verbose,
+                    as_json=args.as_json,
+                )
+            elif args.trace_action == "last":
+                return trace_last(as_json=args.as_json)
+        except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             return 1
 

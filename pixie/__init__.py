@@ -17,6 +17,7 @@ from pixie.evals.eval_utils import (
     run_and_evaluate,
 )
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
+from pixie.evals.llm_evaluator import create_llm_evaluator
 from pixie.evals.scorers import (
     AnswerCorrectnessEval,
     AnswerRelevancyEval,
@@ -96,6 +97,7 @@ __all__ = [
     "assert_dataset_pass",
     "assert_pass",
     "capture_traces",
+    "create_llm_evaluator",
     "evaluate",
     "last_llm_call",
     "root",
