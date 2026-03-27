@@ -81,6 +81,7 @@ concise_voice_style = create_llm_evaluator(
 **How template variables work**: `{eval_input}`, `{eval_output}`, `{expected_output}` are the only placeholders. Each is replaced with a string representation of the corresponding `Evaluable` field — if the field is a dict or list, it becomes a JSON string. The LLM judge sees the full serialized value.
 
 **Rules**:
+
 - **Only `{eval_input}`, `{eval_output}`, `{expected_output}`** — no nested access like `{eval_input[key]}` (this will crash with a `TypeError`)
 - **Keep templates short and direct** — the system prompt already tells the LLM to return `Score: X.X`. Your template just needs to present the data and define the scoring criteria.
 - **Don't instruct the LLM to "parse" or "extract" data** — just present the values and state the criteria. The LLM can read JSON naturally.

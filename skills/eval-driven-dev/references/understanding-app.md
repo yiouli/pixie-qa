@@ -142,10 +142,10 @@ These are the primary testability seams. In Step 3, you'll write mock implementa
 
 <For each external dependency, how will you replace it in the utility function (Step 3)?>
 
-| Dependency | Mock approach | What mock provides (IN) | What mock captures (OUT) |
-| --- | --- | --- | --- |
-| <e.g., Redis> | <mock.patch / mock class / DI> | <conversation history from eval_input> | <saved messages> |
-| <e.g., STT service> | <MockTranscriptionBackend> | <text from eval_input> | <n/a> |
+| Dependency          | Mock approach                  | What mock provides (IN)                | What mock captures (OUT) |
+| ------------------- | ------------------------------ | -------------------------------------- | ------------------------ |
+| <e.g., Redis>       | <mock.patch / mock class / DI> | <conversation history from eval_input> | <saved messages>         |
+| <e.g., STT service> | <MockTranscriptionBackend>     | <text from eval_input>                 | <n/a>                    |
 
 ### Intermediate states to capture
 

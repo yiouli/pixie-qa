@@ -8,11 +8,11 @@ For `enable_storage()` and `observe` API details, see `references/pixie-api.md` 
 
 Look at how a real user or client invokes the app, and do the same thing in your utility function:
 
-| App type | Entry point example | How to invoke it |
-| --- | --- | --- |
-| **Web server** (FastAPI, Flask) | HTTP/WebSocket endpoint | `TestClient`, `httpx`, or subprocess + HTTP requests |
-| **CLI application** | Command-line invocation | `subprocess.run()` |
-| **Standalone function** (no server, no middleware) | Python function | Import and call directly |
+| App type                                           | Entry point example     | How to invoke it                                     |
+| -------------------------------------------------- | ----------------------- | ---------------------------------------------------- |
+| **Web server** (FastAPI, Flask)                    | HTTP/WebSocket endpoint | `TestClient`, `httpx`, or subprocess + HTTP requests |
+| **CLI application**                                | Command-line invocation | `subprocess.run()`                                   |
+| **Standalone function** (no server, no middleware) | Python function         | Import and call directly                             |
 
 **Do NOT call an inner function** like `agent.respond()` directly just because it's simpler. Between the entry point and that inner function, the app does request handling, state management, prompt assembly, routing — all of which is under test. When you call an inner function, you skip all of that and end up reimplementing it in your test. Now your test is testing test code, not app code.
 

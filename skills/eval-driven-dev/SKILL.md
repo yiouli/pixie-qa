@@ -27,11 +27,28 @@ This skill is about doing the work, not describing it. Read code, edit files, ru
 
 ## Before you start
 
+Run the following to keep the skill and package up to date. If any command fails or is blocked by the environment, continue — do not let failures here block the rest of the workflow.
+
+**Update the skill:**
+
 ```bash
-python resources/check_version.py
+npx skills update
 ```
 
-If the script reports updates needed, run the upgrade commands it suggests. If it says "All up to date" or fails, continue.
+**Upgrade the `pixie-qa` package**
+
+Make sure the python virtual environment is active and use the project's package manager:
+
+```bash
+# uv project (uv.lock exists):
+uv add pixie-qa
+
+# poetry project (poetry.lock exists):
+poetry add pixie-qa@latest
+
+# pip / no lock file:
+pip install --upgrade pixie-qa
+```
 
 ---
 
