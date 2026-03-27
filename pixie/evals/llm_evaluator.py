@@ -40,6 +40,11 @@ logger = logging.getLogger(__name__)
 # Default model for LLM-as-judge calls
 _DEFAULT_MODEL = "gpt-4o-mini"
 
+# Regex to detect nested field access like {eval_input[key]} in templates
+_NESTED_ACCESS_RE = re.compile(
+    r"\{(eval_input|eval_output|expected_output)\["
+)
+
 
 def _value_to_str(value: Any) -> str:
     """Convert an eval value to a string for template substitution."""
@@ -111,11 +116,12 @@ class _LLMEvaluator:
     def _render_prompt(self, evaluable: Evaluable) -> str:
         """Fill in the template with evaluable fields."""
         expected = evaluable.expected_output
-        return self._prompt_template.format(
+        rendered = self._prompt_template.format(
             eval_input=_value_to_str(evaluable.eval_input),
             eval_output=_value_to_str(evaluable.eval_output),
             expected_output=_value_to_str(expected),
         )
+        return rendered + "\n\nRespond with 'Score: X.X' followed by reasoning."
 
     async def __call__(
         self,
@@ -181,7 +187,18 @@ def create_llm_evaluator(
 
     Returns:
         An evaluator callable satisfying the ``Evaluator`` protocol.
+
+    Raises:
+        ValueError: If the template uses nested field access like
+            ``{eval_input[key]}`` (only top-level placeholders are supported).
     """
+    match = _NESTED_ACCESS_RE.search(prompt_template)
+    if match:
+        raise ValueError(
+            f"Nested field access like '{{{match.group(1)}[...]}}' is not "
+            f"supported in prompt templates. Use '{{{match.group(1)}}}' "
+            f"instead — dict values are serialized to JSON automatically."
+        )
     return _LLMEvaluator(
         name=name,
         prompt_template=prompt_template,

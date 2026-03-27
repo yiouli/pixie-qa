@@ -1,50 +1,50 @@
 #!/usr/bin/env python3
-"""Check whether the qa-eval skill is outdated and update it if needed."""
+"""Check whether the eval-driven-dev skill and pixie-qa package need updating.
+
+Prints one of:
+  "SKILL upgrade available"
+  "Package upgrade available"
+  "SKILL and Package upgrade available"
+  "All up to date"
+
+Exit codes:
+  0 — everything is up to date (or status could not be determined)
+  1 — at least one component needs an upgrade
+"""
 
 from __future__ import annotations
 
+import importlib.metadata
+import json
 import re
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-SKILL_REPO = "/yiouli/pixie-qa/"
-SKILL_URL = f"https://raw.githubusercontent.com{SKILL_REPO}main/skills/qa-eval/SKILL.md"
+# ── Constants ────────────────────────────────────────────────────────────────
+
+SKILL_URL = (
+    "https://raw.githubusercontent.com/yiouli/pixie-qa/"
+    "main/skills/eval-driven-dev/SKILL.md"
+)
+PYPI_URL = "https://pypi.org/pypi/pixie-qa/json"
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 _RE_FRONTMATTER = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
-_RE_NAME = re.compile(r"^name:\s*(.+)$", re.MULTILINE)
 _RE_VERSION = re.compile(r"^\s+version:\s*(\S+)$", re.MULTILINE)
 
 
-def _parse_skill_metadata(text: str) -> dict[str, str]:
-    """Extract name and version from SKILL.md YAML frontmatter."""
+def _parse_version(text: str) -> str:
+    """Extract metadata.version from SKILL.md YAML frontmatter."""
     match = _RE_FRONTMATTER.search(text)
     frontmatter = match.group(1) if match else text
-
-    name_match = _RE_NAME.search(frontmatter)
-    version_match = _RE_VERSION.search(frontmatter)
-
-    return {
-        "skill_name": name_match.group(1).strip() if name_match else "unknown",
-        "version": version_match.group(1).strip() if version_match else "0.0.0",
-    }
-
-
-def _load_local_version(skill_dir: Path) -> dict[str, str]:
-    """Read version metadata from the local SKILL.md frontmatter."""
-    text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
-    return _parse_skill_metadata(text)
-
-
-def _fetch_remote_metadata(skill_url: str) -> dict[str, str]:
-    """Fetch and parse version metadata from the remote SKILL.md frontmatter."""
-    with urlopen(skill_url, timeout=10) as response:
-        text = response.read().decode("utf-8")
-    return _parse_skill_metadata(text)
+    m = _RE_VERSION.search(frontmatter)
+    return m.group(1).strip() if m else "0.0.0"
 
 
 def _normalise_version(version: str) -> tuple[int, ...]:
-    parts = []
+    parts: list[int] = []
     for part in version.strip().split("."):
         try:
             parts.append(int(part))
@@ -53,31 +53,73 @@ def _normalise_version(version: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
-def main() -> int:
+# ── Skill check ──────────────────────────────────────────────────────────────
+
+
+def _skill_needs_upgrade() -> bool:
+    """Return True if a newer version of the skill is available on GitHub."""
     resource_dir = Path(__file__).resolve().parent
-    skill_dir = resource_dir.parent  # skills/ai-qa/
-
-    local_data = _load_local_version(skill_dir)
-    local_version = local_data.get("version", "0.0.0")
-
-    print(
-        f"Checking {local_data.get('skill_name', 'skill')} version "
-        f"{local_version} against {SKILL_URL}"
-    )
-
+    skill_path = resource_dir.parent / "SKILL.md"
+    if not skill_path.exists():
+        # SKILL.md is not on disk (e.g. prompt-based agents); skip check.
+        return False
+    local_text = skill_path.read_text(encoding="utf-8")
+    local_version = _parse_version(local_text)
     try:
-        remote_data = _fetch_remote_metadata(SKILL_URL)
-    except (OSError, URLError, ValueError) as exc:
-        print(f"Could not fetch remote version metadata: {exc}")
-        return 0
+        with urlopen(SKILL_URL, timeout=10) as resp:
+            remote_version = _parse_version(resp.read().decode("utf-8"))
+    except (OSError, URLError):
+        return False
+    return _normalise_version(remote_version) > _normalise_version(local_version)
 
-    remote_version = remote_data.get("version", local_version)
-    if _normalise_version(remote_version) <= _normalise_version(local_version):
-        print(f"Skill is up to date ({local_version}).")
-        return 0
 
-    print(f"Skill is outdated: local={local_version}, remote={remote_version}")
-    return 0
+# ── Package check ─────────────────────────────────────────────────────────────
+
+
+def _is_local_install(dist: importlib.metadata.Distribution) -> bool:
+    """Return True if pixie-qa was installed from a local path rather than PyPI."""
+    try:
+        text = dist.read_text("direct_url.json")
+        if text:
+            url: str = json.loads(text).get("url", "")
+            return url.startswith("file://")
+    except Exception:
+        pass
+    return False
+
+
+def _package_needs_upgrade() -> bool:
+    """Return True if pixie-qa is missing or a newer version is on PyPI."""
+    try:
+        dist = importlib.metadata.distribution("pixie-qa")
+    except importlib.metadata.PackageNotFoundError:
+        return True
+    if _is_local_install(dist):
+        return False
+    installed: str = dist.metadata["Version"]
+    try:
+        with urlopen(PYPI_URL, timeout=10) as resp:
+            latest: str = json.loads(resp.read().decode("utf-8"))["info"]["version"]
+    except (OSError, URLError, KeyError, ValueError):
+        return False
+    return _normalise_version(latest) > _normalise_version(installed)
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+
+def main() -> int:
+    skill = _skill_needs_upgrade()
+    package = _package_needs_upgrade()
+    if skill and package:
+        print("SKILL and Package upgrade available")
+    elif skill:
+        print("SKILL upgrade available")
+    elif package:
+        print("Package upgrade available")
+    else:
+        print("All up to date")
+    return 1 if (skill or package) else 0
 
 
 if __name__ == "__main__":

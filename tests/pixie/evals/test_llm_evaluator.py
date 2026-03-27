@@ -188,3 +188,48 @@ class TestParseScore:
     def test_integer_score(self) -> None:
         score, _ = _parse_score("Score: 1")
         assert score == 1.0
+
+
+class TestTemplateValidation:
+    """Tests for template validation in create_llm_evaluator."""
+
+    def test_rejects_nested_eval_input_access(self) -> None:
+        with pytest.raises(ValueError, match="Nested field access"):
+            create_llm_evaluator(
+                name="Bad",
+                prompt_template="User said: {eval_input[user_message]}",
+            )
+
+    def test_rejects_nested_eval_output_access(self) -> None:
+        with pytest.raises(ValueError, match="Nested field access"):
+            create_llm_evaluator(
+                name="Bad",
+                prompt_template="Response: {eval_output[response]}",
+            )
+
+    def test_rejects_nested_expected_output_access(self) -> None:
+        with pytest.raises(ValueError, match="Nested field access"):
+            create_llm_evaluator(
+                name="Bad",
+                prompt_template="Expected: {expected_output[key]}",
+            )
+
+    def test_accepts_valid_template(self) -> None:
+        evaluator = create_llm_evaluator(
+            name="Good",
+            prompt_template="Input: {eval_input}\nOutput: {eval_output}",
+        )
+        assert evaluator.name == "Good"
+
+
+class TestScoreFormatReminder:
+    """Tests that rendered prompts include score format reminder."""
+
+    def test_render_appends_score_reminder(self) -> None:
+        evaluator = create_llm_evaluator(
+            name="TestEval",
+            prompt_template="Rate: {eval_output}",
+        )
+        evaluable = Evaluable(eval_input="q", eval_output="answer")
+        rendered = evaluator._render_prompt(evaluable)
+        assert "Respond with 'Score: X.X'" in rendered
