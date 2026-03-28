@@ -2,18 +2,21 @@
 
 Usage::
 
-    pixie test [path] [--filter PATTERN] [--verbose]
+    pixie test [path] [--filter PATTERN] [--verbose] [--no-open]
 
 Discovers and runs eval test functions, reporting pass/fail results.
 Generates an HTML scorecard report saved to
-``{config.root}/scorecards/<timestamp>.html``.
+``{config.root}/scorecards/<timestamp>.html`` and opens it in the default
+browser (pass ``--no-open`` to suppress).
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import webbrowser
 from collections.abc import Sequence
+from pathlib import Path
 
 import pixie.instrumentation as px
 from pixie.evals.runner import discover_tests, format_results, run_tests
@@ -82,6 +85,12 @@ def main(argv: list[str] | None = None) -> int:
         default=False,
         help="Show detailed evaluation results",
     )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        default=False,
+        help="Do not automatically open the scorecard HTML in a browser",
+    )
 
     args = parser.parse_args(argv)
 
@@ -99,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     report = _build_report(results, command_args=command_str)
     scorecard_path = save_scorecard(report)
     print(f"\nSee {scorecard_path} for test details")  # noqa: T201
+
+    if not args.no_open:
+        webbrowser.open(Path(scorecard_path).as_uri())
 
     all_passed = all(r.status == "passed" for r in results)
     return 0 if all_passed else 1
