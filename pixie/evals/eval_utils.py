@@ -81,16 +81,27 @@ def _publish_to_scorecard(
                 "expected_output": (
                     None
                     if isinstance(ev.expected_output, _Unset)
-                    else (str(ev.expected_output) if ev.expected_output is not None else None)
+                    else (
+                        str(ev.expected_output)
+                        if ev.expected_output is not None
+                        else None
+                    )
                 ),
-                "actual_output": str(ev.eval_output) if ev.eval_output is not None else None,
+                "actual_output": (
+                    str(ev.eval_output) if ev.eval_output is not None else None
+                ),
                 "metadata": ev.eval_metadata,
             }
             for ev in evaluables
         )
     else:
         ev_dicts = tuple(
-            {"input": str(inp), "expected_output": None, "actual_output": None, "metadata": None}
+            {
+                "input": str(inp),
+                "expected_output": None,
+                "actual_output": None,
+                "metadata": None,
+            }
             for inp in eval_inputs
         )
 
@@ -200,17 +211,23 @@ async def assert_pass(
     If the pass criteria are not met, raises :class:`EvalAssertionError`
     carrying the tensor.
 
-    When ``evaluables`` is provided, each item is used directly as the
-    evaluable for the corresponding input (it already carries its own
-    ``expected_output``).  When ``evaluables`` is ``None``, the evaluable
-    is constructed from the captured trace as before.
+    When ``evaluables`` is provided, behaviour depends on whether each
+    item already has ``eval_output`` populated:
+
+    - **eval_output is None** — the ``runnable`` is called via
+      ``run_and_evaluate`` to produce an output from traces, and
+      ``expected_output`` from the evaluable is merged into the result.
+    - **eval_output is not None** — the evaluable is used directly
+      (the runnable is not called for that item).
 
     Args:
         runnable: The application function to test.
         eval_inputs: List of inputs, each passed to *runnable*.
         evaluators: List of evaluator callables.
         evaluables: Optional list of ``Evaluable`` items, one per input.
-            Must have the same length as *eval_inputs* when provided.
+            When provided, their ``expected_output`` is forwarded to
+            ``run_and_evaluate``.  Must have the same length as
+            *eval_inputs*.
         passes: How many times to run the entire test matrix.
         pass_criteria: Receives the results tensor, returns
             ``(passed, message)``.  Defaults to "every score >= 0.5".
@@ -234,11 +251,26 @@ async def assert_pass(
         pass_results: list[list[Evaluation]] = []
         for idx, inp in enumerate(eval_inputs):
             if evaluables is not None:
-                # Use provided evaluable directly — skip trace capture
                 ev_item = evaluables[idx]
-                eval_coros = [
-                    evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
-                ]
+                if ev_item.eval_output is None:
+                    # eval_output not yet computed — run the runnable to
+                    # produce it via trace capture, and merge the dataset
+                    # item's expected_output into the result.
+                    eval_coros = [
+                        run_and_evaluate(
+                            evaluator=ev,
+                            runnable=runnable,
+                            eval_input=inp,
+                            expected_output=ev_item.expected_output,
+                            from_trace=from_trace,
+                        )
+                        for ev in evaluators
+                    ]
+                else:
+                    # eval_output already populated — evaluate directly.
+                    eval_coros = [
+                        evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
+                    ]
             else:
                 eval_coros = [
                     run_and_evaluate(

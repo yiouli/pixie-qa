@@ -438,6 +438,108 @@ class TestAssertPassEvaluables:
         )
         assert received_outputs == ["echo:hello"]
 
+    @pytest.mark.asyncio
+    async def test_evaluables_with_runnable_calls_runnable(self) -> None:
+        """When evaluables AND runnable are provided, runnable is still called."""
+        call_count = 0
+
+        def counting_app(input: Any) -> None:  # noqa: A002
+            nonlocal call_count
+            call_count += 1
+            with px.start_observation(input=input, name="app") as obs:
+                obs.set_output(f"ran:{input}")
+
+        items = [
+            Evaluable(eval_input="q1", expected_output="e1"),
+            Evaluable(eval_input="q2", expected_output="e2"),
+        ]
+        await assert_pass(
+            runnable=counting_app,
+            eval_inputs=["q1", "q2"],
+            evaluators=[_always_pass],
+            evaluables=items,
+        )
+        assert call_count == 2, "runnable should be called for each input"
+
+    @pytest.mark.asyncio
+    async def test_evaluables_precomputed_output_used_directly(self) -> None:
+        """When eval_output is already set, the evaluable is used directly."""
+        received: list[Evaluable] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(evaluable)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        items = [
+            Evaluable(
+                eval_input="hello",
+                eval_output="precomputed_output",
+                expected_output="ref",
+            ),
+        ]
+        await assert_pass(
+            runnable=_sync_app,
+            eval_inputs=["hello"],
+            evaluators=[capture_eval],
+            evaluables=items,
+        )
+        # eval_output should be the pre-computed value (runnable not called)
+        assert received[0].eval_output == "precomputed_output"
+        assert received[0].expected_output == "ref"
+
+    @pytest.mark.asyncio
+    async def test_evaluables_none_output_runs_runnable(self) -> None:
+        """When eval_output is None, the runnable is called to produce it."""
+        received: list[Evaluable] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(evaluable)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        items = [
+            Evaluable(eval_input="hello", expected_output="ref"),
+        ]
+        await assert_pass(
+            runnable=_sync_app,
+            eval_inputs=["hello"],
+            evaluators=[capture_eval],
+            evaluables=items,
+        )
+        # eval_output should come from the trace (runnable execution)
+        assert received[0].eval_output == "echo:hello"
+        # expected_output should come from the evaluable
+        assert received[0].expected_output == "ref"
+
+    @pytest.mark.asyncio
+    async def test_evaluables_from_trace_respected(self) -> None:
+        """from_trace is honoured even when evaluables are provided."""
+
+        async def check_child(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            assert evaluable.eval_output == "generated"
+            assert evaluable.expected_output == "ref"
+            return Evaluation(score=1.0, reasoning="ok")
+
+        items = [Evaluable(eval_input="q1", expected_output="ref")]
+        await assert_pass(
+            runnable=_nested_app,
+            eval_inputs=["q1"],
+            evaluators=[check_child],
+            evaluables=items,
+            from_trace=lambda tree: as_evaluable(tree[0].find("generator")[0].span),
+        )
+
 
 # ── assert_dataset_pass tests ─────────────────────────────────────────────
 
@@ -529,3 +631,36 @@ class TestAssertDatasetPass:
                 passes=3,
             )
         assert len(exc_info.value.results) == 3
+
+    @pytest.mark.asyncio
+    async def test_runnable_is_called_with_eval_output_from_trace(
+        self, tmp_path: Path
+    ) -> None:
+        """assert_dataset_pass calls the runnable; eval_output comes from trace."""
+        store = DatasetStore(dataset_dir=tmp_path)
+        store.create(
+            "run-ds",
+            items=[
+                Evaluable(eval_input="q1", expected_output="e1"),
+            ],
+        )
+        received: list[Evaluable] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(evaluable)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await assert_dataset_pass(
+            runnable=_sync_app,
+            dataset_name="run-ds",
+            evaluators=[capture_eval],
+            dataset_dir=str(tmp_path),
+        )
+        # eval_output should come from the runnable (trace), not the dataset
+        assert received[0].eval_output == "echo:q1"
+        # expected_output should still come from the dataset
+        assert received[0].expected_output == "e1"
