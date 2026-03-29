@@ -12,7 +12,7 @@ This module provides:
 
 from __future__ import annotations
 
-import html
+import importlib.resources
 import json
 import os
 import threading
@@ -197,7 +197,7 @@ def _describe_criteria(criteria: object) -> str:
 
 
 # ---------------------------------------------------------------------------
-# HTML generation
+# HTML generation (template-based)
 # ---------------------------------------------------------------------------
 
 _PIXIE_REPO_URL = "https://github.com/yiouli/pixie-qa"
@@ -206,69 +206,94 @@ _PIXIE_BRAND_ICON_URL = (
     "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af"
 )
 
+_DATA_PLACEHOLDER = '"__PIXIE_DATA_PLACEHOLDER__"'
 
-def _render_brand_header(command_args: str, timestamp: str) -> str:
-    """Render the branded scorecard header and feedback modal."""
-    h = html.escape
-    return "\n".join(
-        [
-            '<header class="brand-header" aria-label="Pixie scorecard header">',
-            '  <div class="brand-lockup">',
-            f'    <img src="{h(_PIXIE_BRAND_ICON_URL)}" class="brand-icon" alt="Pixie" '
-            'loading="lazy" referrerpolicy="no-referrer">',
-            '    <span class="brand-name">Pixie</span>',
-            "  </div>",
-            '  <div class="brand-actions">',
-            '    <button type="button" class="feedback-btn" '
-            'onclick="toggleFeedbackModal(true)">Share feedback</button>',
-            f'    <a class="action-btn action-btn-primary" href="{h(_PIXIE_REPO_URL)}" '
-            'target="_blank" rel="noreferrer">★ Star on GitHub</a>',
-            "  </div>",
-            "</header>",
-            '<div id="feedback-modal" class="modal-backdrop" hidden>',
-            '  <div class="modal-card" role="dialog" aria-modal="true" '
-            'aria-labelledby="feedback-modal-title">',
-            '    <button type="button" class="modal-close" aria-label="Close feedback form" '
-            'onclick="toggleFeedbackModal(false)">×</button>',
-            '    <h2 id="feedback-modal-title">Send feedback to Pixie</h2>',
-            '    <p class="modal-description">'
-            "Tell us what worked, what felt confusing, or attach text artifacts that help "
-            "us improve the scorecard experience."
-            "</p>",
-            f'    <form id="feedback-form" class="feedback-form" '
-            f'data-action="{h(_PIXIE_FEEDBACK_URL)}" method="POST">',
-            '      <input type="hidden" name="source" value="pixie-scorecard">',
-            f'      <input type="hidden" name="command_args" value="{h(command_args)}">',
-            f'      <input type="hidden" name="generated_at" value="{h(timestamp)}">',
-            '      <label class="field-label" for="feedback-text">Feedback</label>',
-            '      <textarea id="feedback-text" name="feedback" rows="6" required '
-            'placeholder="Share your feedback..."></textarea>',
-            '      <label class="field-label" for="feedback-email">Email (optional)</label>',
-            '      <input id="feedback-email" name="email" type="email" '
-            'placeholder="you@example.com">',
-            '      <label class="field-label" for="feedback-attachments">'
-            "Text attachments (optional)</label>",
-            '      <input id="feedback-attachments" name="attachments" type="file" multiple '
-            'accept=".txt,.md,.log,.json,text/plain">',
-            '      <div class="modal-actions">',
-            '        <button type="button" class="action-btn action-btn-primary" '
-            'style="background:#e2e8f0;color:var(--text);box-shadow:none" '
-            'onclick="toggleFeedbackModal(false)">Cancel</button>',
-            '        <button type="submit" '
-            'class="action-btn action-btn-primary">Submit feedback</button>',
-            "      </div>",
-            "    </form>",
-            "  </div>",
-            "</div>",
-        ]
-    )
+
+def _load_template() -> str:
+    """Load the compiled React scorecard HTML template.
+
+    Uses ``importlib.resources`` to locate the built ``index.html``
+    inside the ``pixie.assets`` package. The template contains a
+    ``__PIXIE_DATA_PLACEHOLDER__`` string that gets replaced with actual
+    report data at generation time.
+
+    Returns:
+        The raw HTML template string.
+
+    Raises:
+        FileNotFoundError: If the compiled template has not been built.
+    """
+    assets = importlib.resources.files("pixie.assets")
+    template_path = assets / "index.html"
+    return template_path.read_text(encoding="utf-8")
+
+
+def _report_to_dict(report: ScorecardReport) -> dict[str, Any]:
+    """Serialize a :class:`ScorecardReport` into a JSON-friendly dict.
+
+    The returned dict matches the ``ScorecardReportData`` TypeScript
+    interface consumed by the React frontend.
+    """
+    ts = report.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+    total = len(report.test_records)
+    passed = sum(1 for tr in report.test_records if tr.status == "passed")
+
+    return {
+        "command_args": report.command_args,
+        "timestamp": ts,
+        "summary": f"{passed}/{total} tests passed",
+        "pixie_repo_url": _PIXIE_REPO_URL,
+        "feedback_url": _PIXIE_FEEDBACK_URL,
+        "brand_icon_url": _PIXIE_BRAND_ICON_URL,
+        "test_records": [
+            {
+                "name": tr.name,
+                "status": tr.status,
+                "message": tr.message,
+                "asserts": [
+                    {
+                        "evaluator_names": list(ar.evaluator_names),
+                        "input_labels": list(ar.input_labels),
+                        "results": [
+                            [
+                                [
+                                    {
+                                        "score": ev.score,
+                                        "reasoning": ev.reasoning,
+                                        "details": ev.details,
+                                    }
+                                    for ev in inp_evals
+                                ]
+                                for inp_evals in pass_results
+                            ]
+                            for pass_results in ar.results
+                        ],
+                        "passed": ar.passed,
+                        "criteria_message": ar.criteria_message,
+                        "scoring_strategy": ar.scoring_strategy,
+                        "evaluable_dicts": [
+                            {
+                                "input": d.get("input"),
+                                "expected_output": d.get("expected_output"),
+                                "actual_output": d.get("actual_output"),
+                                "metadata": d.get("metadata"),
+                            }
+                            for d in ar.evaluable_dicts
+                        ],
+                    }
+                    for ar in tr.asserts
+                ],
+            }
+            for tr in report.test_records
+        ],
+    }
 
 
 def generate_scorecard_html(report: ScorecardReport) -> str:
     """Render a :class:`ScorecardReport` as a self-contained HTML page.
 
-    The generated page uses inline CSS (no external dependencies) and
-    includes tabbed views for multi-pass results.
+    Loads the pre-compiled React template from ``pixie/assets/index.html``
+    and injects the serialized report data via string replacement.
 
     Args:
         report: The scorecard report to render.
@@ -276,255 +301,10 @@ def generate_scorecard_html(report: ScorecardReport) -> str:
     Returns:
         Complete HTML document as a string.
     """
-    h = html.escape  # shorthand
-
-    n_total = len(report.test_records)
-    n_passed = sum(1 for t in report.test_records if t.status == "passed")
-
-    ts = report.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    parts: list[str] = []
-    parts.append(_HTML_HEAD.replace("{{TITLE}}", f"Pixie Test Scorecard — {ts}"))
-    parts.append(_render_brand_header(report.command_args, ts))
-    parts.append(_render_eval_detail_modal())
-
-    # ── Overview section ──────────────────────────────────────────────
-    parts.append('<div class="section">')
-    parts.append("<h2>Test Run Overview</h2>")
-    parts.append(
-        '<p class="meta"><strong>Command:</strong> '
-        f"<code>{h(report.command_args)}</code></p>"
-    )
-    parts.append(f'<p class="meta"><strong>Timestamp:</strong> {h(ts)}</p>')
-
-    status_class = "pass" if n_passed == n_total else "fail"
-    parts.append(
-        f'<p class="summary {status_class}">' f"{n_passed}/{n_total} tests passed</p>"
-    )
-
-    # Test overview table
-    parts.append('<table class="overview-table">')
-    parts.append("<thead><tr><th>Test</th><th>Status</th></tr></thead><tbody>")
-    for tr in report.test_records:
-        badge = _status_badge(tr.status)
-        parts.append(f"<tr><td>{h(tr.name)}</td><td>{badge}</td></tr>")
-    parts.append("</tbody></table>")
-    parts.append("</div>")  # end overview
-
-    # ── Per-test scorecards ───────────────────────────────────────────
-    for tr in report.test_records:
-        parts.append('<div class="section test-section">')
-        badge = _status_badge(tr.status)
-        parts.append(f"<h2>{h(tr.name)} {badge}</h2>")
-
-        if tr.message:
-            parts.append(f'<pre class="error-msg">{h(tr.message)}</pre>')
-
-        if not tr.asserts:
-            parts.append(
-                "<p><em>No assert_pass / assert_dataset_pass calls recorded.</em></p>"
-            )
-        else:
-            for a_idx, ar in enumerate(tr.asserts, 1):
-                parts.append('<div class="assert-card">')
-                assert_badge = _status_badge("passed" if ar.passed else "failed")
-                parts.append(f"<h3>Assertion #{a_idx} {assert_badge}</h3>")
-                parts.append(
-                    f'<p class="scoring-strategy">'
-                    f"<strong>Scoring strategy:</strong> {h(ar.scoring_strategy)}</p>"
-                )
-                parts.append(
-                    f'<p class="criteria-msg">'
-                    f"<strong>Result:</strong> {h(ar.criteria_message)}</p>"
-                )
-
-                n_passes = len(ar.results)
-                if n_passes <= 1:
-                    # Single pass — render table directly
-                    pass_results = ar.results[0] if ar.results else []
-                    parts.append(
-                        _render_pass_table(
-                            pass_results,
-                            ar.evaluator_names,
-                            ar.input_labels,
-                            ar.evaluable_dicts,
-                        )
-                    )
-                else:
-                    # Multiple passes — tabbed view
-                    tab_group_id = f"test-{id(tr)}-assert-{a_idx}"
-                    parts.append('<div class="tab-group">')
-                    parts.append('<div class="tab-buttons">')
-                    for p_idx in range(n_passes):
-                        active = " active" if p_idx == 0 else ""
-                        parts.append(
-                            f'<button class="tab-btn{active}" '
-                            f"onclick=\"switchTab('{tab_group_id}', {p_idx})\">"
-                            f"Pass {p_idx + 1}</button>"
-                        )
-                    parts.append("</div>")  # tab-buttons
-
-                    for p_idx, pass_results in enumerate(ar.results):
-                        display = "block" if p_idx == 0 else "none"
-                        parts.append(
-                            f'<div class="tab-content" '
-                            f'data-group="{tab_group_id}" '
-                            f'data-idx="{p_idx}" '
-                            f'style="display:{display}">'
-                        )
-                        parts.append(
-                            _render_pass_table(
-                                pass_results,
-                                ar.evaluator_names,
-                                ar.input_labels,
-                                ar.evaluable_dicts,
-                            )
-                        )
-                        parts.append("</div>")  # tab-content
-                    parts.append("</div>")  # tab-group
-
-                parts.append("</div>")  # assert-card
-
-        parts.append("</div>")  # test-section
-
-    parts.append(_HTML_FOOT)
-    return "\n".join(parts)
-
-
-def _render_eval_detail_modal() -> str:
-    """Render the reusable eval-detail modal (hidden by default)."""
-    return """\
-<div id="eval-detail-modal" class="modal-backdrop" hidden>
-  <div class="modal-card eval-detail-modal-card" role="dialog" aria-modal="true" aria-labelledby="eval-detail-title">
-    <button type="button" class="modal-close" aria-label="Close detail view"
-      onclick="closeEvalDetailModal()">&times;</button>
-    <h2 id="eval-detail-title">Evaluation detail</h2>
-    <div class="eval-detail-body">
-      <div class="eval-detail-row">
-        <span class="eval-detail-label">Score</span>
-        <span id="eval-detail-score" class="eval-detail-score-pass"></span>
-      </div>
-      <div class="eval-detail-row">
-        <span class="eval-detail-label">Reasoning</span>
-        <span id="eval-detail-reasoning" class="eval-detail-value"></span>
-      </div>
-      <div class="eval-detail-row">
-        <span class="eval-detail-label">Input</span>
-        <pre id="eval-detail-input" class="eval-detail-json"></pre>
-      </div>
-      <div class="eval-detail-row" id="eval-detail-expected-row">
-        <span class="eval-detail-label">Expected output</span>
-        <pre id="eval-detail-expected" class="eval-detail-json"></pre>
-      </div>
-      <div class="eval-detail-row">
-        <span class="eval-detail-label">Actual output</span>
-        <pre id="eval-detail-actual" class="eval-detail-json"></pre>
-      </div>
-      <div class="eval-detail-row" id="eval-detail-metadata-row">
-        <span class="eval-detail-label">Metadata</span>
-        <pre id="eval-detail-metadata" class="eval-detail-json"></pre>
-      </div>
-    </div>
-    <div class="modal-actions" style="margin-top:1rem">
-      <button type="button" class="action-btn action-btn-primary"
-        style="background:#e2e8f0;color:var(--text);box-shadow:none"
-        onclick="closeEvalDetailModal()">Close</button>
-    </div>
-  </div>
-</div>"""
-
-
-def _render_pass_table(
-    pass_results: list[list[Evaluation]],
-    evaluator_names: tuple[str, ...],
-    input_labels: tuple[str, ...],
-    evaluable_dicts: tuple[dict[str, Any], ...] = (),
-) -> str:
-    """Render the evaluator × input result table for a single pass."""
-    h = html.escape
-    lines: list[str] = []
-
-    # Summary row: per-evaluator pass counts
-    n_inputs = len(pass_results)
-    n_evaluators = len(evaluator_names)
-
-    lines.append('<table class="eval-summary">')
-    lines.append("<thead><tr><th>Evaluator</th><th>Passed</th></tr></thead><tbody>")
-    for e_idx, e_name in enumerate(evaluator_names):
-        passed = sum(
-            1
-            for inp_evals in pass_results
-            if e_idx < len(inp_evals) and inp_evals[e_idx].score >= 0.5
-        )
-        lines.append(f"<tr><td>{h(e_name)}</td>" f"<td>{passed}/{n_inputs}</td></tr>")
-    lines.append("</tbody></table>")
-
-    # Detail table: inputs × evaluators
-    if n_evaluators > 0 and n_inputs > 0:
-        lines.append('<table class="eval-detail">')
-        lines.append("<thead><tr><th>Input</th>")
-        for e_name in evaluator_names:
-            lines.append(f"<th>{h(e_name)}</th>")
-        lines.append("</tr></thead><tbody>")
-
-        for i_idx, inp_evals in enumerate(pass_results):
-            label = (
-                input_labels[i_idx] if i_idx < len(input_labels) else f"#{i_idx + 1}"
-            )
-            row_ctx = evaluable_dicts[i_idx] if i_idx < len(evaluable_dicts) else {}
-            full_input = row_ctx.get("input")
-            # Build input cell with optional show-more toggle
-            if full_input is not None and full_input != label:
-                input_cell = (
-                    f'<span class="input-text">{h(label)}</span>'
-                    f' <a href="#" class="show-more-link"'
-                    f' data-preview="{h(label)}"'
-                    f' data-full="{h(full_input)}"'
-                    f' onclick="toggleInput(this);return false;">show more</a>'
-                )
-            else:
-                input_cell = f'<span class="input-text">{h(label)}</span>'
-            lines.append(f"<tr><td class='input-label-cell'>{input_cell}</td>")
-            for e_idx in range(n_evaluators):
-                if e_idx < len(inp_evals):
-                    ev = inp_evals[e_idx]
-                    cls = "score-pass" if ev.score >= 0.5 else "score-fail"
-                    eval_data = h(
-                        json.dumps(
-                            {
-                                "score": ev.score,
-                                "reasoning": ev.reasoning,
-                                "input": row_ctx.get("input"),
-                                "expected_output": row_ctx.get("expected_output"),
-                                "actual_output": row_ctx.get("actual_output"),
-                                "metadata": row_ctx.get("metadata"),
-                            }
-                        )
-                    )
-                    lines.append(
-                        f'<td class="{cls}">'
-                        f"{ev.score:.2f}"
-                        f' <a href="#" class="details-link"'
-                        f' data-eval="{eval_data}"'
-                        f' onclick="showEvalDetail(this);return false;">details</a>'
-                        f"</td>"
-                    )
-                else:
-                    lines.append("<td>—</td>")
-            lines.append("</tr>")
-        lines.append("</tbody></table>")
-
-    return "\n".join(lines)
-
-
-def _status_badge(status: str) -> str:
-    """Return an HTML span badge for a test status."""
-    if status == "passed":
-        return '<span class="badge pass">PASS</span>'
-    elif status == "failed":
-        return '<span class="badge fail">FAIL</span>'
-    else:
-        return '<span class="badge error">ERROR</span>'
+    template = _load_template()
+    data = _report_to_dict(report)
+    data_json = json.dumps(data)
+    return template.replace(_DATA_PLACEHOLDER, data_json)
 
 
 # ---------------------------------------------------------------------------
@@ -580,337 +360,3 @@ def _normalise_filename(s: str) -> str:
     while "--" in result:
         result = result.replace("--", "-")
     return result[:60]
-
-
-# ---------------------------------------------------------------------------
-# HTML template fragments
-# ---------------------------------------------------------------------------
-
-_HTML_HEAD = """\
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{TITLE}}</title>
-<style>
-  :root {
-    --pass: #22c55e;
-    --fail: #ef4444;
-    --error: #f59e0b;
-    --bg: #f8fafc;
-    --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --muted: #64748b;
-    --brand: #7c3aed;
-    --brand-dark: #0f172a;
-    --brand-surface: #eef2ff;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: var(--bg); color: var(--text);
-    padding: 2rem; line-height: 1.6;
-  }
-  body.modal-open { overflow: hidden; }
-  h1 { margin-bottom: .5rem; font-size: 2rem; line-height: 1.15; }
-  h2 { margin-bottom: 1rem; font-size: 1.25rem;
-    border-bottom: 2px solid var(--border);
-    padding-bottom: .5rem; }
-  h3 { margin-bottom: .75rem; font-size: 1.1rem; }
-  .brand-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: .75rem 0; margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .brand-lockup { display: flex; align-items: center; gap: .5rem; }
-  .brand-icon { width: 24px; height: 24px; border-radius: 4px; display: block; }
-  .brand-name {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.1rem; font-weight: 700; color: var(--text);
-  }
-  .brand-actions {
-    display: flex; gap: .5rem; align-items: center;
-  }
-  .feedback-btn {
-    border: 0; background: transparent; color: var(--muted); cursor: pointer;
-    font-size: .9rem; padding: .4rem .75rem; border-radius: 6px;
-    transition: color .12s ease; font-family: inherit;
-  }
-  .feedback-btn:hover { color: var(--text); }
-  .action-btn {
-    border: 0; border-radius: 999px; padding: .45rem 1rem;
-    font-weight: 700; font-size: .9rem; text-decoration: none; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
-    transition: transform .12s ease, box-shadow .12s ease;
-  }
-  .action-btn:hover { transform: translateY(-1px); }
-  .action-btn-primary {
-    background: var(--brand); color: #fff;
-    box-shadow: 0 4px 12px rgba(124,58,237,.28);
-  }
-  .section {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06);
-  }
-  .meta { color: var(--muted); margin-bottom: .5rem; }
-  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: .9em; }
-  .summary { font-size: 1.3rem; font-weight: 700; margin: 1rem 0; }
-  .summary.pass { color: var(--pass); }
-  .summary.fail { color: var(--fail); }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: .75rem; font-weight: 700; letter-spacing: .5px;
-    color: #fff; vertical-align: middle;
-  }
-  .badge.pass { background: var(--pass); }
-  .badge.fail { background: var(--fail); }
-  .badge.error { background: var(--error); }
-  table {
-    width: 100%; border-collapse: collapse; margin: .75rem 0;
-    font-size: .9rem;
-  }
-  th, td {
-    padding: 8px 12px; text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-  th { background: #f1f5f9; font-weight: 600; }
-  .score-pass { color: var(--pass); font-weight: 600; }
-  .score-fail { color: var(--fail); font-weight: 600; }
-  .input-label-cell { max-width: 300px; }
-  .input-text { word-break: break-word; white-space: pre-wrap; font-size: .875rem; }
-  .show-more-link {
-    font-size: .75rem; color: var(--muted); text-decoration: none; display: inline-block;
-    margin-top: .2rem;
-  }
-  .show-more-link:hover { color: var(--brand); text-decoration: underline; }
-  .assert-card {
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 1rem; margin: 1rem 0; background: #fafbfc;
-  }
-  .scoring-strategy { color: var(--muted); margin-bottom: .5rem; font-size: .9rem; }
-  .criteria-msg { margin-bottom: .75rem; font-size: .9rem; }
-  .error-msg {
-    background: #fef2f2; color: var(--fail); padding: 1rem;
-    border-radius: 6px; overflow-x: auto; font-size: .85rem;
-    margin-bottom: 1rem; white-space: pre-wrap;
-  }
-  .tab-group { margin-top: .75rem; }
-  .tab-buttons { display: flex; gap: 4px; margin-bottom: .5rem; }
-  .tab-btn {
-    padding: 6px 14px; border: 1px solid var(--border);
-    background: var(--card); border-radius: 4px 4px 0 0;
-    cursor: pointer; font-size: .85rem;
-  }
-  .tab-btn.active { background: #f1f5f9; font-weight: 600; border-bottom-color: #f1f5f9; }
-  .tab-content { /* toggled via JS */ }
-  .details-link {
-    font-size: .75rem; color: var(--muted); margin-left: .3rem;
-    text-decoration: none; white-space: nowrap;
-  }
-  .details-link:hover { color: var(--brand); text-decoration: underline; }
-  .eval-detail-body { display: grid; gap: .75rem; }
-  .eval-detail-row { display: flex; flex-direction: column; gap: .2rem; }
-  .eval-detail-label {
-    font-size: .72rem; font-weight: 700; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .5px;
-  }
-  .eval-detail-value { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
-  .eval-detail-score-pass { color: var(--pass); font-weight: 700; font-size: 1.2rem; }
-  .eval-detail-score-fail { color: var(--fail); font-weight: 700; font-size: 1.2rem; }
-  .eval-detail-json {
-    background: #f1f5f9; padding: .75rem 1rem; border-radius: 6px;
-    font-size: .82rem; font-family: 'Courier New', monospace;
-    white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
-    overflow-x: hidden; margin: 0;
-  }
-  .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 20;
-    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
-  }
-  .modal-backdrop[hidden] { display: none !important; }
-  .modal-card {
-    position: relative; width: 100%; max-height: 100%;
-    overflow-y: auto; overflow-x: hidden; background: var(--card); border-radius: 16px;
-    padding: 1.5rem; box-shadow: 0 24px 60px rgba(15,23,42,.28);
-  }
-  .eval-detail-modal-card { max-height: 90vh; }
-  .modal-close {
-    position: absolute; top: 1rem; right: 1rem; width: 2rem; height: 2rem;
-    border: 0; border-radius: 999px; background: #e2e8f0; color: var(--text);
-    cursor: pointer; font-size: 1.1rem; line-height: 1;
-  }
-  .modal-description, .form-note { color: var(--muted); margin-bottom: 1rem; }
-  .feedback-form { display: grid; gap: .75rem; }
-  .field-label { font-weight: 600; color: var(--text); }
-  .feedback-form textarea,
-  .feedback-form input[type="email"],
-  .feedback-form input[type="file"] {
-    width: 100%; border: 1px solid var(--border); border-radius: 10px;
-    padding: .85rem 1rem; font: inherit; background: #fff;
-  }
-  .feedback-form textarea { min-height: 9rem; resize: vertical; }
-  .modal-actions {
-    display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem;
-    flex-wrap: wrap;
-  }
-  .btn-spinner {
-    display: inline-block; width: .9em; height: .9em;
-    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
-    border-radius: 50%; animation: spin .6s linear infinite;
-    margin-right: .4em; vertical-align: middle;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .submit-success {
-    background: var(--pass) !important; box-shadow: none !important;
-    pointer-events: none;
-  }
-  .submit-error {
-    background: var(--fail) !important; box-shadow: none !important;
-    pointer-events: none;
-  }
-  @media (max-width: 780px) {
-    body { padding: 1rem; }
-    .brand-header { flex-direction: column; align-items: flex-start; }
-    .brand-lockup { align-items: flex-start; }
-    .brand-actions, .modal-actions { width: 100%; justify-content: stretch; }
-    .action-btn { width: 100%; }
-    .input-label { max-width: 180px; }
-  }
-</style>
-</head>
-<body>
-"""
-
-_HTML_FOOT = """\
-<script>
-function switchTab(group, idx) {
-  document.querySelectorAll('[data-group="' + group + '"]').forEach(function(el) {
-    el.style.display = 'none';
-  });
-  var target = document.querySelector('[data-group="' + group + '"][data-idx="' + idx + '"]');
-  if (target) target.style.display = 'block';
-  // Update active button
-  var btns = document.querySelectorAll('.tab-btn');
-  btns.forEach(function(btn) {
-    var oc = btn.getAttribute('onclick');
-    if (oc && oc.indexOf("'" + group + "'") !== -1) {
-      btn.classList.remove('active');
-      if (btn.getAttribute('onclick').indexOf(', ' + idx + ')') !== -1) {
-        btn.classList.add('active');
-      }
-    }
-  });
-}
-function toggleFeedbackModal(open) {
-  var modal = document.getElementById('feedback-modal');
-  if (!modal) return;
-  modal.hidden = !open;
-  document.body.classList.toggle('modal-open', open);
-}
-function showEvalDetail(link) {
-  var modal = document.getElementById('eval-detail-modal');
-  if (!modal) return;
-  var data = JSON.parse(link.getAttribute('data-eval'));
-  var scoreEl = document.getElementById('eval-detail-score');
-  var reasoningEl = document.getElementById('eval-detail-reasoning');
-  var inputEl = document.getElementById('eval-detail-input');
-  var expectedEl = document.getElementById('eval-detail-expected');
-  var expectedRow = document.getElementById('eval-detail-expected-row');
-  var actualEl = document.getElementById('eval-detail-actual');
-  var metadataEl = document.getElementById('eval-detail-metadata');
-  var metadataRow = document.getElementById('eval-detail-metadata-row');
-  var passed = data.score >= 0.5;
-  scoreEl.textContent = data.score.toFixed(2) + (passed ? ' \u2713' : ' \u2717');
-  scoreEl.className = passed ? 'eval-detail-score-pass' : 'eval-detail-score-fail';
-  reasoningEl.textContent = data.reasoning || '(none)';
-  inputEl.textContent = data.input || '(none)';
-  if (data.expected_output != null) {
-    expectedEl.textContent = data.expected_output;
-    expectedRow.style.display = '';
-  } else {
-    expectedRow.style.display = 'none';
-  }
-  actualEl.textContent = data.actual_output || '(none)';
-  if (data.metadata && Object.keys(data.metadata).length > 0) {
-    metadataEl.textContent = JSON.stringify(data.metadata, null, 2);
-    metadataRow.style.display = '';
-  } else {
-    metadataRow.style.display = 'none';
-  }
-  modal.hidden = false;
-  document.body.classList.add('modal-open');
-}
-function toggleInput(link) {
-  var textEl = link.previousElementSibling;
-  if (!textEl || !textEl.classList.contains('input-text')) return;
-  if (link.textContent.trim() === 'show more') {
-    textEl.textContent = link.getAttribute('data-full');
-    link.textContent = 'show less';
-  } else {
-    textEl.textContent = link.getAttribute('data-preview');
-    link.textContent = 'show more';
-  }
-}
-function closeEvalDetailModal() {
-  var modal = document.getElementById('eval-detail-modal');
-  if (!modal) return;
-  modal.hidden = true;
-  document.body.classList.remove('modal-open');
-}
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    toggleFeedbackModal(false);
-    closeEvalDetailModal();
-  }
-});
-document.addEventListener('click', function(event) {
-  var feedbackModal = document.getElementById('feedback-modal');
-  if (feedbackModal && event.target === feedbackModal) {
-    toggleFeedbackModal(false);
-  }
-  var evalModal = document.getElementById('eval-detail-modal');
-  if (evalModal && event.target === evalModal) {
-    closeEvalDetailModal();
-  }
-});
-(function() {
-  var form = document.getElementById('feedback-form');
-  if (!form) return;
-  form.addEventListener('submit', function(event) {
-    event.preventDefault();
-    var action = form.getAttribute('data-action');
-    var data = new FormData(form);
-    var submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="btn-spinner"></span>Sending…';
-    }
-    fetch(action, { method: 'POST', body: data })
-      .then(function(res) {
-        if (submitBtn) {
-          submitBtn.classList.add('submit-success');
-          submitBtn.innerHTML = '\u2713 Sent!';
-        }
-        setTimeout(function() { toggleFeedbackModal(false); form.reset(); }, 1200);
-      })
-      .catch(function() {
-        if (submitBtn) {
-          submitBtn.classList.add('submit-error');
-          submitBtn.innerHTML = '\u2717 Failed — try again';
-          setTimeout(function() {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('submit-error');
-            submitBtn.innerHTML = 'Submit feedback';
-          }, 2000);
-        }
-      });
-  });
-})();
-</script>
-</body>
-</html>
-"""

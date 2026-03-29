@@ -242,7 +242,7 @@ class TestPixieTestRealisticE2E:
         assert "brand-name" in html
         assert "Share feedback" in html
         assert "★ Star on GitHub" in html
-        assert 'data-action="https://feedback.gopixie.ai/feedback"' in html
+        assert "https://feedback.gopixie.ai/feedback" in html
 
 
 # ======================================================================

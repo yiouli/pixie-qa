@@ -68,6 +68,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["pixie"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"pixie/assets/index.html" = "pixie/assets/index.html"
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

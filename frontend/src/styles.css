@@ -1,0 +1,656 @@
+/*
+ * Pixie Scorecard — "Ink & Signal" theme
+ *
+ * A data-forward report with warm stone tones, sharp accents,
+ * and monospace headings that feel like instrument readouts.
+ */
+
+:root {
+  --c-pass: #059669;
+  --c-pass-bg: #ecfdf5;
+  --c-pass-border: #a7f3d0;
+  --c-fail: #dc2626;
+  --c-fail-bg: #fef2f2;
+  --c-fail-border: #fecaca;
+  --c-error: #d97706;
+  --c-error-bg: #fffbeb;
+  --c-error-border: #fde68a;
+
+  --c-bg: #faf9f7;
+  --c-surface: #ffffff;
+  --c-border: #e7e5e4;
+  --c-border-strong: #d6d3d1;
+  --c-text: #1c1917;
+  --c-text-secondary: #78716c;
+  --c-text-muted: #a8a29e;
+  --c-accent: #7c3aed;
+  --c-accent-hover: #6d28d9;
+  --c-overlay: rgba(28, 25, 23, 0.55);
+
+  --font-mono:
+    "JetBrains Mono", "Fira Code", "SF Mono", "Cascadia Code", "Consolas",
+    "Liberation Mono", monospace;
+  --font-body: "Charter", "Georgia", "Noto Serif", "Times New Roman", serif;
+  --font-sans:
+    "DM Sans", "Avenir Next", "Avenir", "Segoe UI", system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(28, 25, 23, 0.07);
+  --shadow-lg: 0 20px 50px rgba(28, 25, 23, 0.18);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ── Brand header ────────────────── */
+
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 2.5rem;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.brand-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+}
+
+.brand-name {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--c-text);
+}
+
+.brand-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-ghost {
+  border: none;
+  background: transparent;
+  color: var(--c-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.btn-ghost:hover {
+  color: var(--c-text);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.btn-primary:hover {
+  background: var(--c-accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-border);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-secondary:hover {
+  background: var(--c-border-strong);
+}
+
+/* ── Main layout ─────────────────── */
+
+.main-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem 4rem;
+}
+
+/* ── Cards & sections ────────────── */
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card h2 {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--c-text-secondary);
+  margin-bottom: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--c-border);
+}
+
+/* ── Overview ────────────────────── */
+
+.meta-line {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--c-text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.meta-line code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: #f5f5f4;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+}
+
+.summary-line {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 1rem 0 0.25rem;
+  letter-spacing: -0.03em;
+}
+
+.summary-line.pass {
+  color: var(--c-pass);
+}
+
+.summary-line.fail {
+  color: var(--c-fail);
+}
+
+/* ── Badges ──────────────────────── */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  vertical-align: middle;
+}
+
+.badge.pass {
+  background: var(--c-pass);
+}
+
+.badge.fail {
+  background: var(--c-fail);
+}
+
+.badge.error {
+  background: var(--c-error);
+}
+
+/* ── Overview table ──────────────── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  margin: 0.75rem 0;
+}
+
+th,
+td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--c-border);
+}
+
+th {
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-text-secondary);
+  background: #fafaf9;
+}
+
+/* ── Test sections ───────────────── */
+
+.test-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.test-name {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.error-msg {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--c-fail);
+  background: var(--c-fail-bg);
+  border: 1px solid var(--c-fail-border);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  white-space: pre-wrap;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+}
+
+.no-asserts {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--c-text-muted);
+  font-style: italic;
+}
+
+/* ── Assert cards ────────────────── */
+
+.assert-card {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+  background: #fafaf9;
+}
+
+.assert-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.assert-title {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.scoring-strategy {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--c-text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.criteria-msg {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Score cells ─────────────────── */
+
+.score-pass {
+  color: var(--c-pass);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.score-fail {
+  color: var(--c-fail);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* ── Input cells ─────────────────── */
+
+.input-label-cell {
+  max-width: 300px;
+}
+
+.input-text {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.show-more-link {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--c-text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  margin-left: 0.25rem;
+}
+
+.show-more-link:hover {
+  color: var(--c-accent);
+  text-decoration: underline;
+}
+
+.details-link {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--c-text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  margin-left: 0.3rem;
+  white-space: nowrap;
+}
+
+.details-link:hover {
+  color: var(--c-accent);
+  text-decoration: underline;
+}
+
+/* ── Tabs ────────────────────────── */
+
+.tab-buttons {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 0.5rem;
+}
+
+.tab-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--c-text-secondary);
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.tab-btn.active {
+  background: #fafaf9;
+  font-weight: 700;
+  color: var(--c-text);
+  border-bottom-color: #fafaf9;
+}
+
+/* ── Modals ──────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--c-overlay);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--c-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-border);
+  color: var(--c-text);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+}
+
+.modal-close:hover {
+  background: var(--c-border-strong);
+}
+
+.modal-title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.modal-description {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--c-text-secondary);
+  margin-bottom: 1rem;
+}
+
+/* ── Eval detail modal ───────────── */
+
+.eval-detail-body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.eval-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.eval-detail-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-text-muted);
+}
+
+.eval-detail-value {
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.eval-detail-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+
+.eval-detail-score.pass {
+  color: var(--c-pass);
+}
+
+.eval-detail-score.fail {
+  color: var(--c-fail);
+}
+
+.eval-detail-json {
+  background: #f5f5f4;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+  margin: 0;
+  border: 1px solid var(--c-border);
+}
+
+/* ── Feedback form ───────────────── */
+
+.feedback-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field-label {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--c-text);
+}
+
+.feedback-form textarea,
+.feedback-form input[type="email"],
+.feedback-form input[type="file"] {
+  width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  background: #fff;
+  transition: border-color 0.12s;
+}
+
+.feedback-form textarea:focus,
+.feedback-form input[type="email"]:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+.feedback-form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* ── Responsive ──────────────────── */
+
+@media (max-width: 780px) {
+  .brand-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .main-content {
+    padding: 1.5rem 1rem;
+  }
+
+  .card {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-card {
+    max-width: 100%;
+  }
+
+  .input-label-cell {
+    max-width: 180px;
+  }
+}

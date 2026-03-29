@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "create-specification": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "45b9ef98b0fb82ba0e1aee65dfb464fa1f8494a14a557b9788d73aae87e9e618"
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import textwrap
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from pixie.evals.scorecard import (
     _evaluator_display_name,
     _input_label,
     _normalise_filename,
+    _report_to_dict,
     generate_scorecard_html,
     get_active_collector,
     save_scorecard,
@@ -197,6 +199,101 @@ class TestScorecardCollector:
 # ── generate_scorecard_html tests ────────────────────────────────────────
 
 
+class TestReportToDict:
+    """Tests for _report_to_dict() serialization."""
+
+    def test_basic_serialization(self) -> None:
+        report = ScorecardReport(
+            command_args="pixie test .",
+            test_records=[
+                TestRecord(name="test_a.py::test_one", status="passed"),
+                TestRecord(name="test_b.py::test_two", status="failed", message="oops"),
+            ],
+            timestamp=datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc),
+        )
+        data = _report_to_dict(report)
+
+        assert data["command_args"] == "pixie test ."
+        assert data["timestamp"] == "2025-06-15 12:00:00 UTC"
+        assert data["summary"] == "1/2 tests passed"
+        assert len(data["test_records"]) == 2
+        assert data["test_records"][0]["name"] == "test_a.py::test_one"
+        assert data["test_records"][0]["status"] == "passed"
+        assert data["test_records"][1]["status"] == "failed"
+        assert data["test_records"][1]["message"] == "oops"
+        assert data["pixie_repo_url"] == "https://github.com/yiouli/pixie-qa"
+        assert data["feedback_url"] == "https://feedback.gopixie.ai/feedback"
+
+    def test_assert_records_serialized(self) -> None:
+        ar = _make_assert_record(
+            evaluator_names=("Levenshtein", "Factuality"),
+            input_labels=("q1", "q2"),
+            scores=[[[0.9, 0.8], [0.3, 0.7]]],
+            passed=False,
+            criteria_message="Fail: 1/2 inputs",
+            scoring_strategy="Each score >= 0.5",
+        )
+        report = ScorecardReport(
+            command_args="pixie test .",
+            test_records=[
+                TestRecord(
+                    name="test_eval.py::test_fn",
+                    status="failed",
+                    message="assertion failed",
+                    asserts=[ar],
+                ),
+            ],
+        )
+        data = _report_to_dict(report)
+        assert_data = data["test_records"][0]["asserts"][0]
+
+        assert assert_data["evaluator_names"] == ["Levenshtein", "Factuality"]
+        assert assert_data["input_labels"] == ["q1", "q2"]
+        assert assert_data["passed"] is False
+        assert assert_data["criteria_message"] == "Fail: 1/2 inputs"
+        assert assert_data["scoring_strategy"] == "Each score >= 0.5"
+        # Check results tensor shape: [1 pass][2 inputs][2 evaluators]
+        assert len(assert_data["results"]) == 1
+        assert len(assert_data["results"][0]) == 2
+        assert len(assert_data["results"][0][0]) == 2
+        assert assert_data["results"][0][0][0]["score"] == 0.9
+        assert assert_data["results"][0][1][0]["score"] == 0.3
+
+    def test_multi_pass_results(self) -> None:
+        ar = _make_assert_record(
+            evaluator_names=("Eval",),
+            input_labels=("inp",),
+            scores=[[[1.0]], [[0.5]]],
+            passed=True,
+        )
+        report = ScorecardReport(
+            command_args="pixie test .",
+            test_records=[
+                TestRecord(
+                    name="test.py::test_multi",
+                    status="passed",
+                    asserts=[ar],
+                ),
+            ],
+        )
+        data = _report_to_dict(report)
+        results = data["test_records"][0]["asserts"][0]["results"]
+        assert len(results) == 2  # Two passes
+        assert results[0][0][0]["score"] == 1.0
+        assert results[1][0][0]["score"] == 0.5
+
+    def test_serialization_is_json_safe(self) -> None:
+        report = ScorecardReport(
+            command_args="pixie test .",
+            test_records=[TestRecord(name="test.py::test_ok", status="passed")],
+        )
+        data = _report_to_dict(report)
+        # Must be JSON-serializable without error
+        json_str = json.dumps(data)
+        roundtrip = json.loads(json_str)
+        assert roundtrip["command_args"] == "pixie test ."
+
+
 class TestGenerateScorecardHtml:
     """Tests for generate_scorecard_html()."""
 
@@ -211,18 +308,15 @@ class TestGenerateScorecardHtml:
         )
         html_out = generate_scorecard_html(report)
 
-        assert "<!DOCTYPE html>" in html_out
-        assert "Pixie" in html_out
-        assert "Share feedback" in html_out
-        assert "★ Star on GitHub" in html_out
-        assert "1/2 tests passed" in html_out
+        assert "<!doctype html>" in html_out.lower()
+        # Data is injected as JSON inside the HTML
         assert "test_a.py::test_one" in html_out
         assert "test_b.py::test_two" in html_out
-        assert "PASS" in html_out
-        assert "FAIL" in html_out
         assert "pixie test ." in html_out
+        assert '"passed"' in html_out
+        assert '"failed"' in html_out
 
-    def test_feedback_modal_posts_to_feedback_service(self) -> None:
+    def test_data_injected_as_json(self) -> None:
         report = ScorecardReport(
             command_args='pixie test tests/ --flag "quoted"',
             test_records=[TestRecord(name="test_eval.py::test_fn", status="passed")],
@@ -230,15 +324,13 @@ class TestGenerateScorecardHtml:
         )
         html_out = generate_scorecard_html(report)
 
-        assert 'id="feedback-modal"' in html_out
-        assert 'data-action="https://feedback.gopixie.ai/feedback"' in html_out
-        assert 'name="feedback"' in html_out
-        assert 'name="email"' in html_out
-        assert 'name="attachments"' in html_out
-        assert 'accept=".txt,.md,.log,.json,text/plain"' in html_out
-        assert "pixie test tests/ --flag &quot;quoted&quot;" in html_out
+        # The placeholder should be replaced
+        assert "__PIXIE_DATA_PLACEHOLDER__" not in html_out
+        # Data should be JSON-embedded
+        assert "feedback.gopixie.ai" in html_out
+        assert "test_eval.py::test_fn" in html_out
 
-    def test_assert_records_rendered(self) -> None:
+    def test_assert_records_in_json(self) -> None:
         ar = _make_assert_record(
             evaluator_names=("Levenshtein", "Factuality"),
             input_labels=("q1", "q2"),
@@ -264,43 +356,11 @@ class TestGenerateScorecardHtml:
         assert "Factuality" in html_out
         assert "q1" in html_out
         assert "q2" in html_out
-        assert "0.90" in html_out
-        assert "0.30" in html_out
-        assert "Each score &gt;= 0.5" in html_out or "Each score >= 0.5" in html_out
+        assert "0.9" in html_out
+        assert "0.3" in html_out
+        assert "Each score >= 0.5" in html_out
 
-    def test_multi_pass_tabs(self) -> None:
-        ar = _make_assert_record(
-            evaluator_names=("Eval",),
-            input_labels=("inp",),
-            scores=[[[1.0]], [[0.5]]],
-            passed=True,
-        )
-        report = ScorecardReport(
-            command_args="pixie test .",
-            test_records=[
-                TestRecord(
-                    name="test.py::test_multi",
-                    status="passed",
-                    asserts=[ar],
-                ),
-            ],
-        )
-        html_out = generate_scorecard_html(report)
-        assert "Pass 1" in html_out
-        assert "Pass 2" in html_out
-        assert "tab-btn" in html_out
-
-    def test_no_asserts_message(self) -> None:
-        report = ScorecardReport(
-            command_args="pixie test .",
-            test_records=[
-                TestRecord(name="test.py::test_plain", status="passed"),
-            ],
-        )
-        html_out = generate_scorecard_html(report)
-        assert "No assert_pass" in html_out
-
-    def test_error_message_rendered(self) -> None:
+    def test_error_message_in_json(self) -> None:
         report = ScorecardReport(
             command_args="pixie test .",
             test_records=[
@@ -313,7 +373,7 @@ class TestGenerateScorecardHtml:
         )
         html_out = generate_scorecard_html(report)
         assert "RuntimeError: boom" in html_out
-        assert "ERROR" in html_out
+        assert '"error"' in html_out
 
 
 # ── save_scorecard tests ─────────────────────────────────────────────────
@@ -341,7 +401,7 @@ class TestSaveScorecard:
         assert "scorecards" in filepath
         with open(filepath) as f:
             content = f.read()
-        assert "<!DOCTYPE html>" in content
+        assert "<!doctype html>" in content.lower()
         assert "test.py::test_ok" in content
 
     def test_filename_contains_timestamp(

@@ -201,14 +201,20 @@ pixie test -v              # verbose: shows per-case scores and reasoning
 
 ### HTML Scorecard
 
-Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. The scorecard contains:
+Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. The scorecard is a self-contained React application compiled to a single HTML file — no external dependencies, works from `file://`.
 
-- **Test run overview** — command args, pass/fail summary, and a table of all tests with their status.
+The scorecard contains:
+
+- **Test run overview** — command args, timestamp, pass/fail summary, and a table of all tests with their status.
 - **Per-test detail** — for each test function that calls `assert_pass` / `assert_dataset_pass`:
   - Scoring strategy description (human-readable).
   - Per-evaluator pass rate table.
-  - Per-input × per-evaluator score grid with tooltips showing reasoning.
+  - Per-input × per-evaluator score grid with detail links.
   - **Tabbed view** for multi-pass runs (one tab per pass).
+- **Evaluation detail modal** — click any score to see full reasoning, input, expected/actual output, and metadata.
+- **Feedback modal** — share feedback directly from the scorecard.
+
+The frontend source lives in `frontend/` and compiles to `pixie/assets/index.html` via Vite. At runtime, Python injects JSON data into the template. See [frontend/README.md](../frontend/README.md) for development and build instructions.
 
 After the test run, the CLI prints the scorecard path:
 

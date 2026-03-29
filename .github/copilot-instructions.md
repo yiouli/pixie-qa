@@ -18,6 +18,14 @@ pixie-qa is a Python package and coding-agent skill for automated quality assura
 ```
 pixie/
   __init__.py
+  assets/
+    index.html           # compiled React scorecard (build artifact, gitignored)
+  cli/
+    test_command.py      # pixie test entry point
+  evals/
+    scorecard.py         # scorecard data models + template-based HTML generation
+    eval_utils.py        # assert_pass / assert_dataset_pass
+    runner.py            # test discovery and execution
   instrumentation/
     __init__.py          # public API: init(), start_observation(), observe(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
@@ -29,14 +37,32 @@ pixie/
     instrumentors.py     # auto-discovers and activates OpenInference instrumentors
     py.typed
 
+frontend/                # React scorecard SPA source
+  src/                   # React components, types, styles
+  package.json           # React 19, Vite 6, vite-plugin-singlefile
+  vite.config.ts         # builds to ../pixie/assets/
+  README.md              # frontend dev & build instructions
+
 tests/
-  pixie/                 # all pixie module tests go here
+  README.md              # testing instructions and manual verification guide
+  pixie/                 # automated tests (pytest)
+    cli/
+      test_e2e_pixie_test.py  # 43 e2e tests
+      e2e_cases.json          # edge-case scenario definitions
+      e2e_fixtures/           # realistic test fixtures
+    evals/
+      test_scorecard.py
     instrumentation/
       test_spans.py
       test_context.py
       test_queue.py
       test_processor.py
       test_integration.py
+  manual/                # manual testing fixtures (not run by pytest)
+    test_sample.py       # run with: pixie test tests/manual/test_sample.py
+    mock_evaluators.py
+    datasets/
+      sample-qa.json
 
 specs/                   # design specs and architecture docs
 ```
@@ -202,35 +228,39 @@ Run the e2e suite whenever you change anything in:
 - `pixie/evals/criteria.py` — pass criteria
 
 ```bash
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Run all 42 e2e tests
+uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Run all 43 e2e tests
 ```
 
 **Agent verification protocol (manual inspection):**
 
 In addition to the automated pytest tests, the coding agent should manually
-verify the `pixie test` output after making changes to CLI/eval/scorecard code:
+verify the `pixie test` output after making changes to CLI/eval/scorecard code.
+Use the manual test fixture in `tests/manual/`:
 
-1. **Run the realistic fixture directly:**
+1. **Run the manual fixture directly:**
    ```bash
-   PIXIE_ROOT=/tmp/pixie_e2e_verify uv run pixie test tests/pixie/cli/e2e_fixtures/test_customer_faq.py
+   export PIXIE_ROOT=/tmp/pixie_e2e_verify
+   uv run pixie test tests/manual/test_sample.py
    ```
 
 2. **Inspect the console output** — verify that:
-   - All 4 test names appear with correct ✓/✗ marks
-   - Summary shows "2 passed, 2 failed"
+   - All 3 test names appear with correct ✓/✗ marks
+   - Summary shows "1 passed, 2 failed"
    - No unexpected errors or tracebacks
 
-3. **Inspect the HTML scorecard** — open the generated file and verify:
-   - All 4 evaluator names appear (MockFactuality, MockClosedQA, etc.)
+3. **Inspect the HTML scorecard** — open the generated HTML file in a browser
+   (path is printed at the end of console output) and verify:
+   - Evaluator names appear (Factuality, KeywordMatch)
    - Per-input score cells show reasonable numeric values
-   - PASS/FAIL badges match expectations (2 PASS, 2 FAIL)
+   - PASS/FAIL badges match expectations (1 PASS, 2 FAIL)
    - Scoring strategy descriptions are human-readable
    - The scorecard is well-formatted and renders correctly
+   - Evaluation detail modal works (click any score's "details" link)
 
 4. **Evaluate holistically** — given the dataset contents and evaluator
-   definitions, do the scores and pass/fail outcomes make sense? For example,
-   MockFactuality should score high on items where `eval_output` is similar to
-   `expected_output`, and MockStrictTone should always fail.
+   definitions, do the scores and pass/fail outcomes make sense?
+
+See `tests/README.md` for full manual testing instructions and expected results.
 
 This manual step catches rendering issues, layout regressions, and semantic
 correctness problems that simple string assertions can miss.
@@ -533,9 +563,29 @@ Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch
 
 ### What to Keep Up to Date
 
-- **README.md**: Update when setup commands, features, dependencies, or project structure change.
+- **README files**: Each major directory that contains non-trivial code or assets must have its own `README.md` explaining purpose, usage, and build/test commands. Currently required READMEs:
+  - `README.md` (root) — project overview, getting started
+  - `docs/package.md` — Python package API reference
+  - `frontend/README.md` — React scorecard dev & build instructions
+  - `pixie/assets/README.md` — build artifact purpose and rebuild instructions
+  - `tests/README.md` — test organization, running tests, manual verification
 - **Module / API docstrings**: Update public function, class, and method docstrings whenever behavior, parameters, or return values change.
 - **Specs**: Update relevant files in `specs/` (for example `specs/instrumentation.md`) when architecture, data flow, or instrumentation behavior changes.
+
+### README Scoping Rules
+
+**CRITICAL**: When a change introduces a new directory, adds build artifacts, or changes how a subsystem works, the relevant README(s) must be created or updated in the same change set.
+
+**Which READMEs to update:**
+
+| Change type | READMEs to update |
+| --- | --- |
+| New top-level directory (e.g., `frontend/`) | Create `<dir>/README.md` + update root `README.md` |
+| New package directory (e.g., `pixie/assets/`) | Create `<dir>/README.md` + update `docs/package.md` |
+| New test fixtures or test directories | Update `tests/README.md` |
+| CLI or scorecard changes | Update `docs/package.md` + `tests/README.md` (manual verification) |
+| Build process changes | Update `frontend/README.md` + `pixie/assets/README.md` |
+| API changes | Update `docs/package.md` + relevant module docstrings |
 
 ### Changelog per Feature
 
@@ -544,33 +594,36 @@ Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch
 1. Create or update a file under `changelogs/` named after the feature, e.g. `changelogs/span-processor-error-handling.md`.
 2. The file must include:
    - **What changed** and why.
-   - **Files affected** (modules, tests, specs).
+   - **Files affected** (modules, tests, specs, READMEs).
    - **Migration notes** if any API behavior changed.
 3. Commit the changelog file together with the implementation.
 
 ### Documentation Checklist (Before Every Commit)
 
 1. ✅ All new/changed public functions and classes have accurate docstrings.
-2. ✅ `README.md` reflects current commands, features, and structure.
+2. ✅ All relevant `README.md` files are up to date (see scoping rules above).
 3. ✅ Relevant `specs/` docs are updated for architecture or behavior changes.
 4. ✅ A `changelogs/<feature>.md` file exists for each non-trivial change.
+5. ✅ `tests/README.md` is updated if test structure or manual verification steps changed.
 
 ### Hard Completion Gate (Non-Negotiable)
 
-For any non-trivial implementation, a task is **not complete** until all three artifacts exist and are updated in the same change set:
+For any non-trivial implementation, a task is **not complete** until all of the following exist and are updated in the same change set:
 
-1. `README.md` update (user-facing usage, setup, or feature summary)
+1. Relevant `README.md` updates (see README scoping rules — may be multiple files)
 2. Relevant `specs/*.md` update (design/behavior/architecture)
 3. `changelogs/<feature>.md` entry (what changed, files, migration notes)
+4. `tests/README.md` update if test structure or manual verification changed
 
 If any of these are missing, the agent must continue working and add them before declaring completion.
 
-### New Module / Package Delivery Minimum
+### New Directory / Package Delivery Minimum
 
-When introducing a new module or subpackage, documentation must include:
+When introducing a new directory or subpackage, documentation must include:
 
-- A README section describing purpose and public API
-- A minimal runnable usage example
+- A `README.md` in the new directory explaining purpose, contents, and usage
+- Update to the parent or root README referencing the new directory
+- A minimal runnable usage example (in the README or a test fixture)
 - Testing / validation commands relevant to the module
 - A dedicated changelog entry for that module delivery
 
@@ -579,9 +632,10 @@ When introducing a new module or subpackage, documentation must include:
 After each code change, immediately:
 
 1. Update docstrings in the same edit.
-2. Update `README.md` if setup, commands, or features changed.
+2. Update all relevant `README.md` files (see README scoping rules).
 3. Update relevant `specs/` docs for design or behavior changes.
 4. Create/update a changelog file for non-trivial changes.
+5. Update `tests/README.md` if test fixtures or verification steps changed.
 
 Do not defer documentation work to the end of a task.
 
@@ -612,8 +666,9 @@ This project has strict error-handling conventions due to operating inside OTel 
 6. ✅ Update docstrings / `README.md` / relevant `specs/` docs
 7. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
 8. ✅ Verify functionality works as expected
-9. ✅ If touching `pixie test` / scorecard / runner / eval code, run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` — all 42 e2e tests must pass (10 realistic + 32 edge-case)
-10. ✅ If touching `pixie test` / scorecard code, also run the **agent verification protocol** (section 4a) — manually run `pixie test` on the realistic fixture and inspect console + scorecard output
+9. ✅ If touching `pixie test` / scorecard / runner / eval code, run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` — all 43 e2e tests must pass (11 realistic + 32 edge-case)
+10. ✅ If touching `pixie test` / scorecard code, also run the **agent verification protocol** (section 4a) — manually run `pixie test` on the manual fixture and inspect console + scorecard output
+11. ✅ All relevant `README.md` files are updated (see Documentation section — README Scoping Rules)
 
 **Development cycle:**
 
