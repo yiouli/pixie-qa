@@ -493,6 +493,55 @@ class TestAssertPassEvaluables:
         assert call_count == 2, "runnable should be called for each input"
 
     @pytest.mark.asyncio
+    async def test_runnable_called_once_per_input_with_multiple_evaluators(
+        self,
+    ) -> None:
+        """Multiple evaluators must NOT cause duplicate runnable executions."""
+        call_count = 0
+
+        def counting_app(input: Any) -> None:  # noqa: A002
+            nonlocal call_count
+            call_count += 1
+            with px.start_observation(input=input, name="app") as obs:
+                obs.set_output(f"ran:{input}")
+
+        items = [
+            Evaluable(eval_input="q1", expected_output="e1"),
+            Evaluable(eval_input="q2", expected_output="e2"),
+        ]
+        await assert_pass(
+            runnable=counting_app,
+            eval_inputs=["q1", "q2"],
+            evaluators=[_always_pass, _score_half, _always_pass],
+            evaluables=items,
+        )
+        assert call_count == 2, (
+            "runnable should be called exactly once per input, "
+            "not once per evaluator"
+        )
+
+    @pytest.mark.asyncio
+    async def test_runnable_once_without_evaluables(self) -> None:
+        """Without evaluables, runnable still runs exactly once per input."""
+        call_count = 0
+
+        def counting_app(input: Any) -> None:  # noqa: A002
+            nonlocal call_count
+            call_count += 1
+            with px.start_observation(input=input, name="app") as obs:
+                obs.set_output(f"ran:{input}")
+
+        await assert_pass(
+            runnable=counting_app,
+            eval_inputs=["q1", "q2", "q3"],
+            evaluators=[_always_pass, _score_half],
+        )
+        assert call_count == 3, (
+            "runnable should be called exactly once per input, "
+            "not once per evaluator"
+        )
+
+    @pytest.mark.asyncio
     async def test_evaluables_precomputed_output_used_directly(self) -> None:
         """When eval_output is already set, the evaluable is used directly."""
         received: list[Evaluable] = []
@@ -521,6 +570,29 @@ class TestAssertPassEvaluables:
         # eval_output should be the pre-computed value (runnable not called)
         assert received[0].eval_output == "precomputed_output"
         assert received[0].expected_output == "ref"
+
+    @pytest.mark.asyncio
+    async def test_all_evaluators_see_same_output(self) -> None:
+        """All evaluators receive the same evaluable from one runnable call."""
+        received: list[Evaluable] = []
+
+        async def capture_eval(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            received.append(evaluable)
+            return Evaluation(score=1.0, reasoning="ok")
+
+        await assert_pass(
+            runnable=_sync_app,
+            eval_inputs=["hello"],
+            evaluators=[capture_eval, capture_eval, capture_eval],
+        )
+        # All 3 evaluators should get the same evaluable object
+        assert len(received) == 3
+        assert all(e.eval_output == "echo:hello" for e in received)
+        assert all(e.eval_input == "hello" for e in received)
 
     @pytest.mark.asyncio
     async def test_evaluables_none_output_runs_runnable(self) -> None:

@@ -138,47 +138,19 @@ def _publish_to_scorecard(
     collector.record(record)
 
 
-async def run_and_evaluate(
-    evaluator: Callable[..., Any],
+async def _run_and_capture(
     runnable: Callable[..., Any],
     eval_input: Any,
     *,
     expected_output: Any = _UNSET_SENTINEL,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
-) -> Evaluation:
-    """Run *runnable(eval_input)* while capturing traces, then evaluate.
+) -> tuple[Evaluable, list[ObservationNode]]:
+    """Run *runnable(eval_input)* once, capture traces, return evaluable + tree.
 
-    1. Initialises instrumentation (no-op if already done) and registers
-       an in-memory trace handler scoped to this call.
-     2. Calls ``runnable(eval_input)`` — async runnables are awaited, sync
-         ones are run via ``asyncio.to_thread`` with a thread-local event loop.
-    3. Flushes the delivery queue so all spans reach the handler.
-    4. Builds the trace tree and determines the evaluable:
-
-       - If *from_trace* is provided, ``from_trace(tree)`` selects the
-         span to evaluate.
-       - Otherwise the root observation span is used.
-
-    5. If *expected_output* is provided, merges it into the evaluable
-       (span-derived evaluables never carry expected values).
-    6. Runs the evaluator and returns the ``Evaluation``.
-
-    Args:
-        evaluator: An evaluator callable (sync or async).
-        runnable: The application function to test.
-        eval_input: The single input passed to *runnable*.
-        expected_output: Optional expected value merged into the
-            evaluable.  Span-derived evaluables always have
-            ``expected_output=UNSET``; this parameter lets callers
-            inject the reference value.
-        from_trace: Optional callable to select a specific span from
-            the trace tree for evaluation.
-
-    Returns:
-        The ``Evaluation`` result.
-
-    Raises:
-        ValueError: If no spans were captured during execution.
+    This is the single-execution helper used by both ``run_and_evaluate``
+    and ``_process_single_input``.  The runnable is called exactly once;
+    when multiple evaluators need the same output, callers should invoke
+    this once and feed the returned evaluable to each evaluator.
     """
     with capture_traces() as handler:
         if inspect.iscoroutinefunction(runnable):
@@ -190,7 +162,6 @@ async def run_and_evaluate(
                 eval_input,
             )
 
-    # capture_traces flushes on exit, so handler.spans is populated
     if not handler.spans:
         raise ValueError("No spans captured during runnable execution")
 
@@ -202,7 +173,6 @@ async def run_and_evaluate(
         root_node = trace_tree[0]
         evaluable = as_evaluable(root_node.span)
 
-    # Merge expected_output into the span-derived evaluable when provided
     if expected_output is not _UNSET_SENTINEL:
         evaluable = Evaluable(
             eval_input=evaluable.eval_input,
@@ -211,6 +181,43 @@ async def run_and_evaluate(
             expected_output=expected_output,
         )
 
+    return evaluable, trace_tree
+
+
+async def run_and_evaluate(
+    evaluator: Callable[..., Any],
+    runnable: Callable[..., Any],
+    eval_input: Any,
+    *,
+    expected_output: Any = _UNSET_SENTINEL,
+    from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
+) -> Evaluation:
+    """Run *runnable(eval_input)* while capturing traces, then evaluate.
+
+    Convenience wrapper combining ``_run_and_capture`` and ``evaluate``.
+    The runnable is called exactly once.
+
+    Args:
+        evaluator: An evaluator callable (sync or async).
+        runnable: The application function to test.
+        eval_input: The single input passed to *runnable*.
+        expected_output: Optional expected value merged into the
+            evaluable.
+        from_trace: Optional callable to select a specific span from
+            the trace tree for evaluation.
+
+    Returns:
+        The ``Evaluation`` result.
+
+    Raises:
+        ValueError: If no spans were captured during execution.
+    """
+    evaluable, trace_tree = await _run_and_capture(
+        runnable,
+        eval_input,
+        expected_output=expected_output,
+        from_trace=from_trace,
+    )
     return await evaluate(evaluator, evaluable, trace=trace_tree)
 
 
@@ -222,18 +229,23 @@ async def _process_single_input(
     runnable: Callable[..., Any],
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None,
 ) -> list[Evaluation]:
-    """Process a single dataset row: run evaluators concurrently."""
+    """Process a single dataset row: run runnable once, evaluate concurrently.
+
+    The runnable is invoked at most once per input.  The resulting
+    evaluable and trace tree are shared across all evaluators.
+    """
     if evaluables is not None:
         ev_item = evaluables[idx]
         if ev_item.eval_output is None:
+            # Run the runnable ONCE, then feed the result to all evaluators
+            evaluable, trace_tree = await _run_and_capture(
+                runnable,
+                inp,
+                expected_output=ev_item.expected_output,
+                from_trace=from_trace,
+            )
             eval_coros = [
-                run_and_evaluate(
-                    evaluator=ev,
-                    runnable=runnable,
-                    eval_input=inp,
-                    expected_output=ev_item.expected_output,
-                    from_trace=from_trace,
-                )
+                evaluate(evaluator=ev, evaluable=evaluable, trace=trace_tree)
                 for ev in evaluators
             ]
         else:
@@ -241,13 +253,14 @@ async def _process_single_input(
                 evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
             ]
     else:
+        # Run the runnable ONCE, then feed the result to all evaluators
+        evaluable, trace_tree = await _run_and_capture(
+            runnable,
+            inp,
+            from_trace=from_trace,
+        )
         eval_coros = [
-            run_and_evaluate(
-                evaluator=ev,
-                runnable=runnable,
-                eval_input=inp,
-                from_trace=from_trace,
-            )
+            evaluate(evaluator=ev, evaluable=evaluable, trace=trace_tree)
             for ev in evaluators
         ]
     return list(await asyncio.gather(*eval_coros))
@@ -267,9 +280,9 @@ async def assert_pass(
 ) -> None:
     """Run evaluators against a runnable over multiple inputs and passes.
 
-    For each pass and each input, calls ``run_and_evaluate`` for every
-    evaluator.  Evaluators for a single input are run concurrently via
-    ``asyncio.gather``.  Inputs within a pass are run sequentially.
+    For each pass and each input, runs the runnable once via
+    ``_run_and_capture``, then evaluates with every evaluator
+    concurrently via ``asyncio.gather``.
 
     The full results tensor has shape ``[passes][eval_inputs][evaluators]``.
     If the pass criteria are not met, raises :class:`EvalAssertionError`
