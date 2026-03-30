@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,17 @@ def _nested_app(input: Any) -> None:  # noqa: A002
         observation.set_output("final")
 
 
+def _sync_app_with_internal_loop(input: Any) -> None:  # noqa: A002
+    """Sync app that drives async work through get_event_loop()."""
+
+    async def _async_work() -> None:
+        with px.start_observation(input=input, name="app") as observation:
+            observation.set_output(f"echo:{input}")
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(_async_work())
+
+
 async def _always_pass(
     evaluable: Evaluable,
     *,
@@ -83,6 +95,25 @@ class TestRunAndEvaluate:
         result = await run_and_evaluate(
             evaluator=_always_pass,
             runnable=_sync_app,
+            eval_input="hello",
+        )
+        assert result.score == 1.0
+
+    @pytest.mark.asyncio
+    async def test_sync_runnable_with_internal_event_loop(self) -> None:
+        """Sync runnable may call get_event_loop().run_until_complete."""
+
+        async def check_output(
+            evaluable: Evaluable,
+            *,
+            trace: list[ObservationNode] | None = None,
+        ) -> Evaluation:
+            assert evaluable.eval_output == "echo:hello"
+            return Evaluation(score=1.0, reasoning="ok")
+
+        result = await run_and_evaluate(
+            evaluator=check_output,
+            runnable=_sync_app_with_internal_loop,
             eval_input="hello",
         )
         assert result.score == 1.0

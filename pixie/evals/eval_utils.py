@@ -17,6 +17,27 @@ from pixie.storage.tree import ObservationNode, build_tree
 _UNSET_SENTINEL: Any = object()
 
 
+def _run_sync_runnable_with_event_loop(
+    runnable: Callable[..., Any],
+    eval_input: Any,
+) -> None:
+    """Run a sync runnable in a worker thread with a thread-local event loop.
+
+    Some sync wrappers call ``asyncio.get_event_loop().run_until_complete(...)``.
+    Worker threads started by ``asyncio.to_thread`` do not have a current loop by
+    default, so we provision one for compatibility and close it afterwards.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        maybe_awaitable = runnable(eval_input)
+        if inspect.isawaitable(maybe_awaitable):
+            loop.run_until_complete(maybe_awaitable)
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
+
+
 class EvalAssertionError(AssertionError):
     """Raised by ``assert_pass`` when the pass criteria are not met.
 
@@ -129,8 +150,8 @@ async def run_and_evaluate(
 
     1. Initialises instrumentation (no-op if already done) and registers
        an in-memory trace handler scoped to this call.
-    2. Calls ``runnable(eval_input)`` — async runnables are awaited, sync
-       ones are run via ``asyncio.to_thread``.
+     2. Calls ``runnable(eval_input)`` — async runnables are awaited, sync
+         ones are run via ``asyncio.to_thread`` with a thread-local event loop.
     3. Flushes the delivery queue so all spans reach the handler.
     4. Builds the trace tree and determines the evaluable:
 
@@ -163,7 +184,11 @@ async def run_and_evaluate(
         if inspect.iscoroutinefunction(runnable):
             await runnable(eval_input)
         else:
-            await asyncio.to_thread(runnable, eval_input)
+            await asyncio.to_thread(
+                _run_sync_runnable_with_event_loop,
+                runnable,
+                eval_input,
+            )
 
     # capture_traces flushes on exit, so handler.spans is populated
     if not handler.spans:

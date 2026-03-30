@@ -128,6 +128,11 @@ async def test_factuality():
     )
 ```
 
+If your runnable is synchronous but internally drives async code (for example via
+`asyncio.get_event_loop().run_until_complete(...)`), pixie provisions a
+thread-local event loop when executing sync runnables so this compatibility
+pattern works under `pixie test`.
+
 > `enable_storage()` belongs inside `runnable`, not at module level — it needs to fire on every invocation so the trace is captured for that specific run.
 
 ### Evaluating the last LLM call instead of the root span

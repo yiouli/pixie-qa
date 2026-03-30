@@ -143,7 +143,7 @@ async def run_and_evaluate(
 **Behavior:**
 
 1. Set up an in-memory trace handler (see section 4) scoped to this call.
-2. Call `runnable(input)`. If `runnable` is async, await it. If sync, run via `asyncio.to_thread`.
+2. Call `runnable(input)`. If `runnable` is async, await it. If sync, run via `asyncio.to_thread` with a thread-local event loop provisioned for compatibility with wrappers that call `asyncio.get_event_loop().run_until_complete(...)`.
 3. After `runnable` completes, collect all captured spans from the in-memory handler.
 4. Build the trace tree via `build_tree(spans)`.
 5. Determine the evaluable:
