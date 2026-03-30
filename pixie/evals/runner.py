@@ -172,10 +172,12 @@ def _find_rootdir(start: Path) -> Path:
 
 
 def run_tests(cases: list[TestCase]) -> list[EvalTestResult]:
-    """Execute a list of test cases and return results.
+    """Execute a list of test cases concurrently and return results.
 
-    Each test function is called with no arguments. Async tests are
-    run via ``asyncio.run()``.
+    All test functions run as concurrent asyncio tasks inside a single
+    event loop.  Async tests are awaited directly; sync tests are
+    dispatched via ``asyncio.to_thread`` (with a thread-local event
+    loop so sync code that calls ``asyncio.get_event_loop()`` works).
 
     Args:
         cases: List of ``TestCase`` objects to execute.
@@ -183,24 +185,26 @@ def run_tests(cases: list[TestCase]) -> list[EvalTestResult]:
     Returns:
         List of ``EvalTestResult`` objects, one per test case.
     """
-    results: list[EvalTestResult] = []
-    for case in cases:
-        result = _run_single(case)
-        results.append(result)
-    return results
+    return asyncio.run(_run_all_tests(cases))
 
 
-def _run_single(case: TestCase) -> EvalTestResult:
-    """Execute a single test case and return the result."""
+async def _run_all_tests(cases: list[TestCase]) -> list[EvalTestResult]:
+    """Run all test cases concurrently via ``asyncio.gather``."""
+    tasks = [_run_single_async(case) for case in cases]
+    return list(await asyncio.gather(*tasks))
+
+
+async def _run_single_async(case: TestCase) -> EvalTestResult:
+    """Execute a single test case inside the shared event loop."""
     from pixie.evals.scorecard import ScorecardCollector
 
     collector = ScorecardCollector()
     collector.activate()
     try:
         if case.is_async:
-            asyncio.run(case.func())
+            await case.func()
         else:
-            case.func()
+            await asyncio.to_thread(_run_sync_test, case.func)
         records = tuple(collector.drain())
         return EvalTestResult(
             name=case.name,
@@ -226,6 +230,25 @@ def _run_single(case: TestCase) -> EvalTestResult:
         )
     finally:
         collector.deactivate()
+
+
+def _run_sync_test(func: Callable[[], Any]) -> None:
+    """Run a sync test function in a worker thread with its own event loop.
+
+    Sync test functions may internally call ``asyncio.run()`` or
+    ``asyncio.get_event_loop().run_until_complete()``.  Worker threads
+    spawned by ``asyncio.to_thread`` do not have a current event loop,
+    so we provision one for compatibility.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = func()
+        if inspect.isawaitable(result):
+            loop.run_until_complete(result)
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 def format_results(results: list[EvalTestResult], *, verbose: bool = False) -> str:

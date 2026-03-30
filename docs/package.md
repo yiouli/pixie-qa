@@ -23,12 +23,21 @@ pip install "pixie-qa[all]"          # all of the above
 
 ## Configuration
 
-Settings are read from environment variables at call time:
+Settings are read from process environment variables and a local `.env` file at call time. Existing process env vars take precedence over `.env` values.
 
-| Variable            | Default                 | Description                      |
-| ------------------- | ----------------------- | -------------------------------- |
-| `PIXIE_DB_PATH`     | `pixie_observations.db` | SQLite database file path        |
-| `PIXIE_DATASET_DIR` | `pixie_datasets`        | Directory for dataset JSON files |
+| Variable                   | Default                    | Description                                 |
+| -------------------------- | -------------------------- | ------------------------------------------- |
+| `PIXIE_ROOT`               | `pixie_qa`                 | Root directory for all Pixie artefacts      |
+| `PIXIE_DB_PATH`            | `pixie_qa/observations.db` | SQLite database file path                   |
+| `PIXIE_DB_ENGINE`          | `sqlite`                   | Database engine type                        |
+| `PIXIE_DATASET_DIR`        | `pixie_qa/datasets`        | Directory for dataset JSON files            |
+| `PIXIE_RATE_LIMIT_ENABLED` | disabled                   | Enables evaluator rate limiting when `true` |
+| `PIXIE_RATE_LIMIT_RPS`     | `4.0`                      | Max evaluator requests per second           |
+| `PIXIE_RATE_LIMIT_RPM`     | `50.0`                     | Max evaluator requests per minute           |
+| `PIXIE_RATE_LIMIT_TPS`     | `10000.0`                  | Max evaluator tokens per second             |
+| `PIXIE_RATE_LIMIT_TPM`     | `500000.0`                 | Max evaluator tokens per minute             |
+
+When rate limiting is enabled, unset `PIXIE_RATE_LIMIT_*` values fall back to the defaults above.
 
 ---
 
@@ -97,7 +106,7 @@ echo '"Paris"' | pixie dataset save <name> --expected-output
 | `last_llm_call`  | The most recent LLM API call span in the trace      |
 | `by_name`        | The last span matching the `--span-name` argument   |
 
-Dataset files are stored as JSON under `PIXIE_DATASET_DIR` (default: `pixie_datasets/`). Each item is an `Evaluable` with `eval_input`, `eval_output`, optional `expected_output`, and `eval_metadata`.
+Dataset files are stored as JSON under `PIXIE_DATASET_DIR` (default: `pixie_qa/datasets/`). Each item is an `Evaluable` with `eval_input`, `eval_output`, optional `expected_output`, and `eval_metadata`.
 
 ---
 
@@ -203,6 +212,8 @@ pixie test tests/          # specify a path
 pixie test -k factuality   # filter by name substring
 pixie test -v              # verbose: shows per-case scores and reasoning
 ```
+
+`pixie test` applies the central Pixie config before running evaluators, so `.env`-backed `PIXIE_RATE_LIMIT_*` settings are honored automatically.
 
 ### HTML Scorecard
 

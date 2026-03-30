@@ -85,6 +85,16 @@ async def evaluate(
     """
     extra_kwargs: dict[str, Any] = {"trace": trace}
 
+    # Rate-limit LLM evaluator calls when a limiter is configured
+    from pixie.evals.rate_limiter import get_rate_limiter
+
+    limiter = get_rate_limiter()
+    if limiter:
+        estimated_tokens = limiter.estimate_tokens(
+            str(evaluable.eval_input) + str(evaluable.eval_output or "")
+        )
+        await limiter.acquire(estimated_tokens)
+
     if _is_async_callable(evaluator):
         result: Evaluation = await evaluator(evaluable, **extra_kwargs)
     else:

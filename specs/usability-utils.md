@@ -14,9 +14,20 @@ Centralized configuration with env var overrides and sensible defaults.
 
 ```python
 @dataclass(frozen=True)
+class RateLimitConfig:
+    rps: float = 4.0
+    rpm: float = 50.0
+    tps: float = 10_000.0
+    tpm: float = 500_000.0
+
+
+@dataclass(frozen=True)
 class PixieConfig:
-    db_path: str           # PIXIE_DB_PATH, default "pixie_observations.db"
-    db_engine: str         # PIXIE_DB_ENGINE, default "sqlite"
+    root: str                            # PIXIE_ROOT, default "pixie_qa"
+    db_path: str                         # PIXIE_DB_PATH, default "pixie_qa/observations.db"
+    db_engine: str                       # PIXIE_DB_ENGINE, default "sqlite"
+    dataset_dir: str                     # PIXIE_DATASET_DIR, default "pixie_qa/datasets"
+    rate_limits: RateLimitConfig | None  # PIXIE_RATE_LIMIT_*, disabled by default
 ```
 
 ```python
@@ -24,7 +35,7 @@ def get_config() -> PixieConfig:
     """Read config from environment variables with defaults."""
 ```
 
-All env vars are prefixed with `PIXIE_`. Values are read at call time, not at import time, so tests can manipulate `os.environ` before calling `get_config()`.
+All env vars are prefixed with `PIXIE_`. `get_config()` also loads the nearest `.env` from the current working directory at call time without overriding values already present in `os.environ`, so tests can manipulate `os.environ` before calling `get_config()`.
 
 ### Update: `pixie/observation_store/piccolo_conf.py`
 
@@ -202,7 +213,7 @@ class ScoreThreshold:
 
 **Algorithm:**
 
-```
+```text
 for each pass p:
     passing_inputs = 0
     total_inputs = len(results[p])
@@ -221,13 +232,13 @@ The "at least one pass" semantics means: when running multiple passes over non-d
 
 On pass:
 
-```
+```text
 Pass (pass 2/3): 8/10 inputs (80.0%) scored >= 0.5 on all evaluators (required: 70.0%)
 ```
 
 On fail:
 
-```
+```text
 Fail: best pass was 2/3 with 5/10 inputs (50.0%) scoring >= 0.5 on all evaluators (required: 70.0%)
 ```
 
@@ -274,6 +285,9 @@ async def assert_pass(
 - `get_config()` returns defaults when no env vars are set.
 - `get_config()` reads `PIXIE_DB_PATH` when set.
 - `get_config()` reads `PIXIE_DB_ENGINE` when set.
+- `get_config()` returns `rate_limits=None` when rate limiting is not enabled.
+- `get_config()` builds `rate_limits` from `PIXIE_RATE_LIMIT_ENABLED` and `PIXIE_RATE_LIMIT_*`.
+- `get_config()` loads `PIXIE_RATE_LIMIT_*` values from `.env`.
 
 ### `tests/test_storage_handler.py`
 
@@ -306,7 +320,7 @@ async def assert_pass(
 
 ## 6. File Structure (additions/changes)
 
-```
+```text
 pixie/
 ├── config.py                              # NEW: PixieConfig, get_config()
 ├── __init__.py                            # UPDATE: re-export enable_storage, observe

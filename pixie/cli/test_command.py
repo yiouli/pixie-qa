@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pixie.instrumentation as px
+from pixie.evals.rate_limiter import configure_rate_limits_from_config
 from pixie.evals.runner import discover_tests, format_results, run_tests
 from pixie.evals.scorecard import ScorecardReport, TestRecord, save_scorecard
 
@@ -96,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Ensure instrumentation is initialised before running test functions
     px.init()
+    configure_rate_limits_from_config()
 
     cases = discover_tests(args.path, filter_pattern=args.filter_pattern)
     results = run_tests(cases)

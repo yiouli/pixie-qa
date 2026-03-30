@@ -38,6 +38,7 @@ tests/
 │   ├── cli/
 │   │   ├── e2e_cases.json             # Edge-case scenarios for pixie test
 │   │   ├── test_e2e_pixie_test.py     # 43 e2e tests (11 realistic + 32 edge)
+│   │   ├── test_test_command.py       # pixie test config wiring
 │   │   └── e2e_fixtures/
 │   │       ├── test_customer_faq.py   # Realistic 4-test fixture
 │   │       ├── mock_evaluators.py     # Deterministic mock evaluators
@@ -63,6 +64,17 @@ To visually inspect the HTML scorecard report, run the manual fixture:
 
 ```bash
 export PIXIE_ROOT=/tmp/pixie_manual
+uv run pixie test tests/manual/test_sample.py
+```
+
+`pixie test` reads the central Pixie config, so evaluator rate limits can also be supplied in a local `.env` file:
+
+```bash
+cat > .env <<'EOF'
+PIXIE_RATE_LIMIT_ENABLED=true
+PIXIE_RATE_LIMIT_RPS=4
+PIXIE_RATE_LIMIT_RPM=50
+EOF
 uv run pixie test tests/manual/test_sample.py
 ```
 
@@ -138,6 +150,7 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 
 | Test file                           | Module tested                     | Tests                             |
 | ----------------------------------- | --------------------------------- | --------------------------------- |
+| `cli/test_test_command.py`          | `pixie.cli.test_command`          | dotenv/config wiring              |
 | `evals/test_scorecard.py`           | `pixie.evals.scorecard`           | 31                                |
 | `evals/test_eval_utils.py`          | `pixie.evals.eval_utils`          | assert_pass / assert_dataset_pass |
 | `instrumentation/test_spans.py`     | `pixie.instrumentation.spans`     | Span data models                  |

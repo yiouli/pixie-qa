@@ -34,3 +34,13 @@ Your coding agent will read your code, instrument it, build a dataset from a few
 ## Python Package
 
 The `pixie-qa` Python package (imported as `pixie`) is what Claude installs and uses inside your project. For the package API and CLI reference, see [docs/package.md](docs/package.md).
+
+## Configuration
+
+Pixie reads configuration from environment variables and a local `.env` file through a single central config layer. Existing process env vars win over `.env` values.
+
+Useful settings include:
+
+- `PIXIE_ROOT` to move all generated artefacts under a different root directory
+- `PIXIE_RATE_LIMIT_ENABLED=true` to enable evaluator throttling for `pixie test`
+- `PIXIE_RATE_LIMIT_RPS`, `PIXIE_RATE_LIMIT_RPM`, `PIXIE_RATE_LIMIT_TPS`, and `PIXIE_RATE_LIMIT_TPM` to tune request and token throughput for LLM-as-judge evaluators

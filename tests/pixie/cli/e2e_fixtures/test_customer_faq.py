@@ -9,15 +9,10 @@ NOTE: This test file is used for e2e testing of ``pixie test``.
 It uses mock evaluators (no LLM API calls) for determinism.
 """
 
-import sys
 from pathlib import Path
 
 from pixie import ScoreThreshold, assert_dataset_pass
-
-# Add fixtures dir to path so mock_evaluators is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from mock_evaluators import (  # noqa: E402
+from tests.pixie.cli.e2e_fixtures.mock_evaluators import (
     MockClosedQAEval,
     MockFactualityEval,
     MockFailingEval,

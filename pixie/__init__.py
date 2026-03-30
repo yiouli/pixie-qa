@@ -18,6 +18,7 @@ from pixie.evals.eval_utils import (
 )
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
 from pixie.evals.llm_evaluator import create_llm_evaluator
+from pixie.evals.rate_limiter import RateLimitConfig, configure_rate_limits
 from pixie.evals.scorers import (
     AnswerCorrectnessEval,
     AnswerRelevancyEval,
@@ -88,6 +89,7 @@ __all__ = [
     "ModerationEval",
     "NumericDiffEval",
     "PossibleEval",
+    "RateLimitConfig",
     "ScoreThreshold",
     "SecurityEval",
     "SqlEval",
@@ -97,6 +99,7 @@ __all__ = [
     "assert_dataset_pass",
     "assert_pass",
     "capture_traces",
+    "configure_rate_limits",
     "create_llm_evaluator",
     "evaluate",
     "last_llm_call",

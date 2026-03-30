@@ -113,11 +113,12 @@ async def evaluate(
 
 **Behavior:**
 
-1. If `evaluator` is a sync callable (not a coroutine function), wrap it with `asyncio.to_thread`.
-2. Call the evaluator with `evaluable` and `trace`. If `expected_output` is not `None`, also pass it as a keyword argument.
-3. Validate the returned `Evaluation`: clamp `score` to [0.0, 1.0], ensure `reasoning` is a non-empty string.
-4. If the evaluator raises an exception, **let it propagate** to the caller. Evaluator errors (missing API keys, network failures, etc.) must never be silently converted to a zero score.
-5. Return the `Evaluation`.
+1. If a rate limiter is configured through the central Pixie config, acquire it before running the evaluator.
+2. If `evaluator` is a sync callable (not a coroutine function), wrap it with `asyncio.to_thread`.
+3. Call the evaluator with `evaluable` and `trace`. If `expected_output` is not `None`, also pass it as a keyword argument.
+4. Validate the returned `Evaluation`: clamp `score` to [0.0, 1.0], ensure `reasoning` is a non-empty string.
+5. If the evaluator raises an exception, **let it propagate** to the caller. Evaluator errors (missing API keys, network failures, etc.) must never be silently converted to a zero score.
+6. Return the `Evaluation`.
 
 ---
 
@@ -295,7 +296,7 @@ async def test_batch():
 
 #### CLI interface
 
-```
+```text
 pixie test [path] [options]
 ```
 
@@ -310,6 +311,8 @@ pixie test [path] [options]
 - `--concurrency` / `-c` — max concurrent test functions. Default: 1 (sequential). Test functions themselves may have internal concurrency, but inter-test concurrency is controlled here.
 
 #### Runner behavior
+
+Before discovery and execution, `pixie test` applies the central Pixie config. This loads `.env`-backed `PIXIE_RATE_LIMIT_*` settings and enables evaluator throttling automatically when configured.
 
 For each discovered test function:
 
@@ -372,7 +375,7 @@ and saves it to `{config.root}/scorecards/<YYYYMMDD-HHMMSS-normalized-args>.html
 
 **Normal mode:**
 
-```
+```text
 pixie test
 ==================== test session starts ====================
 
@@ -385,7 +388,7 @@ test_my_app.py::test_batch ✗
 
 **Verbose mode (`-v`):**
 
-```
+```text
 pixie test -v
 ==================== test session starts ====================
 

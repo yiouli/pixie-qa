@@ -103,4 +103,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["UP017"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/pixie"]

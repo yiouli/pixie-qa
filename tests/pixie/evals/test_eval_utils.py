@@ -436,7 +436,7 @@ class TestAssertPassEvaluables:
             evaluators=[capture_eval],
             evaluables=items,
         )
-        assert received == ["e1", "e2"]
+        assert sorted(received) == ["e1", "e2"]
 
     @pytest.mark.asyncio
     async def test_evaluables_length_mismatch_raises(self) -> None:
@@ -605,7 +605,7 @@ class TestAssertDatasetPass:
             evaluators=[capture_eval],
             dataset_dir=str(tmp_path),
         )
-        assert received == ["e1", "e2"]
+        assert sorted(received) == ["e1", "e2"]
 
     @pytest.mark.asyncio
     async def test_raises_when_dataset_missing(self, tmp_path: Path) -> None:

@@ -214,6 +214,45 @@ async def run_and_evaluate(
     return await evaluate(evaluator, evaluable, trace=trace_tree)
 
 
+async def _process_single_input(
+    idx: int,
+    inp: Any,
+    evaluators: list[Callable[..., Any]],
+    evaluables: list[Evaluable] | None,
+    runnable: Callable[..., Any],
+    from_trace: Callable[[list[ObservationNode]], Evaluable] | None,
+) -> list[Evaluation]:
+    """Process a single dataset row: run evaluators concurrently."""
+    if evaluables is not None:
+        ev_item = evaluables[idx]
+        if ev_item.eval_output is None:
+            eval_coros = [
+                run_and_evaluate(
+                    evaluator=ev,
+                    runnable=runnable,
+                    eval_input=inp,
+                    expected_output=ev_item.expected_output,
+                    from_trace=from_trace,
+                )
+                for ev in evaluators
+            ]
+        else:
+            eval_coros = [
+                evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
+            ]
+    else:
+        eval_coros = [
+            run_and_evaluate(
+                evaluator=ev,
+                runnable=runnable,
+                eval_input=inp,
+                from_trace=from_trace,
+            )
+            for ev in evaluators
+        ]
+    return list(await asyncio.gather(*eval_coros))
+
+
 async def assert_pass(
     runnable: Callable[..., Any],
     eval_inputs: list[Any],
@@ -273,41 +312,13 @@ async def assert_pass(
     results: list[list[list[Evaluation]]] = []
 
     for _ in range(passes):
-        pass_results: list[list[Evaluation]] = []
-        for idx, inp in enumerate(eval_inputs):
-            if evaluables is not None:
-                ev_item = evaluables[idx]
-                if ev_item.eval_output is None:
-                    # eval_output not yet computed — run the runnable to
-                    # produce it via trace capture, and merge the dataset
-                    # item's expected_output into the result.
-                    eval_coros = [
-                        run_and_evaluate(
-                            evaluator=ev,
-                            runnable=runnable,
-                            eval_input=inp,
-                            expected_output=ev_item.expected_output,
-                            from_trace=from_trace,
-                        )
-                        for ev in evaluators
-                    ]
-                else:
-                    # eval_output already populated — evaluate directly.
-                    eval_coros = [
-                        evaluate(evaluator=ev, evaluable=ev_item) for ev in evaluators
-                    ]
-            else:
-                eval_coros = [
-                    run_and_evaluate(
-                        evaluator=ev,
-                        runnable=runnable,
-                        eval_input=inp,
-                        from_trace=from_trace,
-                    )
-                    for ev in evaluators
-                ]
-            input_evals = list(await asyncio.gather(*eval_coros))
-            pass_results.append(input_evals)
+        input_tasks = [
+            _process_single_input(
+                idx, inp, evaluators, evaluables, runnable, from_trace
+            )
+            for idx, inp in enumerate(eval_inputs)
+        ]
+        pass_results = list(await asyncio.gather(*input_tasks))
         results.append(pass_results)
 
     passed, message = criteria(results)
