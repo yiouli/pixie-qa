@@ -82,11 +82,15 @@ What are the distinct things the app is supposed to handle? For each use case, w
 
 ---
 
-## Writing MEMORY.md
+## Writing Step 1 documentation
 
-Write your findings to `pixie_qa/MEMORY.md`. This is the primary working document for the eval effort. It should be human-readable and detailed enough that someone unfamiliar with the project can understand the application and the eval strategy.
+Write your findings across three files in `pixie_qa/`:
 
-**MEMORY.md documents your understanding of the existing application code. It must NOT contain references to pixie commands, instrumentation code you plan to add, or scripts/functions that don't exist yet.** Those belong in later steps, only after they've been implemented.
+- **`01-entry-point.md`** — entry point, execution flow, env requirements
+- **`02-data-flow.md`** — LLM call sites, external dependencies (in/out), testability seams, mocking plan
+- **`03-eval-criteria.md`** — use cases, eval criteria, observability check
+
+These files document your understanding of the existing application code. They must NOT contain references to pixie commands, instrumentation code you plan to add, or scripts/functions that don't exist yet. Those belong in later steps, only after they've been implemented.
 
 ### Template
 

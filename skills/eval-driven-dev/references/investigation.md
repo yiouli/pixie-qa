@@ -77,9 +77,9 @@ Walk through the trace and identify exactly where the failure originates. Common
 
 For non-LLM failures: note them in the investigation log and recommend the code fix, but **do not adjust eval expectations or thresholds to accommodate bugs in non-LLM code**. The eval test should measure LLM quality assuming the rest of the system works correctly.
 
-### 4. Document findings in MEMORY.md
+### 4. Document findings
 
-**Every failure investigation must be documented in `pixie_qa/MEMORY.md`** under the Investigation Log section:
+**Every failure investigation should be documented** in a structured format:
 
 ````markdown
 ### <date> — <test_name> failure

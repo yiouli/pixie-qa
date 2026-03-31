@@ -22,25 +22,6 @@ class TestInitPixieDir:
         assert (root / "tests").is_dir()
         assert (root / "scripts").is_dir()
 
-    def test_creates_memory_md(self, tmp_path: Path) -> None:
-        root = tmp_path / "pixie_qa"
-        init_pixie_dir(str(root))
-
-        memory = root / "MEMORY.md"
-        assert memory.is_file()
-        content = memory.read_text()
-        assert "# Eval Notes" in content
-
-    def test_does_not_overwrite_existing_memory(self, tmp_path: Path) -> None:
-        root = tmp_path / "pixie_qa"
-        root.mkdir()
-        memory = root / "MEMORY.md"
-        memory.write_text("# My custom notes\n")
-
-        init_pixie_dir(str(root))
-
-        assert memory.read_text() == "# My custom notes\n"
-
     def test_idempotent_on_existing_structure(self, tmp_path: Path) -> None:
         root = tmp_path / "pixie_qa"
         init_pixie_dir(str(root))

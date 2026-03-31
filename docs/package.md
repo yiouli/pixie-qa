@@ -82,7 +82,7 @@ flush()
 Scaffold the standard `pixie_qa/` working directory for eval-driven development:
 
 ```bash
-pixie init              # creates pixie_qa/ with datasets/, tests/, scripts/, MEMORY.md
+pixie init              # creates pixie_qa/ with datasets/, tests/, scripts/
 pixie init my_dir       # use a custom root directory
 ```
 

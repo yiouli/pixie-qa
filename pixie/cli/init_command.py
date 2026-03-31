@@ -3,7 +3,6 @@
 Creates the standard directory layout for eval-driven development::
 
     pixie_qa/
-        MEMORY.md
         datasets/
         tests/
         scripts/
@@ -21,19 +20,6 @@ from pixie.config import get_config
 
 #: Subdirectories to create under the pixie root.
 _SUBDIRS = ("datasets", "tests", "scripts")
-
-#: Default MEMORY.md content when creating a fresh file.
-_MEMORY_TEMPLATE = """\
-# Eval Notes
-
-## How the application works
-
-_Fill in after reading the source code._
-
-## Evaluation plan
-
-_Fill in after defining eval criteria._
-"""
 
 
 def init_pixie_dir(root: str | None = None) -> Path:
@@ -55,9 +41,5 @@ def init_pixie_dir(root: str | None = None) -> Path:
 
     for subdir in _SUBDIRS:
         (root_path / subdir).mkdir(parents=True, exist_ok=True)
-
-    memory_path = root_path / "MEMORY.md"
-    if not memory_path.exists():
-        memory_path.write_text(_MEMORY_TEMPLATE)
 
     return root_path

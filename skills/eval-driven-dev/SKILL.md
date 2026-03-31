@@ -78,13 +78,9 @@ Read the source code to understand:
    - **How to mock it** — look for abstract base classes, protocols, or constructor-injected backends (e.g., `TranscriptionBackend`, `SynthesisBackend`, `StorageBackend`). These are testability seams — you'll create mock implementations of these interfaces. If there's no clean interface, you'll use `unittest.mock.patch` at the module boundary.
 5. **Use cases** — distinct scenarios, what good/bad output looks like
 
-Read `references/understanding-app.md` for detailed guidance on mapping data flows and the MEMORY.md template.
+Read `references/understanding-app.md` for detailed guidance on mapping data flows.
 
-Write your findings to `pixie_qa/MEMORY.md` before moving on. Include:
-
-- The entry point and the full request pipeline
-- Every external dependency, what it provides/receives, and how you'll mock it
-- The testability seams (pluggable interfaces, patchable module-level objects)
+Write your findings to `pixie_qa/01-entry-point.md` (execution flow), `pixie_qa/02-data-flow.md` (dependencies, seams, mocking plan), and `pixie_qa/03-eval-criteria.md` (use cases and criteria) before moving on.
 
 Determine **high-level, application-specific eval criteria**:
 
@@ -98,9 +94,9 @@ Determine **high-level, application-specific eval criteria**:
 
 At this stage, don't pick evaluator classes or thresholds. That comes later in Step 5, after you've seen the real data shape.
 
-Record the criteria in `pixie_qa/MEMORY.md` and continue.
+Record the criteria in `pixie_qa/03-eval-criteria.md` and continue.
 
-> **Checkpoint**: MEMORY.md written with app understanding + eval criteria. Proceed to Step 2.
+> **Checkpoint**: Documentation files written with app understanding + eval criteria. Proceed to Step 2.
 
 ---
 
@@ -332,7 +328,6 @@ uv run pixie dataset create <name>      # Create a new dataset
 
 ```
 pixie_qa/
-  MEMORY.md      # your understanding and eval plan
   datasets/      # golden datasets (JSON)
   tests/         # eval test files (test_*.py)
   scripts/       # run_app.py, build_dataset.py
@@ -369,7 +364,7 @@ When in doubt: if it's about _deciding what to do_, it's in SKILL.md. If it's ab
 
 | Reference                            | When to read                                                                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------- |
-| `references/understanding-app.md`    | Step 1 — investigating the codebase, MEMORY.md template                            |
+| `references/understanding-app.md`    | Step 1 — investigating the codebase, documentation templates                        |
 | `references/instrumentation.md`      | Step 2 — `@observe` and `enable_storage` rules, code patterns, anti-patterns       |
 | `references/run-harness-patterns.md` | Step 3 — examples of how to invoke different app types (web server, CLI, function) |
 | `references/dataset-generation.md`   | Step 4 — crafting eval_input items, expected_output strategy, validation           |
