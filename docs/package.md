@@ -77,6 +77,19 @@ flush()
 
 ---
 
+## Project Scaffolding (CLI)
+
+Scaffold the standard `pixie_qa/` working directory for eval-driven development:
+
+```bash
+pixie init              # creates pixie_qa/ with datasets/, tests/, scripts/, MEMORY.md
+pixie init my_dir       # use a custom root directory
+```
+
+The command is idempotent — existing files and directories are never overwritten or deleted. Respects the `PIXIE_ROOT` environment variable when no argument is provided.
+
+---
+
 ## Dataset Management (CLI)
 
 `pixie` includes a CLI for building and managing golden datasets from captured traces.

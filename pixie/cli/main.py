@@ -164,6 +164,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show detailed evaluation results",
     )
 
+    # -- pixie init ----------------------------------------------------------
+    init_parser = subparsers.add_parser(
+        "init", help="Scaffold the pixie_qa working directory"
+    )
+    init_parser.add_argument(
+        "root",
+        nargs="?",
+        default=None,
+        help="Root directory to create (default: from PIXIE_ROOT or pixie_qa)",
+    )
+
     return parser
 
 
@@ -299,6 +310,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.verbose:
             test_argv.append("-v")
         return test_main(test_argv)
+
+    elif args.command == "init":
+        from pixie.cli.init_command import init_pixie_dir
+
+        result_path = init_pixie_dir(root=args.root)
+        print(f"Initialized pixie directory at {result_path}")  # noqa: T201
 
     return 0
 
