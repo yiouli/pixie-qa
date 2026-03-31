@@ -293,6 +293,150 @@ class TestTraceLastCLI:
         assert "No traces found" in capsys.readouterr().out
 
 
+class TestTraceVerifyCLI:
+    """Tests for ``pixie trace verify``."""
+
+    def test_verify_passes_for_good_trace(
+        self,
+        trace_db: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Trace 1 has observe root with input/output and an LLM child."""
+        monkeypatch.setenv("PIXIE_DB_PATH", str(trace_db))
+        result = main(["trace", "verify"])
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "PASSED" in output
+        assert "Root span:" in output
+        assert "OK" in output
+
+    def test_verify_fails_when_no_traces(
+        self,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        db_path = tmp_path / "empty.db"
+
+        async def _create() -> None:
+            engine = SQLiteEngine(path=str(db_path))
+            store = ObservationStore(engine=engine)
+            await store.create_tables()
+
+        asyncio.run(_create())
+        monkeypatch.setenv("PIXIE_DB_PATH", str(db_path))
+        result = main(["trace", "verify"])
+        assert result == 1
+        assert "No traces found" in capsys.readouterr().out
+
+    def test_verify_reports_llm_root(
+        self,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A trace whose root is an LLM span should report an issue."""
+        db_path = tmp_path / "llm_root.db"
+
+        async def _setup() -> None:
+            engine = SQLiteEngine(path=str(db_path))
+            store = ObservationStore(engine=engine)
+            await store.create_tables()
+            llm_root = LLMSpan(
+                span_id="ff00000000000001",
+                trace_id="ff00000000000000000000000000ff01",
+                parent_span_id=None,
+                started_at=datetime(2026, 3, 24, 20, 0, 0, tzinfo=timezone.utc),
+                ended_at=datetime(2026, 3, 24, 20, 0, 1, tzinfo=timezone.utc),
+                duration_ms=1000.0,
+                operation="chat",
+                provider="openai",
+                request_model="gpt-4o",
+                response_model="gpt-4o",
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_tokens=0,
+                cache_creation_tokens=0,
+                request_temperature=0.7,
+                request_max_tokens=1024,
+                request_top_p=None,
+                finish_reasons=("stop",),
+                response_id="chatcmpl-xyz",
+                output_type="text",
+                error_type=None,
+                input_messages=(UserMessage.from_text("hello"),),
+                output_messages=(
+                    AssistantMessage(
+                        content=(TextContent(text="hi"),),
+                        tool_calls=(),
+                        finish_reason="stop",
+                    ),
+                ),
+                tool_definitions=(),
+            )
+            await store.save(llm_root)
+
+        asyncio.run(_setup())
+        monkeypatch.setenv("PIXIE_DB_PATH", str(db_path))
+        result = main(["trace", "verify"])
+        assert result == 1
+        output = capsys.readouterr().out
+        assert "FAILED" in output
+        assert "Root span is an LLM call" in output
+
+    def test_verify_reports_missing_input_output(
+        self,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A root observe span with null input and output should report issues."""
+        db_path = tmp_path / "null_io.db"
+
+        async def _setup() -> None:
+            engine = SQLiteEngine(path=str(db_path))
+            store = ObservationStore(engine=engine)
+            await store.create_tables()
+            root = ObserveSpan(
+                span_id="ee00000000000001",
+                trace_id="ee00000000000000000000000000ee01",
+                parent_span_id=None,
+                started_at=datetime(2026, 3, 24, 20, 0, 0, tzinfo=timezone.utc),
+                ended_at=datetime(2026, 3, 24, 20, 0, 1, tzinfo=timezone.utc),
+                duration_ms=1000.0,
+                name="my_func",
+                input=None,
+                output=None,
+                metadata={},
+                error=None,
+            )
+            await store.save(root)
+
+        asyncio.run(_setup())
+        monkeypatch.setenv("PIXIE_DB_PATH", str(db_path))
+        result = main(["trace", "verify"])
+        assert result == 1
+        output = capsys.readouterr().out
+        assert "FAILED" in output
+        assert "MISSING" in output
+        assert "input is null" in output
+        assert "output is null" in output
+        assert "No LLM child spans" in output
+
+    def test_verify_shows_span_tree(
+        self,
+        trace_db: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify output includes a span tree."""
+        monkeypatch.setenv("PIXIE_DB_PATH", str(trace_db))
+        main(["trace", "verify"])
+        output = capsys.readouterr().out
+        assert "Span tree:" in output
+
+
 class TestParseScore:
     """Tests for _parse_score helper."""
 

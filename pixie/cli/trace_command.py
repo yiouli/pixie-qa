@@ -184,3 +184,111 @@ def trace_last(as_json: bool = False) -> int:
     output = asyncio.run(_trace_last(as_json))
     print(output)  # noqa: T201
     return 0
+
+
+# ── trace verify ──────────────────────────────────────────────────────────
+
+
+async def _trace_verify() -> tuple[int, str]:
+    """Verify the most recent trace for common instrumentation issues.
+
+    Returns (exit_code, message) where exit_code is 0 if all checks pass.
+    """
+    store = _make_store()
+    traces = await store.list_traces(limit=1)
+    if not traces:
+        return 1, "ERROR: No traces found. Run the app first to produce a trace."
+
+    trace_id = traces[0]["trace_id"]
+    tree = await store.get_trace(trace_id)
+    if not tree:
+        return 1, f"ERROR: No spans found for trace '{trace_id}'."
+
+    lines: list[str] = []
+    issues: list[str] = []
+
+    lines.append(f"Trace: {trace_id}")
+    lines.append(f"Spans: {_count_nodes(tree)}")
+    lines.append("")
+
+    # Check 1: Root span should be an @observe span, not an LLM span
+    from pixie.instrumentation.spans import LLMSpan as _LLMSpan
+
+    root_node = tree[0]
+    root_is_llm = isinstance(root_node.span, _LLMSpan)
+    if root_is_llm:
+        issues.append(
+            "Root span is an LLM call, not an @observe-decorated function. "
+            "Ensure enable_storage() is called BEFORE the @observe function runs."
+        )
+        lines.append(f"Root span: {root_node.name} (LLM) <- WRONG")
+    else:
+        lines.append(f"Root span: {root_node.name} (observe) <- OK")
+
+    # Check 2: Root span has input and output
+    if not root_is_llm:
+        root_observe = root_node.span
+        has_input = getattr(root_observe, "input", None) is not None
+        has_output = getattr(root_observe, "output", None) is not None
+        if not has_input:
+            issues.append(
+                "Root span input is null. The @observe-decorated function's "
+                "arguments are not being captured."
+            )
+            lines.append("Root input:  null <- MISSING")
+        else:
+            lines.append("Root input:  present <- OK")
+        if not has_output:
+            issues.append(
+                "Root span output is null. The @observe-decorated function's "
+                "return value is not being captured."
+            )
+            lines.append("Root output: null <- MISSING")
+        else:
+            lines.append("Root output: present <- OK")
+
+    # Check 3: LLM child spans are present
+    llm_count = 0
+    for root in tree:
+        llm_count += len(root.find_by_type(_LLMSpan))
+    if llm_count == 0:
+        issues.append(
+            "No LLM child spans found. Ensure enable_storage() is called "
+            "so that LLM provider calls (OpenAI, Anthropic) are auto-captured."
+        )
+        lines.append("LLM spans:   0 <- MISSING")
+    else:
+        lines.append(f"LLM spans:   {llm_count} <- OK")
+
+    lines.append("")
+
+    # Compact tree view
+    lines.append("Span tree:")
+    for root in tree:
+        lines.append(_compact_text(root, indent=1))
+
+    lines.append("")
+
+    if issues:
+        lines.append(f"FAILED — {len(issues)} issue(s):")
+        for i, issue in enumerate(issues, 1):
+            lines.append(f"  {i}. {issue}")
+        return 1, "\n".join(lines)
+
+    lines.append("PASSED — trace looks good.")
+    return 0, "\n".join(lines)
+
+
+def _count_nodes(tree: list[ObservationNode]) -> int:
+    """Count total nodes in a tree."""
+    count = 0
+    for node in tree:
+        count += 1 + _count_nodes(node.children)
+    return count
+
+
+def trace_verify() -> int:
+    """Entry point for ``pixie trace verify``."""
+    exit_code, output = asyncio.run(_trace_verify())
+    print(output)  # noqa: T201
+    return exit_code

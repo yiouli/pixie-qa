@@ -30,7 +30,7 @@ from pixie.cli.dataset_command import (
     dataset_save,
     format_dataset_table,
 )
-from pixie.cli.trace_command import trace_last, trace_list, trace_show
+from pixie.cli.trace_command import trace_last, trace_list, trace_show, trace_verify
 from pixie.config import get_config
 from pixie.dataset.store import DatasetStore
 from pixie.storage.evaluable import UNSET, _Unset
@@ -139,6 +139,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Output as JSON",
+    )
+
+    # pixie trace verify
+    trace_sub.add_parser(
+        "verify",
+        help="Verify the most recent trace for common instrumentation issues",
     )
 
     # -- pixie test ----------------------------------------------------------
@@ -296,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
             elif args.trace_action == "last":
                 return trace_last(as_json=args.as_json)
+            elif args.trace_action == "verify":
+                return trace_verify()
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             return 1
