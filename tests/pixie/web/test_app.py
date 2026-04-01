@@ -269,7 +269,9 @@ class TestBuildUrl:
     def test_with_tab_and_id(self) -> None:
         from pixie.web.server import build_url
 
-        url = build_url("127.0.0.1", 7118, tab="scorecards", item_id="scorecards/sc.html")
+        url = build_url(
+            "127.0.0.1", 7118, tab="scorecards", item_id="scorecards/sc.html"
+        )
         assert url == "http://127.0.0.1:7118?tab=scorecards&id=scorecards/sc.html"
 
     def test_no_params_when_none(self) -> None:
@@ -323,9 +325,7 @@ class TestOpenWebui:
 
 
 class TestPixieTestOpensWebUI:
-    def test_pixie_test_calls_open_webui_with_scorecard(
-        self, tmp_path: Path
-    ) -> None:
+    def test_pixie_test_calls_open_webui_with_scorecard(self, tmp_path: Path) -> None:
         """After generating a scorecard, pixie test calls open_webui."""
         from pixie.cli.test_command import main as pixie_test_main
 

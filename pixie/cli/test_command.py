@@ -116,7 +116,9 @@ def main(argv: list[str] | None = None) -> int:
 
         config = get_config()
         # Derive relative scorecard path within the artifact root
-        scorecard_rel = str(Path(scorecard_path).relative_to(Path(config.root).resolve()))
+        scorecard_rel = str(
+            Path(scorecard_path).relative_to(Path(config.root).resolve())
+        )
         open_webui(config.root, tab="scorecards", item_id=scorecard_rel)
 
     all_passed = all(r.status == "passed" for r in results)
