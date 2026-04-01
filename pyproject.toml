@@ -26,6 +26,9 @@ dependencies = [
     "jsonpickle>=4.0.0",
     "python-dotenv>=1.2.2",
     "openai>=2.29.0",
+    "starlette>=1.0.0",
+    "uvicorn>=0.42.0",
+    "watchfiles>=1.1.1",
 ]
 
 [project.urls]
@@ -70,6 +73,7 @@ packages = ["pixie"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "pixie/assets/index.html" = "pixie/assets/index.html"
+"pixie/assets/webui.html" = "pixie/assets/webui.html"
 
 [tool.mypy]
 python_version = "3.11"
@@ -83,6 +87,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "jsonpickle.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "watchfiles.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -35,6 +35,17 @@ Your coding agent will read your code, instrument it, build a dataset from a few
 
 The `pixie-qa` Python package (imported as `pixie`) is what Claude installs and uses inside your project. For the package API and CLI reference, see [docs/package.md](docs/package.md).
 
+## Web UI
+
+View all eval artifacts (markdown docs, datasets, scorecards) in a live-updating local web UI:
+
+```bash
+pixie start              # opens http://localhost:7118 in your browser
+pixie start my_dir       # use a custom artifact root
+```
+
+The web UI provides tabbed navigation for scorecards, datasets, and markdown files. Changes to artifacts are pushed to the browser in real time via SSE.
+
 ## Configuration
 
 Pixie reads configuration from environment variables and a local `.env` file through a single central config layer. Existing process env vars win over `.env` values.

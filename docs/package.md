@@ -230,7 +230,9 @@ pixie test -v              # verbose: shows per-case scores and reasoning
 
 ### HTML Scorecard
 
-Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. The scorecard is a self-contained React application compiled to a single HTML file — no external dependencies, works from `file://`.
+Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. After generating the scorecard, `pixie test` opens the web UI (see [Web UI](#web-ui)) with the new scorecard selected. If the web UI server is not already running, one is started in the background automatically.
+
+Pass `--no-open` to suppress automatic browser opening.
 
 The scorecard contains:
 
@@ -250,6 +252,29 @@ After the test run, the CLI prints the scorecard path:
 ```text
 See /path/to/pixie_qa/scorecards/20250615-120000-pixie-test.html for test details
 ```
+
+---
+
+## Web UI
+
+View all generated artifacts — markdown documents, datasets, and scorecards — in a live-updating local web UI:
+
+```bash
+pixie start              # starts server on port 7118 and opens browser
+pixie start my_dir       # use a custom artifact root directory
+```
+
+The web UI provides:
+
+- **Tabbed navigation** — Scorecards tab, Datasets tab, plus one tab per markdown file
+- **Scorecards panel** — sidebar list of all scorecards with iframe viewer
+- **Datasets panel** — sidebar list of datasets with table viewer
+- **Markdown panel** — renders `.md` files as formatted HTML
+- **Live updates** — file changes are pushed to the browser via SSE; the view automatically switches to the updated artifact
+
+If the default port (7118) is already in use, `pixie start` assumes the server is running and opens the browser only.
+
+The web UI server is built with Starlette + Uvicorn and watches the artifact root with `watchfiles` for real-time change detection.
 
 ---
 

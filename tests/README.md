@@ -50,7 +50,10 @@ tests/
 │   │   ├── test_scorecard.py          # 31 scorecard unit tests
 │   │   └── ...
 │   ├── instrumentation/
-│   └── observation_store/
+│   ├── observation_store/
+│   └── web/
+│       ├── test_app.py                # Web UI server + CLI tests (24 tests)
+│       └── test_watcher.py            # File watcher utility tests (8 tests)
 └── manual/                            # Manual testing fixtures
     ├── test_sample.py                 # 3-test sample (run with pixie test)
     ├── mock_evaluators.py             # Simple deterministic evaluators
@@ -156,6 +159,8 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 | `instrumentation/test_spans.py`     | `pixie.instrumentation.spans`     | Span data models                  |
 | `instrumentation/test_processor.py` | `pixie.instrumentation.processor` | OTel processor                    |
 | `instrumentation/test_queue.py`     | `pixie.instrumentation.queue`     | Delivery queue                    |
+| `web/test_app.py`                   | `pixie.web.app` + CLI             | Manifest, SSE, endpoints, CLI     |
+| `web/test_watcher.py`               | `pixie.web.watcher`               | Artifact filtering, change labels |
 
 ## Pre-Commit Checklist
 

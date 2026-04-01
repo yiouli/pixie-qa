@@ -182,6 +182,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Root directory to create (default: from PIXIE_ROOT or pixie_qa)",
     )
 
+    # -- pixie start --------------------------------------------------------
+    start_parser = subparsers.add_parser(
+        "start", help="Launch the web UI for browsing eval artifacts"
+    )
+    start_parser.add_argument(
+        "root",
+        nargs="?",
+        default=None,
+        help="Artifact root directory (default: from PIXIE_ROOT or pixie_qa)",
+    )
+
     # -- pixie dag -----------------------------------------------------------
     dag_parser = subparsers.add_parser(
         "dag", help="Data-flow DAG validation and trace checking"
@@ -350,6 +361,11 @@ def main(argv: list[str] | None = None) -> int:
 
         result_path = init_pixie_dir(root=args.root)
         print(f"Initialized pixie directory at {result_path}")  # noqa: T201
+
+    elif args.command == "start":
+        from pixie.cli.start_command import start
+
+        return start(root=args.root)
 
     elif args.command == "dag":
         if args.dag_action is None:

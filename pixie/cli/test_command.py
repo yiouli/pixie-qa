@@ -6,15 +6,14 @@ Usage::
 
 Discovers and runs eval test functions, reporting pass/fail results.
 Generates an HTML scorecard report saved to
-``{config.root}/scorecards/<timestamp>.html`` and opens it in the default
-browser (pass ``--no-open`` to suppress).
+``{config.root}/scorecards/<timestamp>.html`` and opens the web UI
+to display it (pass ``--no-open`` to suppress).
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-import webbrowser
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -112,7 +111,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nSee {scorecard_path} for test details")  # noqa: T201
 
     if not args.no_open:
-        webbrowser.open(Path(scorecard_path).as_uri())
+        from pixie.config import get_config
+        from pixie.web.server import open_webui
+
+        config = get_config()
+        # Derive relative scorecard path within the artifact root
+        scorecard_rel = str(Path(scorecard_path).relative_to(Path(config.root).resolve()))
+        open_webui(config.root, tab="scorecards", item_id=scorecard_rel)
 
     all_passed = all(r.status == "passed" for r in results)
     return 0 if all_passed else 1

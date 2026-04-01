@@ -8,16 +8,20 @@ import { FeedbackModal } from "./components/FeedbackModal";
 import type { EvalDetailData } from "./components/EvalDetailModal";
 import "./styles.css";
 
+const isEmbedded = window.self !== window.top;
+
 export default function App({ data }: { data: ScorecardReportData }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [evalDetail, setEvalDetail] = useState<EvalDetailData | null>(null);
 
   return (
     <>
-      <BrandHeader
-        repoUrl={data.pixie_repo_url}
-        onFeedback={() => setFeedbackOpen(true)}
-      />
+      {!isEmbedded && (
+        <BrandHeader
+          repoUrl={data.pixie_repo_url}
+          onFeedback={() => setFeedbackOpen(true)}
+        />
+      )}
 
       <main className="main-content">
         <Overview

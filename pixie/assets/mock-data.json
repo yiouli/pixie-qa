@@ -1,129 +1,407 @@
 {
-  "command_args": "pixie test tests/",
-  "timestamp": "2025-06-15 12:00:00 UTC",
-  "pixie_repo_url": "https://github.com/yiouli/pixie-qa",
-  "feedback_url": "https://feedback.gopixie.ai/feedback",
-  "brand_icon_url": "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af",
-  "test_records": [
-    {
-      "name": "test_customer_faq.py::test_faq_factuality",
-      "status": "passed",
-      "message": null,
-      "asserts": [
+    "command_args": "pixie test tests/",
+    "timestamp": "2025-06-15 12:00:00 UTC",
+    "pixie_repo_url": "https://github.com/yiouli/pixie-qa",
+    "feedback_url": "https://feedback.gopixie.ai/feedback",
+    "brand_icon_url": "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af",
+    "test_records": [
         {
-          "evaluator_names": ["MockFactuality"],
-          "input_labels": ["What is your return policy?", "How do I track my order?", "Do you offer international shipping?", "What payment methods do you accept?", "How can I contact support?"],
-          "results": [
-            [
-              [{"score": 0.85, "reasoning": "High string similarity between expected and actual output.", "details": {}}],
-              [{"score": 0.72, "reasoning": "Moderate string similarity.", "details": {}}],
-              [{"score": 0.91, "reasoning": "Very high similarity match.", "details": {}}],
-              [{"score": 0.68, "reasoning": "Reasonable similarity.", "details": {}}],
-              [{"score": 0.77, "reasoning": "Good similarity match.", "details": {}}]
+            "name": "test_customer_faq.py::test_faq_factuality",
+            "status": "passed",
+            "message": null,
+            "asserts": [
+                {
+                    "evaluator_names": [
+                        "MockFactuality"
+                    ],
+                    "input_labels": [
+                        "What is your return policy?",
+                        "How do I track my order?",
+                        "Do you offer international shipping?",
+                        "What payment methods do you accept?",
+                        "How can I contact support?"
+                    ],
+                    "results": [
+                        [
+                            [
+                                {
+                                    "score": 0.85,
+                                    "reasoning": "High string similarity between expected and actual output.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.72,
+                                    "reasoning": "Moderate string similarity.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.91,
+                                    "reasoning": "Very high similarity match.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.68,
+                                    "reasoning": "Reasonable similarity.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.77,
+                                    "reasoning": "Good similarity match.",
+                                    "details": {}
+                                }
+                            ]
+                        ]
+                    ],
+                    "passed": true,
+                    "criteria_message": "Pass: 4/5 inputs passed (threshold 0.6, required 80%)",
+                    "scoring_strategy": "Each evaluator score must be ≥ 0.6. At least 80% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
+                    "evaluable_dicts": [
+                        {
+                            "input": "What is your return policy?",
+                            "expected_output": "You can return items within 30 days of purchase for a full refund.",
+                            "actual_output": "Items can be returned within 30 days for a full refund.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How do I track my order?",
+                            "expected_output": "You can track your order using the tracking link sent to your email.",
+                            "actual_output": "Check the tracking link in your confirmation email to track your order.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "Do you offer international shipping?",
+                            "expected_output": "Yes, we ship to over 50 countries worldwide.",
+                            "actual_output": "Yes, we offer international shipping to over 50 countries.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "What payment methods do you accept?",
+                            "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.",
+                            "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How can I contact support?",
+                            "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.",
+                            "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.",
+                            "metadata": {}
+                        }
+                    ]
+                }
             ]
-          ],
-          "passed": true,
-          "criteria_message": "Pass: 4/5 inputs passed (threshold 0.6, required 80%)",
-          "scoring_strategy": "Each evaluator score must be ≥ 0.6. At least 80% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
-          "evaluable_dicts": [
-            {"input": "What is your return policy?", "expected_output": "You can return items within 30 days of purchase for a full refund.", "actual_output": "Items can be returned within 30 days for a full refund.", "metadata": {}},
-            {"input": "How do I track my order?", "expected_output": "You can track your order using the tracking link sent to your email.", "actual_output": "Check the tracking link in your confirmation email to track your order.", "metadata": {}},
-            {"input": "Do you offer international shipping?", "expected_output": "Yes, we ship to over 50 countries worldwide.", "actual_output": "Yes, we offer international shipping to over 50 countries.", "metadata": {}},
-            {"input": "What payment methods do you accept?", "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.", "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.", "metadata": {}},
-            {"input": "How can I contact support?", "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.", "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.", "metadata": {}}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "test_customer_faq.py::test_faq_multi_evaluator",
-      "status": "failed",
-      "message": "AssertionError: 3/5 inputs failed on at least one evaluator",
-      "asserts": [
+        },
         {
-          "evaluator_names": ["MockFactuality", "MockClosedQA"],
-          "input_labels": ["What is your return policy?", "How do I track my order?", "Do you offer international shipping?", "What payment methods do you accept?", "How can I contact support?"],
-          "results": [
-            [
-              [{"score": 0.85, "reasoning": "High similarity.", "details": {}}, {"score": 0.3, "reasoning": "Low keyword overlap.", "details": {}}],
-              [{"score": 0.72, "reasoning": "Moderate similarity.", "details": {}}, {"score": 0.45, "reasoning": "Below threshold keyword overlap.", "details": {}}],
-              [{"score": 0.91, "reasoning": "Very high similarity.", "details": {}}, {"score": 0.6, "reasoning": "Acceptable keyword overlap.", "details": {}}],
-              [{"score": 0.68, "reasoning": "Reasonable similarity.", "details": {}}, {"score": 0.25, "reasoning": "Poor keyword match.", "details": {}}],
-              [{"score": 0.77, "reasoning": "Good similarity.", "details": {}}, {"score": 0.55, "reasoning": "Marginal keyword overlap.", "details": {}}]
+            "name": "test_customer_faq.py::test_faq_multi_evaluator",
+            "status": "failed",
+            "message": "AssertionError: 3/5 inputs failed on at least one evaluator",
+            "asserts": [
+                {
+                    "evaluator_names": [
+                        "MockFactuality",
+                        "MockClosedQA"
+                    ],
+                    "input_labels": [
+                        "What is your return policy?",
+                        "How do I track my order?",
+                        "Do you offer international shipping?",
+                        "What payment methods do you accept?",
+                        "How can I contact support?"
+                    ],
+                    "results": [
+                        [
+                            [
+                                {
+                                    "score": 0.85,
+                                    "reasoning": "High similarity.",
+                                    "details": {}
+                                },
+                                {
+                                    "score": 0.3,
+                                    "reasoning": "Low keyword overlap.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.72,
+                                    "reasoning": "Moderate similarity.",
+                                    "details": {}
+                                },
+                                {
+                                    "score": 0.45,
+                                    "reasoning": "Below threshold keyword overlap.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.91,
+                                    "reasoning": "Very high similarity.",
+                                    "details": {}
+                                },
+                                {
+                                    "score": 0.6,
+                                    "reasoning": "Acceptable keyword overlap.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.68,
+                                    "reasoning": "Reasonable similarity.",
+                                    "details": {}
+                                },
+                                {
+                                    "score": 0.25,
+                                    "reasoning": "Poor keyword match.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.77,
+                                    "reasoning": "Good similarity.",
+                                    "details": {}
+                                },
+                                {
+                                    "score": 0.55,
+                                    "reasoning": "Marginal keyword overlap.",
+                                    "details": {}
+                                }
+                            ]
+                        ]
+                    ],
+                    "passed": false,
+                    "criteria_message": "Fail: only 2/5 inputs passed on all evaluators (required 100%)",
+                    "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
+                    "evaluable_dicts": [
+                        {
+                            "input": "What is your return policy?",
+                            "expected_output": "You can return items within 30 days of purchase for a full refund.",
+                            "actual_output": "Items can be returned within 30 days for a full refund.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How do I track my order?",
+                            "expected_output": "You can track your order using the tracking link sent to your email.",
+                            "actual_output": "Check the tracking link in your confirmation email to track your order.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "Do you offer international shipping?",
+                            "expected_output": "Yes, we ship to over 50 countries worldwide.",
+                            "actual_output": "Yes, we offer international shipping to over 50 countries.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "What payment methods do you accept?",
+                            "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.",
+                            "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How can I contact support?",
+                            "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.",
+                            "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.",
+                            "metadata": {}
+                        }
+                    ]
+                }
             ]
-          ],
-          "passed": false,
-          "criteria_message": "Fail: only 2/5 inputs passed on all evaluators (required 100%)",
-          "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
-          "evaluable_dicts": [
-            {"input": "What is your return policy?", "expected_output": "You can return items within 30 days of purchase for a full refund.", "actual_output": "Items can be returned within 30 days for a full refund.", "metadata": {}},
-            {"input": "How do I track my order?", "expected_output": "You can track your order using the tracking link sent to your email.", "actual_output": "Check the tracking link in your confirmation email to track your order.", "metadata": {}},
-            {"input": "Do you offer international shipping?", "expected_output": "Yes, we ship to over 50 countries worldwide.", "actual_output": "Yes, we offer international shipping to over 50 countries.", "metadata": {}},
-            {"input": "What payment methods do you accept?", "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.", "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.", "metadata": {}},
-            {"input": "How can I contact support?", "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.", "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.", "metadata": {}}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "test_customer_faq.py::test_faq_no_hallucinations",
-      "status": "passed",
-      "message": null,
-      "asserts": [
+        },
         {
-          "evaluator_names": ["MockHallucination"],
-          "input_labels": ["What is your return policy?", "How do I track my order?", "Do you offer international shipping?", "What payment methods do you accept?", "How can I contact support?"],
-          "results": [
-            [
-              [{"score": 0.95, "reasoning": "No hallucination detected.", "details": {}}],
-              [{"score": 0.95, "reasoning": "No hallucination detected.", "details": {}}],
-              [{"score": 0.95, "reasoning": "No hallucination detected.", "details": {}}],
-              [{"score": 0.95, "reasoning": "No hallucination detected.", "details": {}}],
-              [{"score": 0.95, "reasoning": "No hallucination detected.", "details": {}}]
+            "name": "test_customer_faq.py::test_faq_no_hallucinations",
+            "status": "passed",
+            "message": null,
+            "asserts": [
+                {
+                    "evaluator_names": [
+                        "MockHallucination"
+                    ],
+                    "input_labels": [
+                        "What is your return policy?",
+                        "How do I track my order?",
+                        "Do you offer international shipping?",
+                        "What payment methods do you accept?",
+                        "How can I contact support?"
+                    ],
+                    "results": [
+                        [
+                            [
+                                {
+                                    "score": 0.95,
+                                    "reasoning": "No hallucination detected.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.95,
+                                    "reasoning": "No hallucination detected.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.95,
+                                    "reasoning": "No hallucination detected.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.95,
+                                    "reasoning": "No hallucination detected.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.95,
+                                    "reasoning": "No hallucination detected.",
+                                    "details": {}
+                                }
+                            ]
+                        ]
+                    ],
+                    "passed": true,
+                    "criteria_message": "Pass: 5/5 inputs passed (threshold 0.5, required 100%)",
+                    "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
+                    "evaluable_dicts": [
+                        {
+                            "input": "What is your return policy?",
+                            "expected_output": "You can return items within 30 days of purchase for a full refund.",
+                            "actual_output": "Items can be returned within 30 days for a full refund.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How do I track my order?",
+                            "expected_output": "You can track your order using the tracking link sent to your email.",
+                            "actual_output": "Check the tracking link in your confirmation email to track your order.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "Do you offer international shipping?",
+                            "expected_output": "Yes, we ship to over 50 countries worldwide.",
+                            "actual_output": "Yes, we offer international shipping to over 50 countries.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "What payment methods do you accept?",
+                            "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.",
+                            "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How can I contact support?",
+                            "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.",
+                            "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.",
+                            "metadata": {}
+                        }
+                    ]
+                }
             ]
-          ],
-          "passed": true,
-          "criteria_message": "Pass: 5/5 inputs passed (threshold 0.5, required 100%)",
-          "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
-          "evaluable_dicts": [
-            {"input": "What is your return policy?", "expected_output": "You can return items within 30 days of purchase for a full refund.", "actual_output": "Items can be returned within 30 days for a full refund.", "metadata": {}},
-            {"input": "How do I track my order?", "expected_output": "You can track your order using the tracking link sent to your email.", "actual_output": "Check the tracking link in your confirmation email to track your order.", "metadata": {}},
-            {"input": "Do you offer international shipping?", "expected_output": "Yes, we ship to over 50 countries worldwide.", "actual_output": "Yes, we offer international shipping to over 50 countries.", "metadata": {}},
-            {"input": "What payment methods do you accept?", "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.", "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.", "metadata": {}},
-            {"input": "How can I contact support?", "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.", "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.", "metadata": {}}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "test_customer_faq.py::test_faq_tone_check",
-      "status": "failed",
-      "message": "AssertionError: all 5 inputs failed",
-      "asserts": [
+        },
         {
-          "evaluator_names": ["MockStrictTone"],
-          "input_labels": ["What is your return policy?", "How do I track my order?", "Do you offer international shipping?", "What payment methods do you accept?", "How can I contact support?"],
-          "results": [
-            [
-              [{"score": 0.2, "reasoning": "Tone does not meet strict requirements.", "details": {}}],
-              [{"score": 0.2, "reasoning": "Tone does not meet strict requirements.", "details": {}}],
-              [{"score": 0.2, "reasoning": "Tone does not meet strict requirements.", "details": {}}],
-              [{"score": 0.2, "reasoning": "Tone does not meet strict requirements.", "details": {}}],
-              [{"score": 0.2, "reasoning": "Tone does not meet strict requirements.", "details": {}}]
+            "name": "test_customer_faq.py::test_faq_tone_check",
+            "status": "failed",
+            "message": "AssertionError: all 5 inputs failed",
+            "asserts": [
+                {
+                    "evaluator_names": [
+                        "MockStrictTone"
+                    ],
+                    "input_labels": [
+                        "What is your return policy?",
+                        "How do I track my order?",
+                        "Do you offer international shipping?",
+                        "What payment methods do you accept?",
+                        "How can I contact support?"
+                    ],
+                    "results": [
+                        [
+                            [
+                                {
+                                    "score": 0.2,
+                                    "reasoning": "Tone does not meet strict requirements.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.2,
+                                    "reasoning": "Tone does not meet strict requirements.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.2,
+                                    "reasoning": "Tone does not meet strict requirements.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.2,
+                                    "reasoning": "Tone does not meet strict requirements.",
+                                    "details": {}
+                                }
+                            ],
+                            [
+                                {
+                                    "score": 0.2,
+                                    "reasoning": "Tone does not meet strict requirements.",
+                                    "details": {}
+                                }
+                            ]
+                        ]
+                    ],
+                    "passed": false,
+                    "criteria_message": "Fail: 0/5 inputs passed (threshold 0.5, required 100%)",
+                    "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
+                    "evaluable_dicts": [
+                        {
+                            "input": "What is your return policy?",
+                            "expected_output": "You can return items within 30 days of purchase for a full refund.",
+                            "actual_output": "Items can be returned within 30 days for a full refund.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How do I track my order?",
+                            "expected_output": "You can track your order using the tracking link sent to your email.",
+                            "actual_output": "Check the tracking link in your confirmation email to track your order.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "Do you offer international shipping?",
+                            "expected_output": "Yes, we ship to over 50 countries worldwide.",
+                            "actual_output": "Yes, we offer international shipping to over 50 countries.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "What payment methods do you accept?",
+                            "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.",
+                            "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.",
+                            "metadata": {}
+                        },
+                        {
+                            "input": "How can I contact support?",
+                            "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.",
+                            "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.",
+                            "metadata": {}
+                        }
+                    ]
+                }
             ]
-          ],
-          "passed": false,
-          "criteria_message": "Fail: 0/5 inputs passed (threshold 0.5, required 100%)",
-          "scoring_strategy": "Each evaluator score must be ≥ 0.5. At least 100% of test-case inputs must pass on all evaluators. Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient).",
-          "evaluable_dicts": [
-            {"input": "What is your return policy?", "expected_output": "You can return items within 30 days of purchase for a full refund.", "actual_output": "Items can be returned within 30 days for a full refund.", "metadata": {}},
-            {"input": "How do I track my order?", "expected_output": "You can track your order using the tracking link sent to your email.", "actual_output": "Check the tracking link in your confirmation email to track your order.", "metadata": {}},
-            {"input": "Do you offer international shipping?", "expected_output": "Yes, we ship to over 50 countries worldwide.", "actual_output": "Yes, we offer international shipping to over 50 countries.", "metadata": {}},
-            {"input": "What payment methods do you accept?", "expected_output": "We accept Visa, Mastercard, PayPal, and Apple Pay.", "actual_output": "We accept major credit cards including Visa and Mastercard, plus PayPal and Apple Pay.", "metadata": {}},
-            {"input": "How can I contact support?", "expected_output": "Email us at support@example.com or call 1-800-EXAMPLE.", "actual_output": "You can reach support at support@example.com or by calling 1-800-EXAMPLE.", "metadata": {}}
-          ]
         }
-      ]
-    }
-  ]
+    ]
 }

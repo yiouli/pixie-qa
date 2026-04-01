@@ -5,7 +5,10 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build",
+        "dev:webui": "VITE_BUILD_TARGET=webui vite",
+        "build": "tsc && vite build && VITE_BUILD_TARGET=webui vite build",
+        "build:scorecard": "tsc && vite build",
+        "build:webui": "tsc && VITE_BUILD_TARGET=webui vite build",
         "preview": "vite preview"
     },
     "dependencies": {
