@@ -16,6 +16,11 @@ from pixie.storage.tree import ObservationNode, build_tree
 # Private sentinel — distinguishes "caller did not pass expected_output" from None.
 _UNSET_SENTINEL: Any = object()
 
+#: Default max number of runnables executing concurrently within a single
+#: ``assert_pass`` / ``assert_dataset_pass`` call.  Override via
+#: ``PIXIE_RUNNABLE_CONCURRENCY`` environment variable.
+DEFAULT_RUNNABLE_CONCURRENCY: int = 4
+
 
 def _run_sync_runnable_with_event_loop(
     runnable: Callable[..., Any],
@@ -221,6 +226,16 @@ async def run_and_evaluate(
     return await evaluate(evaluator, evaluable, trace=trace_tree)
 
 
+def _get_runnable_concurrency() -> int:
+    """Return the configured runnable concurrency limit."""
+    import os
+
+    raw = os.environ.get("PIXIE_RUNNABLE_CONCURRENCY")
+    if raw is not None:
+        return int(raw)
+    return DEFAULT_RUNNABLE_CONCURRENCY
+
+
 async def _process_single_input(
     idx: int,
     inp: Any,
@@ -228,22 +243,35 @@ async def _process_single_input(
     evaluables: list[Evaluable] | None,
     runnable: Callable[..., Any],
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None,
+    semaphore: asyncio.Semaphore | None = None,
 ) -> list[Evaluation]:
     """Process a single dataset row: run runnable once, evaluate concurrently.
 
     The runnable is invoked at most once per input.  The resulting
     evaluable and trace tree are shared across all evaluators.
+
+    When *semaphore* is provided the runnable execution is gated so that
+    at most N runnables execute concurrently across all inputs.
     """
+
+    async def _run_runnable() -> tuple[Evaluable, list[ObservationNode]]:
+        """Run the runnable, respecting the concurrency semaphore."""
+        kwargs: dict[str, Any] = {}
+        if evaluables is not None:
+            kwargs["expected_output"] = evaluables[idx].expected_output
+        if from_trace is not None:
+            kwargs["from_trace"] = from_trace
+
+        if semaphore is not None:
+            async with semaphore:
+                return await _run_and_capture(runnable, inp, **kwargs)
+        return await _run_and_capture(runnable, inp, **kwargs)
+
     if evaluables is not None:
         ev_item = evaluables[idx]
         if ev_item.eval_output is None:
             # Run the runnable ONCE, then feed the result to all evaluators
-            evaluable, trace_tree = await _run_and_capture(
-                runnable,
-                inp,
-                expected_output=ev_item.expected_output,
-                from_trace=from_trace,
-            )
+            evaluable, trace_tree = await _run_runnable()
             eval_coros = [
                 evaluate(evaluator=ev, evaluable=evaluable, trace=trace_tree)
                 for ev in evaluators
@@ -254,11 +282,7 @@ async def _process_single_input(
             ]
     else:
         # Run the runnable ONCE, then feed the result to all evaluators
-        evaluable, trace_tree = await _run_and_capture(
-            runnable,
-            inp,
-            from_trace=from_trace,
-        )
+        evaluable, trace_tree = await _run_runnable()
         eval_coros = [
             evaluate(evaluator=ev, evaluable=evaluable, trace=trace_tree)
             for ev in evaluators
@@ -323,11 +347,12 @@ async def assert_pass(
 
     criteria = pass_criteria or ScoreThreshold()
     results: list[list[list[Evaluation]]] = []
+    sem = asyncio.Semaphore(_get_runnable_concurrency())
 
     for _ in range(passes):
         input_tasks = [
             _process_single_input(
-                idx, inp, evaluators, evaluables, runnable, from_trace
+                idx, inp, evaluators, evaluables, runnable, from_trace, sem
             )
             for idx, inp in enumerate(eval_inputs)
         ]

@@ -767,3 +767,64 @@ class TestAssertDatasetPass:
         assert received[0].eval_output == "echo:q1"
         # expected_output should still come from the dataset
         assert received[0].expected_output == "e1"
+
+
+class TestRunnableConcurrency:
+    """Tests for the concurrency semaphore that limits parallel runnables."""
+
+    @pytest.mark.asyncio
+    async def test_concurrency_is_bounded(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """At most N runnables should execute concurrently."""
+        monkeypatch.setenv("PIXIE_RUNNABLE_CONCURRENCY", "2")
+
+        peak = 0
+        active = 0
+        lock = asyncio.Lock()
+
+        async def slow_app(input: Any) -> None:  # noqa: A002
+            nonlocal peak, active
+            async with lock:
+                active += 1
+                if active > peak:
+                    peak = active
+            with px.start_observation(input=input, name="app") as obs:
+                obs.set_output(f"echo:{input}")
+            await asyncio.sleep(0.05)
+            async with lock:
+                active -= 1
+
+        await assert_pass(
+            runnable=slow_app,
+            eval_inputs=["a", "b", "c", "d"],
+            evaluators=[_always_pass],
+        )
+        assert peak <= 2, f"expected at most 2 concurrent runnables, got {peak}"
+
+    @pytest.mark.asyncio
+    async def test_default_concurrency_allows_parallel(self) -> None:
+        """With default concurrency (4), multiple runnables should run in parallel."""
+        peak = 0
+        active = 0
+        lock = asyncio.Lock()
+
+        async def slow_app(input: Any) -> None:  # noqa: A002
+            nonlocal peak, active
+            async with lock:
+                active += 1
+                if active > peak:
+                    peak = active
+            with px.start_observation(input=input, name="app") as obs:
+                obs.set_output(f"echo:{input}")
+            await asyncio.sleep(0.05)
+            async with lock:
+                active -= 1
+
+        await assert_pass(
+            runnable=slow_app,
+            eval_inputs=["a", "b", "c", "d"],
+            evaluators=[_always_pass],
+        )
+        # With default concurrency of 4 and 4 inputs, all should run in parallel
+        assert peak > 1, f"expected parallel execution, but peak was {peak}"

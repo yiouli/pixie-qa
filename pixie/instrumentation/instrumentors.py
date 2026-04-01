@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib
+import logging
+
+logger = logging.getLogger("pixie.instrumentation")
 
 _KNOWN_INSTRUMENTORS = [
     ("openinference.instrumentation.openai", "OpenAIInstrumentor"),
@@ -24,8 +27,21 @@ def _activate_instrumentors() -> list[str]:
             cls = getattr(module, class_name)
             cls().instrument()
             activated.append(class_name)
+            logger.debug("Activated instrumentor: %s from %s", class_name, module_path)
         except ImportError:
-            pass  # Provider package not installed
+            logger.debug(
+                "Instrumentor not available (package not installed): %s", module_path
+            )
         except Exception:
-            pass  # Instrumentation failed, skip
+            logger.debug(
+                "Instrumentor failed to activate: %s from %s",
+                class_name,
+                module_path,
+                exc_info=True,
+            )
+    if not activated:
+        logger.warning(
+            "No LLM instrumentors activated. Install provider packages "
+            "(e.g. openinference-instrumentation-openai) for auto-capture."
+        )
     return activated
