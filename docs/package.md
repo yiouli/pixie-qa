@@ -82,14 +82,13 @@ flush()
 Scaffold the standard `pixie_qa/` working directory for eval-driven development:
 
 ```bash
-pixie init              # creates pixie_qa/ and then launches the web UI
-pixie init my_dir       # use a custom root directory, then launch web UI
+pixie init              # creates pixie_qa/ with datasets/, tests/, scripts/
+pixie init my_dir       # use a custom root directory
 ```
 
-`pixie init` now behaves like running `pixie init` followed by `pixie start`.
-It scaffolds the directory layout first, then starts (or reuses) the local web UI server.
+The command is idempotent — existing files and directories are never overwritten or deleted. Respects the `PIXIE_ROOT` environment variable when no argument is provided.
 
-The scaffolding step is idempotent — existing files and directories are never overwritten or deleted. Respects the `PIXIE_ROOT` environment variable when no argument is provided.
+`pixie start` also runs init automatically before starting the server, so a separate `pixie init` is only needed when you want to scaffold without starting the web UI.
 
 ---
 

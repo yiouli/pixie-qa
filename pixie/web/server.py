@@ -2,16 +2,26 @@
 
 Starts the Starlette app with uvicorn, launches the file watcher,
 and optionally opens the browser.
+
+A ``server.lock`` file is written to the pixie artifact root on startup
+(containing the port number) and removed on shutdown.  Other processes
+(e.g. ``open_webui`` or ``pixie test``) read this file to discover whether
+the server is already running and on which port.
 """
 
 from __future__ import annotations
 
 import asyncio
+import atexit
 import contextlib
+import json
 import logging
 import socket
 import threading
+import urllib.request
 import webbrowser
+from dataclasses import dataclass
+from pathlib import Path
 
 import uvicorn
 
@@ -22,6 +32,9 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 7118
+
+#: Name of the lock file placed in the pixie artifact root.
+_LOCK_FILENAME = "server.lock"
 
 
 def build_url(
@@ -78,6 +91,97 @@ def _is_port_in_use(host: str, port: int) -> bool:
             return True
 
 
+def _lock_path(root: str) -> Path:
+    """Return the path to the server lock file for *root*."""
+    return Path(root).resolve() / _LOCK_FILENAME
+
+
+def _write_lock(root: str, port: int) -> None:
+    """Write the server lock file containing the port number."""
+    path = _lock_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(port))
+
+
+def _remove_lock(root: str) -> None:
+    """Remove the server lock file if it exists."""
+    with contextlib.suppress(FileNotFoundError):
+        _lock_path(root).unlink()
+
+
+def _read_lock(root: str) -> int | None:
+    """Read the port from the server lock file.
+
+    Returns:
+        The port number if the lock file exists, otherwise *None*.
+    """
+    path = _lock_path(root)
+    try:
+        return int(path.read_text().strip())
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+@dataclass(frozen=True)
+class ServerStatus:
+    """Status of the pixie web server for a given root."""
+
+    running: bool
+    port: int | None
+    active_clients: int
+
+
+def _probe_server(host: str, port: int) -> int | None:
+    """Probe the server's ``/api/status`` endpoint.
+
+    Returns:
+        The active client count if the server responds, otherwise *None*.
+    """
+    url = f"http://{host}:{port}/api/status"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read().decode())
+            return int(data.get("active_clients", 0))
+    except Exception:  # noqa: BLE001 — network errors, timeouts, etc.
+        return None
+
+
+def _is_server_running(root: str, host: str = _DEFAULT_HOST) -> int | None:
+    """Check whether a pixie server is running for *root*.
+
+    Reads the lock file and probes the ``/api/status`` endpoint to
+    verify the server is actually alive (not just a stale lock file
+    or another process on the same port).
+
+    Returns:
+        The port number if the server is running, otherwise *None*.
+    """
+    port = _read_lock(root)
+    if port is None:
+        return None
+    if _probe_server(host, port) is not None:
+        return port
+    # Stale lock — clean it up
+    _remove_lock(root)
+    return None
+
+
+def get_server_status(root: str, host: str = _DEFAULT_HOST) -> ServerStatus:
+    """Return the status of the pixie web server for *root*.
+
+    Checks the lock file and probes the ``/api/status`` endpoint.
+    """
+    port = _read_lock(root)
+    if port is None:
+        return ServerStatus(running=False, port=None, active_clients=0)
+    active_clients = _probe_server(host, port)
+    if active_clients is None:
+        _remove_lock(root)
+        return ServerStatus(running=False, port=None, active_clients=0)
+    return ServerStatus(running=True, port=port, active_clients=active_clients)
+
+
 def run_server(
     root: str,
     *,
@@ -89,6 +193,10 @@ def run_server(
 ) -> None:
     """Start the pixie web UI server.
 
+    Writes a ``server.lock`` to *root* on startup and removes it on
+    shutdown so other processes can discover whether the server is
+    already running.
+
     Args:
         root: Path to the pixie artifact root directory.
         host: Host to bind to.
@@ -97,12 +205,17 @@ def run_server(
         tab: Optional tab to pre-select in the web UI.
         item_id: Optional item path to pre-select within the tab.
     """
-    # If default port is taken, find another
-    if _is_port_in_use(host, port):
-        logger.info("Port %d in use, a server may already be running", port)
+    # Check if a server is already running for this root
+    running_port = _is_server_running(root, host)
+    if running_port is not None:
+        logger.info("Server already running on port %d", running_port)
         if open_browser:
-            webbrowser.open(build_url(host, port, tab=tab, item_id=item_id))
+            webbrowser.open(build_url(host, running_port, tab=tab, item_id=item_id))
         return
+
+    # If the default port is taken by something else, find another
+    if _is_port_in_use(host, port):
+        port = _find_open_port(host, port + 1)
 
     sse_manager = SSEManager()
     app = create_app(root, sse_manager=sse_manager)
@@ -114,6 +227,11 @@ def run_server(
         log_level="info",
     )
     server = uvicorn.Server(config)
+
+    _write_lock(root, port)
+
+    # Register atexit handler for lock cleanup (belt-and-suspenders)
+    atexit.register(_remove_lock, root)
 
     async def _run() -> None:
         # Start file watcher as a background task
@@ -132,11 +250,16 @@ def run_server(
         try:
             await server.serve()
         finally:
+            _remove_lock(root)
             watcher_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await watcher_task
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        # Belt-and-suspenders: ensure lock is removed even on unexpected exit
+        _remove_lock(root)
 
 
 def open_webui(
@@ -149,22 +272,24 @@ def open_webui(
 ) -> None:
     """Open the web UI, starting the server in the background if needed.
 
-    If the server is already running on *port*, opens the browser to it.
-    Otherwise, starts the server on a daemon thread and opens the browser.
+    Checks the ``server.lock`` file in *root* to discover whether a
+    server is already running (and on which port).  If it is, opens
+    the browser.  Otherwise, starts the server on a daemon thread and
+    opens the browser.
 
     This function returns immediately in both cases.
 
     Args:
         root: Path to the pixie artifact root directory.
         host: Host to bind to.
-        port: Port to bind to.
+        port: Port to bind to (used as default when no lock file exists).
         tab: Optional tab to pre-select in the web UI.
         item_id: Optional item path to pre-select within the tab.
     """
-    url = build_url(host, port, tab=tab, item_id=item_id)
-
-    if _is_port_in_use(host, port):
-        logger.info("Server already running on port %d, opening browser", port)
+    running_port = _is_server_running(root, host)
+    if running_port is not None:
+        url = build_url(host, running_port, tab=tab, item_id=item_id)
+        logger.info("Server already running on port %d, opening browser", running_port)
         webbrowser.open(url)
         return
 
@@ -187,5 +312,9 @@ def open_webui(
     import time
 
     time.sleep(0.8)
+
+    # Read the actual port from the lock file (may differ from default)
+    actual_port = _read_lock(root) or port
+    url = build_url(host, actual_port, tab=tab, item_id=item_id)
     logger.info("Opening browser at %s", url)
     webbrowser.open(url)

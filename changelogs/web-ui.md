@@ -6,17 +6,19 @@ Added a local web UI that renders eval-driven-dev artifacts (markdown files, dat
 
 Changed `pixie test` to open the web UI (instead of the raw scorecard HTML file) after generating a scorecard. If the web UI server is not running, it starts one in the background.
 
-Changed `pixie init` to immediately launch the web UI after scaffolding so it behaves like `pixie init && pixie start`.
+Reverted `pixie init` to init-only behavior (no longer launches the web UI). Instead, `pixie start` now runs init automatically before starting the server.
 
-### New CLI command
+Added `server.lock` file management: the server writes a lock file (containing the port number) to the artifact root on startup and removes it on shutdown. Both `open_webui()` and `run_server()` use this lock file to discover whether a server is already running and on which port.
 
-- `pixie start [root]` — starts a local HTTP server and opens the web UI in the default browser. If the default port (7118) is already in use, assumes a server is running and opens the browser only.
+### CLI commands
 
-### `pixie init` chaining behavior
+- `pixie init [root]` — scaffolds the pixie_qa directory layout. Does not start the server.
+- `pixie start [root]` — runs init (if needed), then starts the web UI server. Writes `server.lock` to the artifact root.
 
-- `pixie init` now scaffolds directories and then invokes `pixie start` behavior automatically
-- The init step remains idempotent; existing directories/files are preserved
-- The follow-up web UI launch uses the same root argument resolution as `pixie start`
+### `pixie start` init behavior
+
+- `pixie start` calls `init_pixie_dir()` before starting the server, ensuring the artifact root exists
+- The init step is idempotent; existing directories/files are preserved
 
 ### Scorecard viewing after `pixie test`
 
@@ -35,8 +37,8 @@ Changed `pixie init` to immediately launch the web UI after scaffolding so it be
   - `GET /api/file?path=...` — serves individual artifact files (md, json, html) with path traversal protection
   - `GET /api/events` — SSE endpoint for live update notifications
 - **pixie/web/watcher.py** — Watches the artifact root directory using `watchfiles.awatch` and broadcasts `file_change` and `manifest` events via SSE when artifacts are added, modified, or removed.
-- **pixie/web/server.py** — Uvicorn runner with `run_server()` (blocking), `open_webui()` (non-blocking, starts daemon thread if needed), and `build_url()` (constructs URL with query params).
-- **pixie/cli/start_command.py** — CLI command handler for `pixie start`, accepts optional `tab`/`item_id` for deep-linking.
+- **pixie/web/server.py** — Uvicorn runner with `run_server()` (blocking), `open_webui()` (non-blocking, starts daemon thread if needed), `build_url()` (constructs URL with query params), and `server.lock` file management (`_write_lock`, `_read_lock`, `_remove_lock`, `_is_server_running`).
+- **pixie/cli/start_command.py** — CLI command handler for `pixie start`, calls `init_pixie_dir()` then `run_server()`. Accepts optional `tab`/`item_id` for deep-linking.
 
 ### Frontend (React + TypeScript)
 
@@ -91,7 +93,9 @@ Changed `pixie init` to immediately launch the web UI after scaffolding so it be
 
 ### Modified files
 
-- `pixie/cli/main.py` — added `start` subcommand and made `init` invoke `start` after scaffolding
+- `pixie/cli/main.py` — added `start` subcommand; reverted `init` to init-only (no longer invokes `start`)
+- `pixie/cli/start_command.py` — calls `init_pixie_dir()` before `run_server()`
+- `pixie/web/server.py` — added `server.lock` file management; `run_server()` and `open_webui()` use lock-based server detection
 - `pixie/cli/test_command.py` — replaced `webbrowser.open(file_uri)` with `open_webui()` call to show scorecard in web UI
 - `frontend/vite.config.ts` — dual-target build
 - `frontend/package.json` — new build scripts

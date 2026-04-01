@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import unittest.mock
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -96,6 +98,22 @@ class TestSSEManager:
 
         mgr.unsubscribe(q)
         assert not mgr.has_subscribers()
+
+    def test_subscriber_count(self) -> None:
+        mgr = SSEManager()
+        assert mgr.subscriber_count == 0
+
+        q1 = mgr.subscribe()
+        assert mgr.subscriber_count == 1
+
+        q2 = mgr.subscribe()
+        assert mgr.subscriber_count == 2
+
+        mgr.unsubscribe(q1)
+        assert mgr.subscriber_count == 1
+
+        mgr.unsubscribe(q2)
+        assert mgr.subscriber_count == 0
 
     def test_unsubscribe_nonexistent_is_safe(self) -> None:
         mgr = SSEManager()
@@ -196,21 +214,33 @@ class TestAppEndpoints:
         resp = client.get("/api/file?path=test.py")
         assert resp.status_code == 400
 
+    def test_status_endpoint_returns_active_clients(self, client: TestClient) -> None:
+        resp = client.get("/api/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "active_clients" in data
+        assert data["active_clients"] == 0
+
 
 # ── CLI Start Command ────────────────────────────────────────────────
 
 
 class TestStartCommand:
-    def test_start_calls_run_server(self) -> None:
-        with patch("pixie.cli.start_command.run_server") as mock_run:
+    def test_start_calls_init_and_run_server(self) -> None:
+        with (
+            patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
+            patch("pixie.cli.start_command.run_server") as mock_run,
+        ):
             from pixie.cli.start_command import start
 
             result = start(root="/tmp/test-root")
             assert result == 0
+            mock_init.assert_called_once_with(root="/tmp/test-root")
             mock_run.assert_called_once_with("/tmp/test-root", tab=None, item_id=None)
 
     def test_start_uses_config_default(self) -> None:
         with (
+            patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
             patch("pixie.cli.start_command.run_server") as mock_run,
             patch("pixie.cli.start_command.get_config") as mock_config,
         ):
@@ -218,13 +248,18 @@ class TestStartCommand:
             from pixie.cli.start_command import start
 
             start(root=None)
+            mock_init.assert_called_once_with(root="pixie_qa")
             mock_run.assert_called_once_with("pixie_qa", tab=None, item_id=None)
 
     def test_start_passes_tab_and_item_id(self) -> None:
-        with patch("pixie.cli.start_command.run_server") as mock_run:
+        with (
+            patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
+            patch("pixie.cli.start_command.run_server") as mock_run,
+        ):
             from pixie.cli.start_command import start
 
             start(root="/tmp/r", tab="scorecards", item_id="scorecards/sc.html")
+            mock_init.assert_called_once_with(root="/tmp/r")
             mock_run.assert_called_once_with(
                 "/tmp/r", tab="scorecards", item_id="scorecards/sc.html"
             )
@@ -252,31 +287,23 @@ class TestMainStartSubcommand:
 
 
 class TestMainInitSubcommand:
-    def test_pixie_init_routes_to_init_and_start(self) -> None:
-        with (
-            patch("pixie.cli.init_command.init_pixie_dir") as mock_init,
-            patch("pixie.cli.start_command.start", return_value=0) as mock_start,
-        ):
+    def test_pixie_init_routes_to_init_only(self) -> None:
+        with patch("pixie.cli.init_command.init_pixie_dir") as mock_init:
             mock_init.return_value = Path("pixie_qa")
             from pixie.cli.main import main
 
             result = main(["init"])
             assert result == 0
             mock_init.assert_called_once_with(root=None)
-            mock_start.assert_called_once_with(root=None)
 
-    def test_pixie_init_with_root_routes_to_init_and_start(self) -> None:
-        with (
-            patch("pixie.cli.init_command.init_pixie_dir") as mock_init,
-            patch("pixie.cli.start_command.start", return_value=0) as mock_start,
-        ):
+    def test_pixie_init_with_root_routes_to_init_only(self) -> None:
+        with patch("pixie.cli.init_command.init_pixie_dir") as mock_init:
             mock_init.return_value = Path("/tmp/my-root")
             from pixie.cli.main import main
 
             result = main(["init", "/tmp/my-root"])
             assert result == 0
             mock_init.assert_called_once_with(root="/tmp/my-root")
-            mock_start.assert_called_once_with(root="/tmp/my-root")
 
 
 # ── build_url ────────────────────────────────────────────────────────
@@ -317,7 +344,7 @@ class TestOpenWebui:
         from pixie.web.server import open_webui
 
         with (
-            patch("pixie.web.server._is_port_in_use", return_value=True),
+            patch("pixie.web.server._is_server_running", return_value=7118),
             patch("pixie.web.server.webbrowser.open") as mock_open,
         ):
             open_webui("/tmp/root", tab="scorecards", item_id="scorecards/x.html")
@@ -326,11 +353,24 @@ class TestOpenWebui:
             assert "tab=scorecards" in url
             assert "id=scorecards/x.html" in url
 
+    def test_opens_browser_on_lock_port(self) -> None:
+        """When the server is running on a non-default port, use that port."""
+        from pixie.web.server import open_webui
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=9999),
+            patch("pixie.web.server.webbrowser.open") as mock_open,
+        ):
+            open_webui("/tmp/root", tab="scorecards")
+            url = mock_open.call_args[0][0]
+            assert ":9999" in url
+
     def test_starts_server_in_background_when_not_running(self) -> None:
         from pixie.web.server import open_webui
 
         with (
-            patch("pixie.web.server._is_port_in_use", return_value=False),
+            patch("pixie.web.server._is_server_running", return_value=None),
+            patch("pixie.web.server._read_lock", return_value=None),
             patch("threading.Thread") as mock_thread_cls,
             patch("pixie.web.server.webbrowser.open") as mock_open,
             patch("time.sleep"),
@@ -387,3 +427,133 @@ class TestPixieTestOpensWebUI:
         ):
             pixie_test_main([str(test_file), "--no-open"])
             mock_open.assert_not_called()
+
+
+# ── Server lock file ────────────────────────────────────────────────
+
+
+class TestServerLock:
+    def test_write_and_read_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import _read_lock, _write_lock
+
+        root = str(tmp_path)
+        _write_lock(root, 7200)
+        assert _read_lock(root) == 7200
+
+    def test_read_lock_returns_none_when_missing(self, tmp_path: Path) -> None:
+        from pixie.web.server import _read_lock
+
+        assert _read_lock(str(tmp_path)) is None
+
+    def test_remove_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import _read_lock, _remove_lock, _write_lock
+
+        root = str(tmp_path)
+        _write_lock(root, 7200)
+        _remove_lock(root)
+        assert _read_lock(root) is None
+
+    def test_remove_lock_when_missing_is_safe(self, tmp_path: Path) -> None:
+        from pixie.web.server import _remove_lock
+
+        _remove_lock(str(tmp_path))  # Should not raise
+
+    def test_is_server_running_with_active_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import _is_server_running, _write_lock
+
+        root = str(tmp_path)
+        _write_lock(root, 7118)
+        with patch("pixie.web.server._probe_server", return_value=0):
+            assert _is_server_running(root) == 7118
+
+    def test_is_server_running_cleans_stale_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import _is_server_running, _read_lock, _write_lock
+
+        root = str(tmp_path)
+        _write_lock(root, 7118)
+        with patch("pixie.web.server._probe_server", return_value=None):
+            assert _is_server_running(root) is None
+        # Stale lock should have been cleaned up
+        assert _read_lock(root) is None
+
+    def test_is_server_running_no_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import _is_server_running
+
+        assert _is_server_running(str(tmp_path)) is None
+
+
+# ── _probe_server ──────────────────────────────────────────────────────
+
+
+class TestProbeServer:
+    def test_returns_client_count_on_success(self) -> None:
+        from pixie.web.server import _probe_server
+
+        response_body = json.dumps({"active_clients": 3}).encode()
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.read.return_value = response_body
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = unittest.mock.MagicMock(return_value=False)
+
+        with patch("pixie.web.server.urllib.request.urlopen", return_value=mock_resp):
+            assert _probe_server("127.0.0.1", 7118) == 3
+
+    def test_returns_none_on_connection_error(self) -> None:
+        from pixie.web.server import _probe_server
+
+        with patch(
+            "pixie.web.server.urllib.request.urlopen",
+            side_effect=urllib.error.URLError("Connection refused"),
+        ):
+            assert _probe_server("127.0.0.1", 7118) is None
+
+    def test_returns_none_on_timeout(self) -> None:
+        from pixie.web.server import _probe_server
+
+        with patch(
+            "pixie.web.server.urllib.request.urlopen",
+            side_effect=TimeoutError("timed out"),
+        ):
+            assert _probe_server("127.0.0.1", 7118) is None
+
+
+# ── get_server_status ──────────────────────────────────────────────────
+
+
+class TestGetServerStatus:
+    def test_not_running_when_no_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import ServerStatus, get_server_status
+
+        status = get_server_status(str(tmp_path))
+        assert status == ServerStatus(running=False, port=None, active_clients=0)
+
+    def test_not_running_when_stale_lock(self, tmp_path: Path) -> None:
+        from pixie.web.server import ServerStatus, _write_lock, get_server_status
+
+        root = str(tmp_path)
+        _write_lock(root, 7118)
+        with patch("pixie.web.server._probe_server", return_value=None):
+            status = get_server_status(root)
+        assert status == ServerStatus(running=False, port=None, active_clients=0)
+        # Stale lock should be cleaned
+        from pixie.web.server import _read_lock
+
+        assert _read_lock(root) is None
+
+    def test_running_with_no_clients(self, tmp_path: Path) -> None:
+        from pixie.web.server import ServerStatus, _write_lock, get_server_status
+
+        root = str(tmp_path)
+        _write_lock(root, 7118)
+        with patch("pixie.web.server._probe_server", return_value=0):
+            status = get_server_status(root)
+        assert status == ServerStatus(running=True, port=7118, active_clients=0)
+
+    def test_running_with_active_clients(self, tmp_path: Path) -> None:
+        from pixie.web.server import ServerStatus, _write_lock, get_server_status
+
+        root = str(tmp_path)
+        _write_lock(root, 9999)
+        with patch("pixie.web.server._probe_server", return_value=5):
+            status = get_server_status(root)
+        assert status == ServerStatus(running=True, port=9999, active_clients=5)

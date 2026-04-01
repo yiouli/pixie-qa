@@ -83,8 +83,12 @@ class SSEManager:
         with contextlib.suppress(ValueError):
             self._queues.remove(q)
 
+    @property
+    def subscriber_count(self) -> int:
+        return len(self._queues)
+
     def has_subscribers(self) -> bool:
-        return len(self._queues) > 0
+        return self.subscriber_count > 0
 
     async def broadcast(self, event_type: str, data: object) -> None:
         payload = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
@@ -185,11 +189,15 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
             },
         )
 
+    async def api_status(request: Request) -> JSONResponse:
+        return JSONResponse({"active_clients": sse.subscriber_count})
+
     routes = [
         Route("/", index),
         Route("/api/manifest", api_manifest),
         Route("/api/file", api_file_content),
         Route("/api/events", api_events),
+        Route("/api/status", api_status),
     ]
 
     return Starlette(routes=routes)

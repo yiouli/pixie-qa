@@ -40,12 +40,14 @@ The `pixie-qa` Python package (imported as `pixie`) is what Claude installs and 
 View all eval artifacts (markdown docs, datasets, scorecards) in a live-updating local web UI:
 
 ```bash
-pixie start              # opens http://localhost:7118 in your browser
+pixie start              # initializes pixie_qa/ (if needed) and opens http://localhost:7118
 pixie start my_dir       # use a custom artifact root
-pixie init               # scaffolds pixie_qa/ then launches the web UI
+pixie init               # scaffolds pixie_qa/ without starting the server
 ```
 
 The web UI provides tabbed navigation for scorecards, datasets, and markdown files. Changes to artifacts are pushed to the browser in real time via SSE.
+
+The server writes a `server.lock` file to the artifact root directory on startup (containing the port number) and removes it on shutdown, allowing other processes to discover whether the server is already running.
 
 ## Configuration
 
