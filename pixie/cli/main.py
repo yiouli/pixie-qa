@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from piccolo.engine.sqlite import SQLiteEngine
 from pydantic import JsonValue
 
+from pixie.cli.dag_command import dag_check_trace, dag_validate
 from pixie.cli.dataset_command import (
     dataset_create,
     dataset_list,
@@ -181,6 +182,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Root directory to create (default: from PIXIE_ROOT or pixie_qa)",
     )
 
+    # -- pixie dag -----------------------------------------------------------
+    dag_parser = subparsers.add_parser(
+        "dag", help="Data-flow DAG validation and trace checking"
+    )
+    dag_sub = dag_parser.add_subparsers(dest="dag_action", help="DAG actions")
+
+    # pixie dag validate <json_file> [--project-root PATH]
+    dag_validate_parser = dag_sub.add_parser(
+        "validate",
+        help="Validate a DAG JSON file and generate Mermaid diagram",
+    )
+    dag_validate_parser.add_argument("json_file", help="Path to the DAG JSON file")
+    dag_validate_parser.add_argument(
+        "--project-root",
+        default=None,
+        help="Project root for resolving code pointers (default: JSON file directory)",
+    )
+
+    # pixie dag check-trace <json_file>
+    dag_check_parser = dag_sub.add_parser(
+        "check-trace",
+        help="Check the last trace against a DAG JSON file",
+    )
+    dag_check_parser.add_argument("json_file", help="Path to the DAG JSON file")
+
     return parser
 
 
@@ -324,6 +350,23 @@ def main(argv: list[str] | None = None) -> int:
 
         result_path = init_pixie_dir(root=args.root)
         print(f"Initialized pixie directory at {result_path}")  # noqa: T201
+
+    elif args.command == "dag":
+        if args.dag_action is None:
+            parser.parse_args(["dag", "--help"])
+            return 1
+
+        try:
+            if args.dag_action == "validate":
+                return dag_validate(
+                    json_file=args.json_file,
+                    project_root=args.project_root,
+                )
+            elif args.dag_action == "check-trace":
+                return dag_check_trace(json_file=args.json_file)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
+            return 1
 
     return 0
 
