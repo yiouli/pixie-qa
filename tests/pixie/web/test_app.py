@@ -251,6 +251,34 @@ class TestMainStartSubcommand:
             mock_start.assert_called_once_with(root="/tmp/my-root")
 
 
+class TestMainInitSubcommand:
+    def test_pixie_init_routes_to_init_and_start(self) -> None:
+        with (
+            patch("pixie.cli.init_command.init_pixie_dir") as mock_init,
+            patch("pixie.cli.start_command.start", return_value=0) as mock_start,
+        ):
+            mock_init.return_value = Path("pixie_qa")
+            from pixie.cli.main import main
+
+            result = main(["init"])
+            assert result == 0
+            mock_init.assert_called_once_with(root=None)
+            mock_start.assert_called_once_with(root=None)
+
+    def test_pixie_init_with_root_routes_to_init_and_start(self) -> None:
+        with (
+            patch("pixie.cli.init_command.init_pixie_dir") as mock_init,
+            patch("pixie.cli.start_command.start", return_value=0) as mock_start,
+        ):
+            mock_init.return_value = Path("/tmp/my-root")
+            from pixie.cli.main import main
+
+            result = main(["init", "/tmp/my-root"])
+            assert result == 0
+            mock_init.assert_called_once_with(root="/tmp/my-root")
+            mock_start.assert_called_once_with(root="/tmp/my-root")
+
+
 # ── build_url ────────────────────────────────────────────────────────
 
 

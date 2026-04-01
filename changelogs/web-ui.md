@@ -6,9 +6,17 @@ Added a local web UI that renders eval-driven-dev artifacts (markdown files, dat
 
 Changed `pixie test` to open the web UI (instead of the raw scorecard HTML file) after generating a scorecard. If the web UI server is not running, it starts one in the background.
 
+Changed `pixie init` to immediately launch the web UI after scaffolding so it behaves like `pixie init && pixie start`.
+
 ### New CLI command
 
 - `pixie start [root]` — starts a local HTTP server and opens the web UI in the default browser. If the default port (7118) is already in use, assumes a server is running and opens the browser only.
+
+### `pixie init` chaining behavior
+
+- `pixie init` now scaffolds directories and then invokes `pixie start` behavior automatically
+- The init step remains idempotent; existing directories/files are preserved
+- The follow-up web UI launch uses the same root argument resolution as `pixie start`
 
 ### Scorecard viewing after `pixie test`
 
@@ -83,7 +91,7 @@ Changed `pixie test` to open the web UI (instead of the raw scorecard HTML file)
 
 ### Modified files
 
-- `pixie/cli/main.py` — added `start` subcommand
+- `pixie/cli/main.py` — added `start` subcommand and made `init` invoke `start` after scaffolding
 - `pixie/cli/test_command.py` — replaced `webbrowser.open(file_uri)` with `open_webui()` call to show scorecard in web UI
 - `frontend/vite.config.ts` — dual-target build
 - `frontend/package.json` — new build scripts

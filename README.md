@@ -42,6 +42,7 @@ View all eval artifacts (markdown docs, datasets, scorecards) in a live-updating
 ```bash
 pixie start              # opens http://localhost:7118 in your browser
 pixie start my_dir       # use a custom artifact root
+pixie init               # scaffolds pixie_qa/ then launches the web UI
 ```
 
 The web UI provides tabbed navigation for scorecards, datasets, and markdown files. Changes to artifacts are pushed to the browser in real time via SSE.

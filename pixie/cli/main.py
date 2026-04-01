@@ -358,9 +358,11 @@ def main(argv: list[str] | None = None) -> int:
 
     elif args.command == "init":
         from pixie.cli.init_command import init_pixie_dir
+        from pixie.cli.start_command import start
 
         result_path = init_pixie_dir(root=args.root)
         print(f"Initialized pixie directory at {result_path}")  # noqa: T201
+        return start(root=args.root)
 
     elif args.command == "start":
         from pixie.cli.start_command import start
