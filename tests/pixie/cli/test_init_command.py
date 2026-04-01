@@ -21,6 +21,7 @@ class TestInitPixieDir:
         assert (root / "datasets").is_dir()
         assert (root / "tests").is_dir()
         assert (root / "scripts").is_dir()
+        assert (root / "scripts" / "__init__.py").is_file()
 
     def test_idempotent_on_existing_structure(self, tmp_path: Path) -> None:
         root = tmp_path / "pixie_qa"

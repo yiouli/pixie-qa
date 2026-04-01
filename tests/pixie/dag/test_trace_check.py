@@ -91,7 +91,7 @@ class TestCheckTraceAgainstDag:
             ),
             DagNode(
                 id="llm1",
-                name="gpt-4",
+                name="call_llm",
                 type="llm_call",
                 code_pointer="app.py:llm",
                 description="LLM",
@@ -162,7 +162,64 @@ class TestCheckTraceAgainstDag:
         ]
         result = check_trace_against_dag(dag_nodes, trace)
         assert result.valid  # extra spans don't cause failure
+        # LLM span model name appears as extra since no llm_call DAG node
         assert "gpt-4" in result.extra_spans
+
+    def test_llm_call_matches_by_type_not_name(self) -> None:
+        """llm_call DAG nodes match if ANY LLM span exists, regardless of name."""
+        dag_nodes = [
+            DagNode(
+                id="root",
+                name="entry",
+                type="entry_point",
+                code_pointer="f.py:r",
+                description="root",
+            ),
+            DagNode(
+                id="llm1",
+                name="call_llm",
+                type="llm_call",
+                code_pointer="f.py:l",
+                description="LLM call",
+                parent_id="root",
+            ),
+        ]
+        # Trace has an LLM span with a completely different model name
+        trace = [
+            FakeNode(
+                span=_observe_span("entry"),
+                children=[FakeNode(span=_llm_span("claude-3-5-sonnet-20241022"))],
+            )
+        ]
+        result = check_trace_against_dag(dag_nodes, trace)
+        assert result.valid
+        assert "llm1" in result.matched
+
+    def test_llm_call_fails_when_no_llm_spans(self) -> None:
+        """llm_call DAG node fails if there are no LLM spans at all."""
+        dag_nodes = [
+            DagNode(
+                id="root",
+                name="entry",
+                type="entry_point",
+                code_pointer="f.py:r",
+                description="root",
+            ),
+            DagNode(
+                id="llm1",
+                name="call_llm",
+                type="llm_call",
+                code_pointer="f.py:l",
+                description="LLM call",
+                parent_id="root",
+            ),
+        ]
+        # Trace has no LLM spans
+        trace = [FakeNode(span=_observe_span("entry"))]
+        result = check_trace_against_dag(dag_nodes, trace)
+        assert not result.valid
+        assert "llm1" in result.unmatched
+        assert any("LLM span" in e for e in result.errors)
 
     def test_non_observable_types_ignored(self) -> None:
         """data_dependency, intermediate_state, side_effect should not be checked."""

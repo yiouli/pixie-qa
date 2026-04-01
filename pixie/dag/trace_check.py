@@ -58,28 +58,44 @@ def check_trace_against_dag(
     # Collect spans from trace
     span_info = _collect_span_info(trace_tree)
     span_names = {s["name"] for s in span_info}
+    has_llm_spans = any(s["type"] == "llm_call" for s in span_info)
 
-    # Check each observable DAG node has a matching span
+    # Check each observable DAG node has a matching span.
+    # For llm_call nodes: just verify that at least one LLM span exists
+    # in the trace (name is not matched — LLM model identifiers are fragile).
+    # For entry_point / observation nodes: match by exact name.
+    matched_span_names: set[str] = set()
     for dag_node in observable_dag_nodes:
-        if dag_node.name in span_names:
+        if dag_node.type == "llm_call":
+            if has_llm_spans:
+                result.matched.append(dag_node.id)
+            else:
+                result.unmatched.append(dag_node.id)
+        elif dag_node.name in span_names:
             result.matched.append(dag_node.id)
+            matched_span_names.add(dag_node.name)
         else:
             result.unmatched.append(dag_node.id)
 
     # Find spans not accounted for by the DAG
-    dag_names = {n.name for n in observable_dag_nodes}
     for span_name in span_names:
-        if span_name not in dag_names:
+        if span_name not in matched_span_names:
             result.extra_spans.append(span_name)
 
     if result.unmatched:
         result.valid = False
         for node_id in result.unmatched:
             node = next(n for n in dag_nodes if n.id == node_id)
-            result.errors.append(
-                f"DAG node '{node.id}' (name='{node.name}', type={node.type}) "
-                f"has no matching span in the trace."
-            )
+            if node.type == "llm_call":
+                result.errors.append(
+                    f"DAG node '{node.id}' (type=llm_call) expects at least "
+                    f"one LLM span in the trace, but none were found."
+                )
+            else:
+                result.errors.append(
+                    f"DAG node '{node.id}' (name='{node.name}', type={node.type}) "
+                    f"has no matching span in the trace."
+                )
 
     return result
 
