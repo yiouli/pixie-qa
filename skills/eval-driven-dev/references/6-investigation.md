@@ -4,13 +4,23 @@ This reference covers Step 6 of the eval-driven-dev process: investigating test 
 
 ---
 
-## When to use this
+## STOP — check before proceeding
 
-Only proceed with investigation if the user asked for it (iteration intent) or confirmed after seeing setup results. If the user's intent was "set up evals," stop after reporting test results and ask before investigating.
+**Before doing any investigation or iteration work, you must decide whether to continue or stop and ask the user.**
+
+**Continue immediately** if the user's original prompt explicitly asked for iteration — look for words like "fix", "improve", "debug", "iterate", "investigate failures", or "make tests pass". In this case, proceed to the investigation steps below.
+
+**Otherwise, STOP here.** Report the test results to the user:
+
+> "QA setup is complete. Tests show N/M passing. [brief summary of failures if any]. Want me to investigate the failures and iterate?"
+
+**Do not proceed with investigation until the user confirms.** This is the default — most prompts like "set up evals", "add tests", "set up QA", or "add evaluations" are asking for setup only, not iteration.
 
 ---
 
 ## Step-by-step investigation
+
+When the user has confirmed (or their original prompt was explicitly about iteration), proceed:
 
 ### 1. Get detailed test output
 
@@ -79,7 +89,7 @@ For non-LLM failures: note them in the investigation log and recommend the code 
 
 ### 4. Document findings
 
-**Every failure investigation should be documented** in a structured format:
+**Every failure investigation should be documented** alongside the fix. Include:
 
 ````markdown
 ### <date> — <test_name> failure
@@ -123,15 +133,13 @@ pixie test pixie_qa/tests/ -k faq -v      # verify
 ```
 ````
 
-````
-
 ### 5. Fix and re-run
 
 Make the targeted change, rebuild the dataset if needed, and re-run. Always finish by giving the user the exact commands to verify:
 
 ```bash
 pixie test pixie_qa/tests/test_<feature>.py -v
-````
+```
 
 ---
 

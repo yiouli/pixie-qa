@@ -24,15 +24,15 @@ every artefact lives inside a single `pixie_qa` project directory:
 from pixie import enable_storage, observe, start_observation, flush, init, add_handler
 ```
 
-| Function / Decorator | Signature                                                    | Notes                                                                                               |
-| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `observe`   | `observe(name: 'str | None' = None) -> 'Callable[[Callable[P, T]], Callable[P, T]]'` | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
-| `enable_storage`   | `enable_storage() -> 'StorageHandler'` | Idempotent. Creates DB, registers handler. Call at app startup. |
-| `start_observation`   | `start_observation(*, input: 'JsonValue', name: 'str | None' = None) -> 'Generator[ObservationContext, None, None]'` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside. |
-| `flush`   | `flush(timeout_seconds: 'float' = 5.0) -> 'bool'` | Drains the queue. Call after a run before using CLI commands. |
-| `init`   | `init(*, capture_content: 'bool' = True, queue_size: 'int' = 1000) -> 'None'` | Called internally by `enable_storage`. Idempotent. |
-| `add_handler`   | `add_handler(handler: 'InstrumentationHandler') -> 'None'` | Register a custom handler (must call `init()` first). |
-| `remove_handler`   | `remove_handler(handler: 'InstrumentationHandler') -> 'None'` | Unregister a previously added handler. |
+| Function / Decorator | Signature                                                                                                             | Notes                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `observe`            | `observe(name: 'str \| None' = None) -> 'Callable[[Callable[P, T]], Callable[P, T]]'`                                 | Wraps a sync or async function. Captures all kwargs as `eval_input`, return value as `eval_output`. |
+| `enable_storage`     | `enable_storage() -> 'StorageHandler'`                                                                                | Idempotent. Creates DB, registers handler. Call at app startup.                                     |
+| `start_observation`  | `start_observation(*, input: 'JsonValue', name: 'str \| None' = None) -> 'Generator[ObservationContext, None, None]'` | Manual span. Call `obs.set_output(v)` and `obs.set_metadata(key, value)` inside.                    |
+| `flush`              | `flush(timeout_seconds: 'float' = 5.0) -> 'bool'`                                                                     | Drains the queue. Call after a run before using CLI commands.                                       |
+| `init`               | `init(*, capture_content: 'bool' = True, queue_size: 'int' = 1000) -> 'None'`                                         | Called internally by `enable_storage`. Idempotent.                                                  |
+| `add_handler`        | `add_handler(handler: 'InstrumentationHandler') -> 'None'`                                                            | Register a custom handler (must call `init()` first).                                               |
+| `remove_handler`     | `remove_handler(handler: 'InstrumentationHandler') -> 'None'`                                                         | Unregister a previously added handler.                                                              |
 
 ---
 
@@ -59,27 +59,27 @@ pixie test [path] [-k filter_substring] [-v]
 
 ### `pixie trace` commands
 
-**`pixie trace list`** — show recent traces with summary info (trace ID, root span, timestamp, span count, errors).
+**`pixie trace list`** - show recent traces with summary info (trace ID, root span, timestamp, span count, errors).
 
-- `--limit N` (default 10) — number of traces to show
-- `--errors` — show only traces with errors
+- `--limit N` (default 10) - number of traces to show
+- `--errors` - show only traces with errors
 
-**`pixie trace show <trace_id>`** — show the span tree for a specific trace.
+**`pixie trace show <trace_id>`** - show the span tree for a specific trace.
 
 - Default (compact): span names, types, timing
 - `--verbose` / `-v`: full input/output data for each span
 - `--json`: machine-readable JSON output
 - Trace ID accepts prefix match (first 8+ characters)
 
-**`pixie trace last`** — shortcut to show the most recent trace in verbose mode. This is the primary command to use after running the harness.
+**`pixie trace last`** - shortcut to show the most recent trace in verbose mode. This is the primary command to use after running the harness.
 
 - `--json`: machine-readable JSON output
 
 **`pixie dataset save` selection modes:**
 
-- `root` (default) — the outermost `@observe` or `start_observation` span
-- `last_llm_call` — the most recent LLM API call span in the trace
-- `by_name` — a span matching the `--span-name` argument (takes the last matching span)
+- `root` (default) - the outermost `@observe` or `start_observation` span
+- `last_llm_call` - the most recent LLM API call span in the trace
+- `by_name` - a span matching the `--span-name` argument (takes the last matching span)
 
 ---
 
@@ -189,44 +189,44 @@ from pixie import FactualityEval, ClosedQAEval, create_llm_evaluator
 
 ### Heuristic (no LLM required)
 
-| Evaluator | Signature | Use when | Needs `expected_output`? |
-| --- | --- | --- | --- |
-| `ExactMatchEval() -> 'AutoevalsAdapter'` | Output must exactly equal the expected string | **Yes** |
-| `LevenshteinMatch() -> 'AutoevalsAdapter'` | Partial string similarity (edit distance) | **Yes** |
-| `NumericDiffEval() -> 'AutoevalsAdapter'` | Normalised numeric difference | **Yes** |
-| `JSONDiffEval(*, string_scorer: 'Any' = None) -> 'AutoevalsAdapter'` | Structural JSON comparison | **Yes** |
-| `ValidJSONEval(*, schema: 'Any' = None) -> 'AutoevalsAdapter'` | Output is valid JSON (optionally matching a schema) | No |
-| `ListContainsEval(*, pairwise_scorer: 'Any' = None, allow_extra_entities: 'bool' = False) -> 'AutoevalsAdapter'` | Output list contains expected items | **Yes** |
+| Evaluator          | Signature                                                                                                        | Use when                                            | Needs `expected_output`? |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------ |
+| `ExactMatchEval`   | `ExactMatchEval() -> 'AutoevalsAdapter'`                                                                         | Output must exactly equal the expected string       | **Yes**                  |
+| `LevenshteinMatch` | `LevenshteinMatch() -> 'AutoevalsAdapter'`                                                                       | Partial string similarity (edit distance)           | **Yes**                  |
+| `NumericDiffEval`  | `NumericDiffEval() -> 'AutoevalsAdapter'`                                                                        | Normalised numeric difference                       | **Yes**                  |
+| `JSONDiffEval`     | `JSONDiffEval(*, string_scorer: 'Any' = None) -> 'AutoevalsAdapter'`                                             | Structural JSON comparison                          | **Yes**                  |
+| `ValidJSONEval`    | `ValidJSONEval(*, schema: 'Any' = None) -> 'AutoevalsAdapter'`                                                   | Output is valid JSON (optionally matching a schema) | No                       |
+| `ListContainsEval` | `ListContainsEval(*, pairwise_scorer: 'Any' = None, allow_extra_entities: 'bool' = False) -> 'AutoevalsAdapter'` | Output list contains expected items                 | **Yes**                  |
 
 ### LLM-as-judge (require OpenAI key or compatible client)
 
-| Evaluator | Signature | Use when | Needs `expected_output`? |
-| --- | --- | --- | --- |
-| `FactualityEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Output is factually accurate vs reference | **Yes** |
-| `ClosedQAEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Closed-book QA comparison | **Yes** |
-| `SummaryEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Summarisation quality | **Yes** |
-| `TranslationEval(*, language: 'str | None' = None, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Translation quality | **Yes** |
-| `PossibleEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Output is feasible / plausible | No |
-| `SecurityEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | No security vulnerabilities in output | No |
-| `ModerationEval(*, threshold: 'float | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Content moderation | No |
-| `BattleEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Head-to-head comparison | **Yes** |
-| `HumorEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Humor quality evaluation | **Yes** |
-| `EmbeddingSimilarityEval(*, prefix: 'str | None' = None, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Embedding-based semantic similarity | **Yes** |
+| Evaluator                 | Signature                                                                                                                           | Use when                                  | Needs `expected_output`? |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------ |
+| `FactualityEval`          | `FactualityEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                        | Output is factually accurate vs reference | **Yes**                  |
+| `ClosedQAEval`            | `ClosedQAEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                          | Closed-book QA comparison                 | **Yes**                  |
+| `SummaryEval`             | `SummaryEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                           | Summarisation quality                     | **Yes**                  |
+| `TranslationEval`         | `TranslationEval(*, language: 'str \| None' = None, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`       | Translation quality                       | **Yes**                  |
+| `PossibleEval`            | `PossibleEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                          | Output is feasible / plausible            | No                       |
+| `SecurityEval`            | `SecurityEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                          | No security vulnerabilities in output     | No                       |
+| `ModerationEval`          | `ModerationEval(*, threshold: 'float \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                  | Content moderation                        | No                       |
+| `BattleEval`              | `BattleEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                            | Head-to-head comparison                   | **Yes**                  |
+| `HumorEval`               | `HumorEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'`                                             | Humor quality evaluation                  | **Yes**                  |
+| `EmbeddingSimilarityEval` | `EmbeddingSimilarityEval(*, prefix: 'str \| None' = None, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | Embedding-based semantic similarity       | **Yes**                  |
 
 ### RAG / retrieval
 
-| Evaluator | Signature | Use when | Needs `expected_output`? |
-| --- | --- | --- | --- |
-| `ContextRelevancyEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'` | Retrieved context is relevant to query | **Yes** |
-| `FaithfulnessEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'` | Answer is faithful to the provided context | No |
-| `AnswerRelevancyEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'` | Answer addresses the question (⚠️ requires `context` in trace — **RAG pipelines only**) | No |
-| `AnswerCorrectnessEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'` | Answer is correct vs reference | **Yes** |
+| Evaluator               | Signature                                                              | Use when                                                                                | Needs `expected_output`? |
+| ----------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------ |
+| `ContextRelevancyEval`  | `ContextRelevancyEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'`  | Retrieved context is relevant to query                                                  | **Yes**                  |
+| `FaithfulnessEval`      | `FaithfulnessEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'`      | Answer is faithful to the provided context                                              | No                       |
+| `AnswerRelevancyEval`   | `AnswerRelevancyEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'`   | Answer addresses the question (⚠️ requires `context` in trace — **RAG pipelines only**) | No                       |
+| `AnswerCorrectnessEval` | `AnswerCorrectnessEval(*, client: 'Any' = None) -> 'AutoevalsAdapter'` | Answer is correct vs reference                                                          | **Yes**                  |
 
 ### Other evaluators
 
-| Evaluator | Signature | Needs `expected_output`? |
-| --- | --- | --- |
-| `SqlEval(*, model: 'str | None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | No |
+| Evaluator | Signature                                                                             | Needs `expected_output`? |
+| --------- | ------------------------------------------------------------------------------------- | ------------------------ |
+| `SqlEval` | `SqlEval(*, model: 'str \| None' = None, client: 'Any' = None) -> 'AutoevalsAdapter'` | No                       |
 
 ---
 

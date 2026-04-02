@@ -1,16 +1,54 @@
-# Eval Tests: Evaluator Selection and Test Writing
+# Step 5: Write and Run Eval Tests
 
-This reference covers Step 5 of the eval-driven-dev process: choosing evaluators, writing the test file, and running `pixie test`.
-
-**Before writing any test code, re-read `references/pixie-api.md`** (Eval Runner API and Evaluator catalog sections) for exact parameter names and current evaluator signatures — these change when the package is updated.
+**Why this step**: With the utility function built and the dataset ready, writing tests is straightforward — wire up the function, choose evaluators for each criterion, and run.
 
 ---
 
-## Evaluator selection
+## 5a. Map criteria to evaluators
+
+**Every eval criterion from Step 1 — including any dimensions specified by the user in the prompt — must have a corresponding evaluator.** If the user asked for "factuality, completeness, and bias," you need three evaluators (or a multi-criteria evaluator that covers all three). Do not silently drop any requested dimension.
+
+For each eval criterion, decide how to evaluate it:
+
+- **Can it be checked with a built-in evaluator?** (factual correctness → `FactualityEval`, exact match → `ExactMatchEval`, RAG faithfulness → `FaithfulnessEval`)
+- **Does it need a custom evaluator?** Most app-specific criteria do — use `create_llm_evaluator` with a prompt that operationalizes the criterion.
+- **Is it universal or case-specific?** Universal criteria go in the test function. Case-specific criteria use `expected_output` from the dataset.
+
+For open-ended LLM text, **never** use `ExactMatchEval` — LLM outputs are non-deterministic.
+
+`AnswerRelevancyEval` is **RAG-only** — it requires a `context` value in the trace. Returns 0.0 without it. For general relevance without RAG, use `create_llm_evaluator` with a custom prompt.
+
+## 5b. Write the test file and run
+
+The test file wires together: a `runnable` (calls your utility function from Step 3), a reference to the dataset, and the evaluators you chose.
+
+Run with `pixie test` — not `pytest`:
+
+```bash
+uv run pixie test pixie_qa/tests/ -v
+```
+
+**After running, verify the scorecard:**
+
+1. Shows "N/M tests passed" with real numbers
+2. Does NOT say "No assert_pass / assert_dataset_pass calls recorded" (that means missing `await`)
+3. Per-evaluator scores appear with real values
+
+A test that passes with no recorded evaluations is worse than a failing test — it gives false confidence. Debug until real scores appear.
+
+## Output
+
+`pixie_qa/tests/test_<feature>.py` — the eval test file.
+
+---
+
+## Evaluator Selection and Test Writing Reference
+
+### Evaluator selection
 
 Choose evaluators based on the **output type** and your eval criteria from Step 1, not the app type.
 
-### Decision table
+#### Decision table
 
 | Output type                                                 | Evaluator category                                                      | Examples                                  |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------- |
@@ -20,13 +58,13 @@ Choose evaluators based on the **output type** and your eval criteria from Step 
 | Text with style/format requirements                         | Custom LLM-as-judge via `create_llm_evaluator`                          | Voice-friendly responses, tone checks     |
 | Multi-aspect quality                                        | Multiple evaluators combined                                            | Factuality + relevance + tone             |
 
-### Critical rules
+#### Critical rules
 
 - For open-ended LLM text, **never** use `ExactMatchEval`. LLM outputs are non-deterministic — exact match will either always fail or always pass (if comparing against the same output). Use LLM-as-judge evaluators instead.
 - `AnswerRelevancyEval` is **RAG-only** — it requires a `context` value in the trace. Returns 0.0 without it. For general relevance without RAG, use `create_llm_evaluator` with a custom prompt.
 - Do NOT use comparison evaluators (`FactualityEval`, `ClosedQAEval`, `ExactMatchEval`) on items without `expected_output` — they produce meaningless scores.
 
-### When `expected_output` IS available
+#### When `expected_output` IS available
 
 Use comparison-based evaluators:
 
@@ -37,7 +75,7 @@ Use comparison-based evaluators:
 | `ExactMatchEval`        | Exact string match (structured/deterministic outputs only) |
 | `AnswerCorrectnessEval` | Answer is correct vs reference                             |
 
-### When `expected_output` is NOT available
+#### When `expected_output` is NOT available
 
 Use standalone evaluators that judge quality without a reference:
 
@@ -52,11 +90,9 @@ Use standalone evaluators that judge quality without a reference:
 
 For non-RAG apps needing response relevance, write a `create_llm_evaluator` instead.
 
----
+### Custom evaluators
 
-## Custom evaluators
-
-### `create_llm_evaluator` factory
+#### `create_llm_evaluator` factory
 
 Use when the quality dimension is domain-specific and no built-in evaluator fits:
 
@@ -105,7 +141,7 @@ response_relevance = create_llm_evaluator(
 )
 ```
 
-### Manual custom evaluator
+#### Manual custom evaluator
 
 ```python
 from pixie import Evaluation, Evaluable
@@ -118,15 +154,11 @@ async def my_evaluator(evaluable: Evaluable, *, trace=None) -> Evaluation:
     return Evaluation(score=score, reasoning="...")
 ```
 
----
-
-## Writing the test file
+### Writing the test file
 
 Create `pixie_qa/tests/test_<feature>.py`. The pattern: a `runnable` adapter that calls the app's production function, plus `async` test functions that `await` `assert_dataset_pass`.
 
-**Before writing any test code, re-read the `assert_dataset_pass` API reference below.** The exact parameter names matter — using `dataset=` instead of `dataset_name=`, or omitting `await`, will cause failures that are hard to debug. Do not rely on memory from earlier in the conversation.
-
-### Test file template
+#### Test file template
 
 ```python
 from pixie import enable_storage, assert_dataset_pass, FactualityEval, ScoreThreshold, last_llm_call
@@ -154,7 +186,7 @@ async def test_answer_quality():
     )
 ```
 
-### `assert_dataset_pass` API — exact parameter names
+#### `assert_dataset_pass` API — exact parameter names
 
 ```python
 await assert_dataset_pass(
@@ -169,7 +201,7 @@ await assert_dataset_pass(
 )
 ```
 
-### Common mistakes that break tests
+#### Common mistakes that break tests
 
 | Mistake                  | Symptom                                                             | Fix                                           |
 | ------------------------ | ------------------------------------------------------------------- | --------------------------------------------- |
@@ -181,7 +213,7 @@ await assert_dataset_pass(
 
 **If `pixie test` shows "No assert_pass / assert_dataset_pass calls recorded"**, the test passed vacuously because `assert_dataset_pass` was never awaited. Fix the async signature and await immediately.
 
-### Multiple test functions
+#### Multiple test functions
 
 Split into separate test functions when you have different evaluator sets:
 
@@ -207,7 +239,7 @@ async def test_response_style():
     )
 ```
 
-### Key points
+#### Key points
 
 - `enable_storage()` belongs inside the `runnable`, not at module level — it needs to fire on each invocation so the trace is captured for that specific run.
 - The `runnable` imports and calls the **same function** that production uses — the app's entry point, going through the utility function from Step 3.
@@ -215,9 +247,7 @@ async def test_response_style():
 - The `eval_input` dict should contain **only the semantic arguments** the function needs (e.g., `question`, `messages`, `context`). The `@observe` decorator automatically strips `self` and `cls`.
 - **Choose evaluators that match your data.** If dataset items have `expected_output`, use comparison evaluators. If not, use standalone evaluators.
 
----
-
-## Running tests
+### Running tests
 
 The test runner is `pixie test` (not `pytest`):
 
@@ -239,3 +269,7 @@ The `-v` flag is important: it shows per-case scores and evaluator reasoning, wh
 3. Per-evaluator scores appear with real values
 
 A test that passes with no recorded evaluations is worse than a failing test — it gives false confidence. Debug until real scores appear.
+
+---
+
+> **If you hit an unexpected error** when writing or running tests (wrong parameter names, import failures, API mismatch), read `pixie-api.md` for the authoritative API reference before guessing at a fix.

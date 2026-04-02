@@ -1,12 +1,59 @@
-# Dataset Generation
+# Step 4: Build the Dataset
 
-This reference covers Step 4 of the eval-driven-dev process: creating the eval dataset.
-
-For full `DatasetStore`, `Evaluable`, and CLI command signatures, see `references/pixie-api.md` (Dataset Python API and CLI Commands sections).
+**Why this step**: The dataset is a collection of eval_input items (made up by you) that define the test scenarios. Each item may also carry case-specific expectations. The eval_output is NOT pre-populated in the dataset — it's produced at test time by the utility function from Step 3.
 
 ---
 
-## What a dataset contains
+## 4a. Determine verification and expectations
+
+Before generating data, decide how each eval criterion from `pixie_qa/03-eval-criteria.md` will be checked.
+
+**Examine the reference trace from `pixie_qa/04-reference-trace.md`** and identify:
+
+- **Structural constraints** you can verify with code — JSON schema, required fields, value types, enum ranges, string length bounds. These become validation checks on your generated eval_inputs.
+- **Semantic constraints** that require judgment — "the mock customer profile should be realistic", "the conversation history should be topically coherent". Apply these yourself when crafting the data.
+- **Which criteria are universal vs. case-specific**:
+  - **Universal criteria** apply to ALL test cases the same way → implement in the test function (e.g., "responses must be under 3 sentences", "must not hallucinate information not in context")
+  - **Case-specific criteria** vary per test case → carry as `expected_output` in the dataset item (e.g., "should mention the caller's appointment on Tuesday", "should route to billing department")
+
+## 4b. Generate eval_input items
+
+**If the user specified a dataset or data source in the prompt** (e.g., a JSON file with research questions, conversation scenarios, or test cases), use it as the basis for your eval_input items. Read the file, adapt each item to match the data shape from the reference trace, and incorporate them into the dataset. Do NOT ignore specified data and fabricate generic alternatives.
+
+**If no dataset was specified**, create eval_input items that match the data shape from the reference trace:
+
+- **Application inputs** (user queries, requests) — make these up to cover the scenarios you identified in Step 1
+- **External dependency data** (database records, API responses, cache entries) — make these up in the exact shape you observed in the reference trace
+
+Each dataset item contains:
+
+- `eval_input`: the made-up input data (app input + external dependency data)
+- `expected_output`: case-specific expectation text (optional — only for test cases with expectations beyond the universal criteria). This is a reference for evaluation, not an exact expected answer.
+
+At test time, `eval_output` is produced by the utility function from Step 3 and is not stored in the dataset itself.
+
+## 4c. Validate the dataset
+
+After building:
+
+1. **Execute `build_dataset.py`** — don't just write it, run it
+2. **Verify structural constraints** — each eval_input matches the reference trace's schema (same fields, same types)
+3. **Verify diversity** — items have meaningfully different inputs, not just minor variations
+4. **Verify case-specific expectations** — `expected_output` values are specific and testable, not vague
+5. For conversational apps, include items with conversation history
+
+## Output
+
+`pixie_qa/scripts/build_dataset.py` — the script that creates the dataset.
+`pixie_qa/datasets/<name>.json` — the dataset file (created by running the script).
+
+---
+
+## Dataset Creation Reference
+
+For full `DatasetStore`, `Evaluable`, and CLI command signatures, see `pixie-api.md` (Dataset Python API and CLI Commands sections).
+
+### What a dataset contains
 
 A dataset is a collection of `Evaluable` items. Each item has:
 
@@ -16,18 +63,16 @@ A dataset is a collection of `Evaluable` items. Each item has:
 
 The dataset is made up by you based on the data shapes observed in the reference trace from Step 2. You are NOT extracting data from traces — you are crafting realistic test scenarios.
 
----
+### Creating the dataset
 
-## Creating the dataset
-
-### CLI
+#### CLI
 
 ```bash
 pixie dataset create <dataset-name>
 pixie dataset list   # verify it exists
 ```
 
-### Python API
+#### Python API
 
 ```python
 from pixie import DatasetStore, Evaluable
@@ -54,13 +99,11 @@ for item in items:
     store.append("qa-golden-set", item)
 ```
 
----
-
-## Crafting eval_input items
+### Crafting eval_input items
 
 Each eval_input must match the **exact data shape** from the reference trace. Look at what the `@observe`-decorated function received as input in Step 2 — same field names, same types, same nesting.
 
-### What goes into eval_input
+#### What goes into eval_input
 
 | Data category            | Example                                           | Source                                              |
 | ------------------------ | ------------------------------------------------- | --------------------------------------------------- |
@@ -69,7 +112,7 @@ Each eval_input must match the **exact data shape** from the reference trace. Lo
 | Conversation history     | Previous messages in a chat                       | Made up to set up the scenario                      |
 | Configuration / context  | Feature flags, session state                      | Whatever the function expects as arguments          |
 
-### Matching the reference trace shape
+#### Matching the reference trace shape
 
 From the reference trace (`pixie trace last`), note:
 
@@ -95,13 +138,11 @@ From the reference trace (`pixie trace last`), note:
 
 Then every eval_input you make up must have `user_message` (string), `customer_profile` (dict with `name`, `account_id`, `tier`), and `conversation_history` (list of message dicts).
 
----
-
-## Setting expected_output
+### Setting expected_output
 
 `expected_output` is a **reference for evaluation** — its meaning depends on which evaluator will consume it.
 
-### When to set it
+#### When to set it
 
 | Scenario                                    | expected_output value                                                                  | Evaluator it pairs with                                    |
 | ------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -109,24 +150,22 @@ Then every eval_input you make up must have `user_message` (string), `customer_p
 | Open-ended but has quality criteria         | Description of good output: `"Should mention Saturday hours and be under 2 sentences"` | `create_llm_evaluator` with `{expected_output}` in prompt  |
 | Truly open-ended, no case-specific criteria | Leave as `"UNSET"` or omit                                                             | Standalone evaluators (`PossibleEval`, `FaithfulnessEval`) |
 
-### Universal vs. case-specific criteria
+#### Universal vs. case-specific criteria
 
 - **Universal criteria** apply to ALL test cases → implement in the test function's evaluators (e.g., "responses must be concise", "must not hallucinate"). These don't need expected_output.
 - **Case-specific criteria** vary per test case → carry as `expected_output` in the dataset item (e.g., "should mention the caller's Tuesday appointment", "should route to billing").
 
-### Anti-patterns
+#### Anti-patterns
 
 - **Don't generate both eval_output and expected_output from the same source.** If they're identical and you use `ExactMatchEval`, the test is circular and catches zero regressions.
 - **Don't use comparison evaluators (`FactualityEval`, `ClosedQAEval`, `ExactMatchEval`) on items without expected_output.** They produce meaningless scores.
 - **Don't mix expected_output semantics in one dataset.** If some items use expected_output as a factual answer and others as style guidance, evaluators can't handle both. Split into separate datasets or use separate test functions.
 
----
-
-## Validating the dataset
+### Validating the dataset
 
 After creating the dataset, check:
 
-### 1. Structural validation
+#### 1. Structural validation
 
 Every eval_input must match the reference trace's schema:
 
@@ -135,24 +174,24 @@ Every eval_input must match the reference trace's schema:
 - Same nesting depth
 - No extra or missing fields compared to what the function expects
 
-### 2. Semantic validation
+#### 2. Semantic validation
 
 - **Realistic values** — names, messages, and data look like real-world inputs, not test placeholders
 - **Coherent scenarios** — if there's conversation history, it should make topical sense with the user message
 - **External dependency data makes sense** — customer profiles have realistic account IDs, retrieved documents are plausible
 
-### 3. Diversity validation
+#### 3. Diversity validation
 
 - Items have **meaningfully different** inputs — different user intents, different customer types, different edge cases
 - Not just minor variations of the same scenario (e.g., don't have 5 items that are all "What are your hours?" with different names)
 - Cover: normal cases, edge cases, things the app might plausibly get wrong
 
-### 4. Expected_output validation
+#### 4. Expected_output validation
 
 - case-specific `expected_output` values are specific and testable, not vague
 - Items where expected_output is universal don't redundantly carry expected_output
 
-### 5. Verify by listing
+#### 5. Verify by listing
 
 ```bash
 pixie dataset list
@@ -168,9 +207,7 @@ for i, item in enumerate(ds.items):
     print(f"       expected_output: {item.expected_output[:80] if item.expected_output != 'UNSET' else 'UNSET'}...")
 ```
 
----
-
-## Recommended build_dataset.py structure
+### Recommended build_dataset.py structure
 
 Put the build script at `pixie_qa/scripts/build_dataset.py`:
 
@@ -228,8 +265,6 @@ if __name__ == "__main__":
     build()
 ```
 
----
-
-## The cardinal rule
+### The cardinal rule
 
 **`eval_output` is always produced at test time, never stored in the dataset.** The dataset contains `eval_input` (made-up input matching the reference trace shape) and optionally `expected_output` (the reference to judge against). The test's `runnable` function produces `eval_output` by replaying `eval_input` through the real app.
