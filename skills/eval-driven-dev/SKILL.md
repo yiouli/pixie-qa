@@ -9,7 +9,7 @@ license: MIT
 compatibility: Python 3.11+
 metadata:
   version: 0.3.0
-  pixie-qa-version: >=0.3.0,<0.4.0
+  pixie-qa-version: ">=0.3.0,<0.4.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
