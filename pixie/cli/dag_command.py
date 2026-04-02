@@ -72,8 +72,4 @@ def dag_check_trace(json_file: str) -> int:
     print(  # noqa: T201
         f"TRACE CHECK PASSED — {len(result.matched)} DAG node(s) matched."
     )
-    if result.extra_spans:
-        print(  # noqa: T201
-            f"  Extra spans in trace (not in DAG): {', '.join(result.extra_spans)}"
-        )
     return 0

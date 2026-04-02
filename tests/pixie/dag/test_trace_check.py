@@ -80,30 +80,19 @@ def _llm_span(model: str = "gpt-4") -> LLMSpan:
 class TestCheckTraceAgainstDag:
     """Tests for check_trace_against_dag()."""
 
-    def test_all_observable_nodes_matched(self) -> None:
+    def test_all_nodes_matched(self) -> None:
         dag_nodes = [
             DagNode(
-                id="root",
                 name="handle_request",
-                type="entry_point",
                 code_pointer="app.py:handle",
                 description="entry",
             ),
             DagNode(
-                id="llm1",
-                name="call_llm",
-                type="llm_call",
+                name="llm_call_any",
                 code_pointer="app.py:llm",
                 description="LLM",
-                parent_id="root",
-            ),
-            DagNode(
-                id="db",
-                name="fetch_ctx",
-                type="data_dependency",
-                code_pointer="app.py:db",
-                description="DB read",
-                parent_id="root",
+                parent="handle_request",
+                is_llm_call=True,
             ),
         ]
         trace = [
@@ -114,42 +103,33 @@ class TestCheckTraceAgainstDag:
         ]
         result = check_trace_against_dag(dag_nodes, trace)
         assert result.valid
-        assert "root" in result.matched
-        assert "llm1" in result.matched
-        # data_dependency is not observable — should not be in matched or unmatched
-        assert "db" not in result.matched
-        assert "db" not in result.unmatched
+        assert "handle_request" in result.matched
+        assert "llm_call_any" in result.matched
 
-    def test_missing_observable_node_fails(self) -> None:
+    def test_missing_named_non_llm_node_fails(self) -> None:
         dag_nodes = [
             DagNode(
-                id="root",
                 name="handle_request",
-                type="entry_point",
                 code_pointer="app.py:handle",
                 description="entry",
             ),
             DagNode(
-                id="obs1",
                 name="process_data",
-                type="observation",
                 code_pointer="app.py:process",
                 description="processing",
-                parent_id="root",
+                parent="handle_request",
             ),
         ]
         trace = [FakeNode(span=_observe_span("handle_request"))]
         result = check_trace_against_dag(dag_nodes, trace)
         assert not result.valid
-        assert "obs1" in result.unmatched
+        assert "process_data" in result.unmatched
         assert any("process_data" in e for e in result.errors)
 
-    def test_extra_spans_reported(self) -> None:
+    def test_extra_llm_spans_reported_when_no_llm_nodes_in_dag(self) -> None:
         dag_nodes = [
             DagNode(
-                id="root",
                 name="handle_request",
-                type="entry_point",
                 code_pointer="app.py:handle",
                 description="entry",
             ),
@@ -162,26 +142,23 @@ class TestCheckTraceAgainstDag:
         ]
         result = check_trace_against_dag(dag_nodes, trace)
         assert result.valid  # extra spans don't cause failure
-        # LLM span model name appears as extra since no llm_call DAG node
+        # LLM span model name appears as extra since no is_llm_call DAG node
         assert "gpt-4" in result.extra_spans
 
-    def test_llm_call_matches_by_type_not_name(self) -> None:
-        """llm_call DAG nodes match if ANY LLM span exists, regardless of name."""
+    def test_llm_call_matches_by_flag_not_name(self) -> None:
+        """is_llm_call nodes match if ANY LLM span exists, regardless of name."""
         dag_nodes = [
             DagNode(
-                id="root",
                 name="entry",
-                type="entry_point",
                 code_pointer="f.py:r",
                 description="root",
             ),
             DagNode(
-                id="llm1",
-                name="call_llm",
-                type="llm_call",
+                name="arbitrary_llm_node_name",
                 code_pointer="f.py:l",
                 description="LLM call",
-                parent_id="root",
+                parent="entry",
+                is_llm_call=True,
             ),
         ]
         # Trace has an LLM span with a completely different model name
@@ -193,74 +170,68 @@ class TestCheckTraceAgainstDag:
         ]
         result = check_trace_against_dag(dag_nodes, trace)
         assert result.valid
-        assert "llm1" in result.matched
+        assert "arbitrary_llm_node_name" in result.matched
 
     def test_llm_call_fails_when_no_llm_spans(self) -> None:
-        """llm_call DAG node fails if there are no LLM spans at all."""
+        """is_llm_call node fails if there are no LLM spans at all."""
         dag_nodes = [
             DagNode(
-                id="root",
                 name="entry",
-                type="entry_point",
                 code_pointer="f.py:r",
                 description="root",
             ),
             DagNode(
-                id="llm1",
-                name="call_llm",
-                type="llm_call",
+                name="llm_call_any",
                 code_pointer="f.py:l",
                 description="LLM call",
-                parent_id="root",
+                parent="entry",
+                is_llm_call=True,
             ),
         ]
         # Trace has no LLM spans
         trace = [FakeNode(span=_observe_span("entry"))]
         result = check_trace_against_dag(dag_nodes, trace)
         assert not result.valid
-        assert "llm1" in result.unmatched
+        assert "llm_call_any" in result.unmatched
         assert any("LLM span" in e for e in result.errors)
 
-    def test_non_observable_types_ignored(self) -> None:
-        """data_dependency, intermediate_state, side_effect should not be checked."""
+    def test_invalid_dag_name_rejected_before_matching(self) -> None:
         dag_nodes = [
             DagNode(
-                id="root",
+                name="entry-node",
+                code_pointer="f.py:r",
+                description="invalid style",
+            )
+        ]
+        trace = [FakeNode(span=_observe_span("entry_node"))]
+        result = check_trace_against_dag(dag_nodes, trace)
+        assert not result.valid
+        assert any("lower_snake_case" in e for e in result.errors)
+
+    def test_is_llm_flag_mismatch_detected(self) -> None:
+        dag_nodes = [
+            DagNode(
                 name="entry",
-                type="entry_point",
                 code_pointer="f.py:r",
                 description="root",
             ),
             DagNode(
-                id="dd",
-                name="read_db",
-                type="data_dependency",
-                code_pointer="f.py:d",
-                description="db",
-                parent_id="root",
-            ),
-            DagNode(
-                id="is",
-                name="state",
-                type="intermediate_state",
-                code_pointer="f.py:s",
-                description="state",
-                parent_id="root",
-            ),
-            DagNode(
-                id="se",
-                name="write_log",
-                type="side_effect",
-                code_pointer="f.py:w",
-                description="log",
-                parent_id="root",
+                name="llm_span_node",
+                code_pointer="f.py:l",
+                description="This node forgot is_llm_call=true",
+                parent="entry",
             ),
         ]
-        trace = [FakeNode(span=_observe_span("entry"))]
+        trace = [
+            FakeNode(
+                span=_observe_span("entry"),
+                children=[FakeNode(span=_llm_span("llm_span_node"))],
+            )
+        ]
         result = check_trace_against_dag(dag_nodes, trace)
-        assert result.valid
-        assert result.matched == ["root"]
-        assert not result.unmatched
+        assert not result.valid
+        assert "llm_span_node" in result.unmatched
+        assert any("is_llm_call=false" in e for e in result.errors)
 
     def test_empty_dag_passes(self) -> None:
         trace = [FakeNode(span=_observe_span("something"))]
@@ -271,13 +242,11 @@ class TestCheckTraceAgainstDag:
     def test_empty_trace_with_observable_nodes_fails(self) -> None:
         dag_nodes = [
             DagNode(
-                id="root",
                 name="entry",
-                type="entry_point",
                 code_pointer="f.py:r",
                 description="root",
             ),
         ]
         result = check_trace_against_dag(dag_nodes, [])
         assert not result.valid
-        assert "root" in result.unmatched
+        assert "entry" in result.unmatched

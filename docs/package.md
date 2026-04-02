@@ -125,6 +125,30 @@ Dataset files are stored as JSON under `PIXIE_DATASET_DIR` (default: `pixie_qa/d
 
 ---
 
+## DAG Validation And Trace Alignment
+
+Use DAG files to describe your app's processing graph and validate trace coverage:
+
+```bash
+pixie dag validate pixie_qa/02-data-flow.json --project-root .
+pixie dag check-trace pixie_qa/02-data-flow.json
+```
+
+Current DAG node schema:
+
+- Required: `name`, `code_pointer`, `description`
+- Optional: `parent`, `is_llm_call`, `metadata`
+- `name` is the unique lower_snake_case identifier (for example, `handle_turn`)
+- `is_llm_call` defaults to `false` when omitted
+
+`check-trace` semantics:
+
+- `is_llm_call: true` nodes pass if at least one LLM span exists (name matching skipped)
+- non-LLM nodes (`is_llm_call` false/omitted) require exact span-name match to a non-LLM span
+- if a node is marked non-LLM but only an LLM span matches the name, the check reports a flag mismatch
+
+---
+
 ## Writing Eval-Based Tests
 
 Use `assert_dataset_pass` (or `assert_pass` for inline inputs) to write quality tests. Tests live in regular `test_*.py` files and are run with `pixie-test`.

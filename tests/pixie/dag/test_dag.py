@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from pixie.dag import (
-    VALID_NODE_TYPES,
     DagNode,
     generate_mermaid,
     parse_dag,
@@ -21,40 +20,38 @@ def valid_dag_json(tmp_path: Path) -> Path:
     """Create a valid DAG JSON file for testing."""
     dag = [
         {
-            "id": "root",
             "name": "handle_request",
-            "type": "entry_point",
             "code_pointer": "app.py:handle_request",
             "description": "Main request handler",
-            "parent_id": None,
+            "parent": None,
         },
         {
-            "id": "llm1",
             "name": "generate_response",
-            "type": "llm_call",
             "code_pointer": "app.py:generate_response",
             "description": "OpenAI completion call",
-            "parent_id": "root",
+            "parent": "handle_request",
+            "is_llm_call": True,
         },
         {
-            "id": "db_read",
             "name": "fetch_context",
-            "type": "data_dependency",
             "code_pointer": "app.py:fetch_context",
             "description": "Read from database",
-            "parent_id": "root",
+            "parent": "handle_request",
         },
         {
-            "id": "save_result",
             "name": "save_response",
-            "type": "side_effect",
             "code_pointer": "app.py:save_response",
             "description": "Save to database",
-            "parent_id": "root",
+            "parent": "handle_request",
         },
     ]
-    # Create stub files for code pointers
-    (tmp_path / "app.py").write_text("# stub")
+    # Create stub files for code pointers with actual function definitions
+    (tmp_path / "app.py").write_text(
+        "def handle_request(): pass\n"
+        "def generate_response(): pass\n"
+        "def fetch_context(): pass\n"
+        "def save_response(): pass\n"
+    )
     json_path = tmp_path / "data_flow.json"
     json_path.write_text(json.dumps(dag))
     return json_path
@@ -67,9 +64,11 @@ class TestParseDag:
         nodes, errors = parse_dag(valid_dag_json)
         assert not errors
         assert len(nodes) == 4
-        assert nodes[0].id == "root"
-        assert nodes[0].parent_id is None
-        assert nodes[1].parent_id == "root"
+        assert nodes[0].name == "handle_request"
+        assert nodes[0].parent is None
+        assert nodes[1].parent == "handle_request"
+        assert nodes[1].is_llm_call
+        assert not nodes[2].is_llm_call
 
     def test_parse_missing_file(self, tmp_path: Path) -> None:
         nodes, errors = parse_dag(tmp_path / "nonexistent.json")
@@ -92,7 +91,7 @@ class TestParseDag:
 
     def test_parse_missing_required_fields(self, tmp_path: Path) -> None:
         f = tmp_path / "partial.json"
-        f.write_text(json.dumps([{"id": "x", "name": "y"}]))
+        f.write_text(json.dumps([{"name": "y"}]))
         nodes, errors = parse_dag(f)
         assert len(errors) == 1
         assert "missing required fields" in errors[0]
@@ -103,6 +102,60 @@ class TestParseDag:
         nodes, errors = parse_dag(f)
         assert len(errors) == 1
         assert "expected object" in errors[0]
+
+    def test_parse_rejects_non_bool_is_llm_call(self, tmp_path: Path) -> None:
+        f = tmp_path / "bad_llm_flag.json"
+        f.write_text(
+            json.dumps(
+                [
+                    {
+                        "name": "foo",
+                        "code_pointer": "app.py:foo",
+                        "description": "x",
+                        "is_llm_call": "yes",
+                    }
+                ]
+            )
+        )
+        nodes, errors = parse_dag(f)
+        assert not nodes
+        assert len(errors) == 1
+        assert "is_llm_call must be true or false" in errors[0]
+
+    def test_parse_accepts_legacy_parent_id(self, tmp_path: Path) -> None:
+        f = tmp_path / "legacy_parent.json"
+        f.write_text(
+            json.dumps(
+                [
+                    {
+                        "name": "root",
+                        "code_pointer": "app.py:root",
+                        "description": "root",
+                    },
+                    {
+                        "name": "child_node",
+                        "code_pointer": "app.py:child",
+                        "description": "child",
+                        "parent_id": "root",
+                    },
+                ]
+            )
+        )
+        nodes, errors = parse_dag(f)
+        assert not errors
+        assert nodes[1].parent == "root"
+
+    def test_validate_rejects_non_snake_case_name(self) -> None:
+        nodes = [
+            DagNode(
+                name="handle-request",
+                code_pointer="f.py:root",
+                description="invalid style",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("lower_snake_case" in e for e in result.errors)
 
 
 class TestValidateDag:
@@ -119,36 +172,19 @@ class TestValidateDag:
         assert not result.valid
         assert "empty" in result.errors[0].lower()
 
-    def test_invalid_type(self) -> None:
+    def test_duplicate_names(self) -> None:
         nodes = [
             DagNode(
-                id="n1",
-                name="test",
-                type="bogus_type",
-                code_pointer="f.py:func",
-                description="test",
-            )
-        ]
-        result = validate_dag(nodes)
-        assert not result.valid
-        assert any("invalid type" in e for e in result.errors)
-
-    def test_duplicate_ids(self) -> None:
-        nodes = [
-            DagNode(
-                id="dup",
                 name="a",
-                type="entry_point",
                 code_pointer="f.py:a",
                 description="test",
             ),
             DagNode(
-                id="dup",
-                name="b",
-                type="llm_call",
+                name="a",
                 code_pointer="f.py:b",
                 description="test",
-                parent_id="dup",
+                parent="a",
+                is_llm_call=True,
             ),
         ]
         result = validate_dag(nodes)
@@ -158,19 +194,16 @@ class TestValidateDag:
     def test_orphan_parent_reference(self) -> None:
         nodes = [
             DagNode(
-                id="root",
                 name="root",
-                type="entry_point",
                 code_pointer="f.py:r",
                 description="test",
             ),
             DagNode(
-                id="child",
                 name="child",
-                type="llm_call",
                 code_pointer="f.py:c",
                 description="test",
-                parent_id="nonexistent",
+                parent="nonexistent",
+                is_llm_call=True,
             ),
         ]
         result = validate_dag(nodes)
@@ -180,16 +213,12 @@ class TestValidateDag:
     def test_multiple_roots(self) -> None:
         nodes = [
             DagNode(
-                id="r1",
                 name="root1",
-                type="entry_point",
                 code_pointer="f.py:r1",
                 description="test",
             ),
             DagNode(
-                id="r2",
                 name="root2",
-                type="entry_point",
                 code_pointer="f.py:r2",
                 description="test",
             ),
@@ -201,20 +230,18 @@ class TestValidateDag:
     def test_no_root(self) -> None:
         nodes = [
             DagNode(
-                id="a",
                 name="a",
-                type="llm_call",
                 code_pointer="f.py:a",
                 description="test",
-                parent_id="b",
+                parent="b",
+                is_llm_call=True,
             ),
             DagNode(
-                id="b",
                 name="b",
-                type="llm_call",
                 code_pointer="f.py:b",
                 description="test",
-                parent_id="a",
+                parent="a",
+                is_llm_call=True,
             ),
         ]
         result = validate_dag(nodes)
@@ -224,9 +251,45 @@ class TestValidateDag:
     def test_code_pointer_file_missing(self, tmp_path: Path) -> None:
         nodes = [
             DagNode(
-                id="n1",
                 name="test",
-                type="entry_point",
+                code_pointer=f"{tmp_path}/missing_file.py:func",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("not found" in e for e in result.errors)
+
+    def test_code_pointer_file_exists(self, tmp_path: Path) -> None:
+        (tmp_path / "exists.py").write_text("def func(): pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/exists.py:func",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert result.valid
+
+    def test_relative_code_pointer_file_exists(self, tmp_path: Path) -> None:
+        """Backward compat: relative paths still work with project_root."""
+        (tmp_path / "exists.py").write_text("def func(): pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer="exists.py:func",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes, project_root=tmp_path)
+        assert result.valid
+
+    def test_relative_code_pointer_file_missing(self, tmp_path: Path) -> None:
+        """Backward compat: relative paths still report missing files."""
+        nodes = [
+            DagNode(
+                name="test",
                 code_pointer="missing_file.py:func",
                 description="test",
             )
@@ -235,43 +298,164 @@ class TestValidateDag:
         assert not result.valid
         assert any("not found" in e for e in result.errors)
 
-    def test_code_pointer_file_exists(self, tmp_path: Path) -> None:
-        (tmp_path / "exists.py").write_text("# ok")
-        nodes = [
-            DagNode(
-                id="n1",
-                name="test",
-                type="entry_point",
-                code_pointer="exists.py:func",
-                description="test",
-            )
-        ]
-        result = validate_dag(nodes, project_root=tmp_path)
-        assert result.valid
-
     def test_cycle_detection(self) -> None:
         """Cycle: a -> b -> a."""
         nodes = [
             DagNode(
-                id="a",
                 name="a",
-                type="entry_point",
                 code_pointer="f.py:a",
                 description="test",
-                parent_id="b",
+                parent="b",
             ),
             DagNode(
-                id="b",
                 name="b",
-                type="llm_call",
                 code_pointer="f.py:b",
                 description="test",
-                parent_id="a",
+                parent="a",
+                is_llm_call=True,
             ),
         ]
         result = validate_dag(nodes)
         assert not result.valid
         assert any("Cycle" in e or "No root" in e for e in result.errors)
+
+
+class TestCodePointerValidation:
+    """Tests for absolute-path code_pointer with symbol and line range validation."""
+
+    def test_absolute_path_symbol_exists(self, tmp_path: Path) -> None:
+        (tmp_path / "module.py").write_text("def my_func():\n    pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:my_func",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert result.valid
+
+    def test_absolute_path_symbol_not_found(self, tmp_path: Path) -> None:
+        (tmp_path / "module.py").write_text("def other_func():\n    pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:nonexistent",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("Symbol 'nonexistent' not found" in e for e in result.errors)
+
+    def test_absolute_path_class_method(self, tmp_path: Path) -> None:
+        src = "class MyClass:\n" "    def my_method(self):\n" "        pass\n"
+        (tmp_path / "module.py").write_text(src)
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:MyClass.my_method",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert result.valid
+
+    def test_absolute_path_class_method_not_found(self, tmp_path: Path) -> None:
+        src = "class MyClass:\n" "    def existing(self):\n" "        pass\n"
+        (tmp_path / "module.py").write_text(src)
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:MyClass.missing",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any(
+            "Method 'missing' not found in class 'MyClass'" in e for e in result.errors
+        )
+
+    def test_absolute_path_class_not_found(self, tmp_path: Path) -> None:
+        (tmp_path / "module.py").write_text("def func():\n    pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:NoSuchClass.method",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("Class 'NoSuchClass' not found" in e for e in result.errors)
+
+    def test_valid_line_range(self, tmp_path: Path) -> None:
+        src = "\n".join(f"# line {i}" for i in range(1, 11)) + "\n"
+        src += "def my_func():\n    pass\n"
+        (tmp_path / "module.py").write_text(src)
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:my_func:5:10",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert result.valid
+
+    def test_invalid_line_range_start_gt_end(self, tmp_path: Path) -> None:
+        src = "def my_func():\n    pass\n"
+        (tmp_path / "module.py").write_text(src)
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:my_func:10:5",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("start must be <= end" in e for e in result.errors)
+
+    def test_invalid_line_range_out_of_bounds(self, tmp_path: Path) -> None:
+        src = "def my_func():\n    pass\n"
+        (tmp_path / "module.py").write_text(src)
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:my_func:1:100",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert not result.valid
+        assert any("exceeds file length" in e for e in result.errors)
+
+    def test_async_function_symbol(self, tmp_path: Path) -> None:
+        (tmp_path / "module.py").write_text("async def async_handler():\n    pass\n")
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer=f"{tmp_path}/module.py:async_handler",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        assert result.valid
+
+    def test_relative_path_skipped_without_project_root(self) -> None:
+        """Relative paths without project_root skip file resolution."""
+        nodes = [
+            DagNode(
+                name="test",
+                code_pointer="some/path.py:func",
+                description="test",
+            )
+        ]
+        result = validate_dag(nodes)
+        # No project_root, relative path — file check is skipped
+        assert result.valid
 
 
 class TestGenerateMermaid:
@@ -280,37 +464,47 @@ class TestGenerateMermaid:
     def test_generates_valid_mermaid(self) -> None:
         nodes = [
             DagNode(
-                id="root",
                 name="handle_request",
-                type="entry_point",
                 code_pointer="app.py:handle",
                 description="entry",
             ),
             DagNode(
-                id="llm1",
                 name="call_openai",
-                type="llm_call",
                 code_pointer="app.py:llm",
                 description="LLM call",
-                parent_id="root",
+                parent="handle_request",
+                is_llm_call=True,
             ),
         ]
         mermaid = generate_mermaid(nodes)
         assert "graph TD" in mermaid
-        assert "root" in mermaid
-        assert "llm1" in mermaid
-        assert "root --> llm1" in mermaid
+        assert "handle_request" in mermaid
+        assert "call_openai" in mermaid
+        assert "<i>LLM</i>" in mermaid
+        assert "-->" in mermaid
 
-    def test_node_shapes_differ_by_type(self) -> None:
-        for node_type in VALID_NODE_TYPES:
-            nodes = [
-                DagNode(
-                    id="n",
-                    name="test",
-                    type=node_type,
-                    code_pointer="f.py:f",
-                    description="test",
-                )
-            ]
-            mermaid = generate_mermaid(nodes)
-            assert "graph TD" in mermaid
+    def test_root_and_llm_have_distinct_shapes(self) -> None:
+        nodes = [
+            DagNode(
+                name="root",
+                code_pointer="f.py:root",
+                description="root",
+            ),
+            DagNode(
+                name="child_llm",
+                code_pointer="f.py:child",
+                description="llm",
+                parent="root",
+                is_llm_call=True,
+            ),
+            DagNode(
+                name="child_regular",
+                code_pointer="f.py:other",
+                description="other",
+                parent="root",
+            ),
+        ]
+        mermaid = generate_mermaid(nodes)
+        assert '(["root"])' in mermaid
+        assert '[["child_llm<br/><i>LLM</i>"]]' in mermaid
+        assert '["child_regular"]' in mermaid
