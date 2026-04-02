@@ -51,10 +51,7 @@ export function ProjectContextPanel({
       </aside>
       <div className="split-main">
         {selected ? (
-          <MarkdownPanel
-            path={selected}
-            version={mdVersions[selected] ?? 0}
-          />
+          <MarkdownPanel path={selected} version={mdVersions[selected] ?? 0} />
         ) : (
           <div className="empty-state">
             <p>Select a file to view</p>

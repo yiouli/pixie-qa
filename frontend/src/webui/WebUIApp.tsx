@@ -30,7 +30,9 @@ function getInitialSelection(): { tab: string; id: string | null } {
   const rawTab = params.get("tab");
   // Normalise legacy md:* tab values to project-context
   const tab =
-    rawTab && rawTab.startsWith("md:") ? "project-context" : rawTab ?? "scorecards";
+    rawTab && rawTab.startsWith("md:")
+      ? "project-context"
+      : (rawTab ?? "scorecards");
   const id = params.get("id") ?? null;
   return { tab, id };
 }
@@ -131,11 +133,7 @@ export default function WebUIApp() {
         </div>
       </header>
 
-      <TabBar
-        tabs={TABS}
-        activeTab={activeTab}
-        onSelect={setActiveTab}
-      />
+      <TabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
 
       <div className="webui-content">
         {activeTab === "scorecards" && (
