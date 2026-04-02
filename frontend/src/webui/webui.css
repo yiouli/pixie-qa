@@ -53,6 +53,7 @@
 
 html {
   font-size: 15px;
+  overflow: hidden;
 }
 
 body {
@@ -62,6 +63,8 @@ body {
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  height: 100vh;
 }
 
 body.modal-open {
@@ -159,7 +162,6 @@ body.modal-open {
   position: sticky;
   top: 49px;
   z-index: 15;
-  overflow-x: auto;
 }
 
 .webui-tab {
@@ -193,6 +195,11 @@ body.modal-open {
 
 .webui-content {
   height: calc(100vh - 49px - 43px);
+  overflow: hidden;
+}
+
+.webui-root {
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -370,8 +377,6 @@ body.modal-open {
   padding: 2rem 2.5rem 4rem;
   font-family: var(--font-body);
   line-height: 1.7;
-  overflow-y: auto;
-  height: 100%;
 }
 
 .markdown-content h1 {

@@ -16,11 +16,12 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
   const [data, setData] = useState<DatasetData | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Apply autoSelect when it changes OR when datasets first populate
   useEffect(() => {
-    if (autoSelect) {
+    if (autoSelect && datasets.some((d) => d.path === autoSelect)) {
       setSelected(autoSelect);
     }
-  }, [autoSelect]);
+  }, [autoSelect, datasets]);
 
   useEffect(() => {
     if (
@@ -28,6 +29,8 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
       !datasets.some((d) => d.path === selected) &&
       datasets.length > 0
     ) {
+      setSelected(datasets[0].path);
+    } else if (!selected && datasets.length > 0) {
       setSelected(datasets[0].path);
     }
   }, [datasets, selected]);

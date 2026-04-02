@@ -32,3 +32,8 @@ export interface FileChangeEvent {
   type: "added" | "modified" | "deleted";
   path: string;
 }
+
+export interface NavigateEvent {
+  tab: string;
+  id?: string;
+}

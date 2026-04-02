@@ -192,12 +192,27 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
     async def api_status(request: Request) -> JSONResponse:
         return JSONResponse({"active_clients": sse.subscriber_count})
 
+    async def api_navigate(request: Request) -> JSONResponse:
+        """Broadcast a navigate event to all connected SSE clients."""
+        tab = request.query_params.get("tab")
+        item_id = request.query_params.get("id")
+        if not tab:
+            return JSONResponse(
+                {"error": "tab parameter required"}, status_code=400
+            )
+        payload: dict[str, str] = {"tab": tab}
+        if item_id:
+            payload["id"] = item_id
+        await sse.broadcast("navigate", payload)
+        return JSONResponse({"ok": True})
+
     routes = [
         Route("/", index),
         Route("/api/manifest", api_manifest),
         Route("/api/file", api_file_content),
         Route("/api/events", api_events),
         Route("/api/status", api_status),
+        Route("/api/navigate", api_navigate),
     ]
 
     return Starlette(routes=routes)

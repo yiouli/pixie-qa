@@ -17,11 +17,12 @@ export function ScorecardsPanel({
     scorecards[0]?.path ?? null,
   );
 
+  // Apply autoSelect when it changes OR when scorecards first populate
   useEffect(() => {
-    if (autoSelect) {
+    if (autoSelect && scorecards.some((s) => s.path === autoSelect)) {
       setSelected(autoSelect);
     }
-  }, [autoSelect]);
+  }, [autoSelect, scorecards]);
 
   // Select first if current selection is no longer valid
   useEffect(() => {
@@ -30,6 +31,8 @@ export function ScorecardsPanel({
       !scorecards.some((s) => s.path === selected) &&
       scorecards.length > 0
     ) {
+      setSelected(scorecards[0].path);
+    } else if (!selected && scorecards.length > 0) {
       setSelected(scorecards[0].path);
     }
   }, [scorecards, selected]);

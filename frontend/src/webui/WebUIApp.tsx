@@ -1,12 +1,12 @@
 /** Main Web UI application */
 
-import { useState, useCallback, useRef } from "react";
-import type { Manifest, FileChangeEvent } from "./types";
+import { useState, useCallback } from "react";
+import type { Manifest, FileChangeEvent, NavigateEvent } from "./types";
 import { useSSE } from "./useSSE";
 import { TabBar } from "./components/TabBar";
 import { ScorecardsPanel } from "./components/ScorecardsPanel";
 import { DatasetsPanel } from "./components/DatasetsPanel";
-import { MarkdownPanel } from "./components/MarkdownPanel";
+import { ProjectContextPanel } from "./components/ProjectContextPanel";
 
 const BRAND_ICON_URL =
   "https://github.com/user-attachments/assets/76c18199-f00a-4fb3-a12f-ce6c173727af";
@@ -16,34 +16,23 @@ const FEEDBACK_URL = "https://feedback.gopixie.ai/feedback";
 interface TabDef {
   id: string;
   label: string;
-  type: "scorecards" | "datasets" | "markdown";
-  path?: string;
 }
 
-function buildTabs(manifest: Manifest): TabDef[] {
-  const tabs: TabDef[] = [
-    { id: "scorecards", label: "Scorecards", type: "scorecards" },
-    { id: "datasets", label: "Datasets", type: "datasets" },
-  ];
-  for (const md of manifest.markdown_files) {
-    // Derive label from filename: "01-entry-point.md" → "Entry Point"
-    const stem = md.name.replace(/\.md$/, "");
-    const label = stem
-      .replace(/^\d+-/, "")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-    tabs.push({ id: `md:${md.path}`, label, type: "markdown", path: md.path });
-  }
-  return tabs;
-}
+const TABS: TabDef[] = [
+  { id: "scorecards", label: "Scorecards" },
+  { id: "datasets", label: "Datasets" },
+  { id: "project-context", label: "Project Context" },
+];
 
 /** Read initial tab & item selection from URL query params (?tab=...&id=...) */
 function getInitialSelection(): { tab: string; id: string | null } {
   const params = new URLSearchParams(window.location.search);
-  return {
-    tab: params.get("tab") ?? "scorecards",
-    id: params.get("id") ?? null,
-  };
+  const rawTab = params.get("tab");
+  // Normalise legacy md:* tab values to project-context
+  const tab =
+    rawTab && rawTab.startsWith("md:") ? "project-context" : rawTab ?? "scorecards";
+  const id = params.get("id") ?? null;
+  return { tab, id };
 }
 
 export default function WebUIApp() {
@@ -61,10 +50,11 @@ export default function WebUIApp() {
   const [datasetAutoSelect, setDatasetAutoSelect] = useState<string | null>(
     initial.tab === "datasets" ? initial.id : null,
   );
+  const [mdAutoSelect, setMdAutoSelect] = useState<string | null>(
+    initial.tab === "project-context" ? initial.id : null,
+  );
   const [mdVersions, setMdVersions] = useState<Record<string, number>>({});
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-
-  const tabsRef = useRef<TabDef[]>([]);
 
   const onManifest = useCallback((m: Manifest) => {
     setManifest(m);
@@ -83,8 +73,8 @@ export default function WebUIApp() {
           setDatasetAutoSelect(change.path);
         }
       } else if (change.path.endsWith(".md")) {
-        const tabId = `md:${change.path}`;
-        setActiveTab(tabId);
+        setActiveTab("project-context");
+        setMdAutoSelect(change.path);
         setMdVersions((prev) => ({
           ...prev,
           [change.path]: (prev[change.path] ?? 0) + 1,
@@ -93,13 +83,21 @@ export default function WebUIApp() {
     }
   }, []);
 
-  useSSE({ onManifest, onFileChange });
+  const onNavigate = useCallback((nav: NavigateEvent) => {
+    const tab = nav.tab.startsWith("md:") ? "project-context" : nav.tab;
+    setActiveTab(tab);
+    if (nav.id) {
+      if (tab === "scorecards") {
+        setScorecardAutoSelect(nav.id);
+      } else if (tab === "datasets") {
+        setDatasetAutoSelect(nav.id);
+      } else if (tab === "project-context") {
+        setMdAutoSelect(nav.id);
+      }
+    }
+  }, []);
 
-  const tabs = buildTabs(manifest);
-  tabsRef.current = tabs;
-
-  // Find active tab definition
-  const activeTabDef = tabs.find((t) => t.id === activeTab) ?? tabs[0];
+  useSSE({ onManifest, onFileChange, onNavigate });
 
   return (
     <div className="webui-root">
@@ -134,28 +132,29 @@ export default function WebUIApp() {
       </header>
 
       <TabBar
-        tabs={tabs.map((t) => ({ id: t.id, label: t.label }))}
+        tabs={TABS}
         activeTab={activeTab}
         onSelect={setActiveTab}
       />
 
       <div className="webui-content">
-        {activeTabDef?.type === "scorecards" && (
+        {activeTab === "scorecards" && (
           <ScorecardsPanel
             scorecards={manifest.scorecards}
             autoSelect={scorecardAutoSelect}
           />
         )}
-        {activeTabDef?.type === "datasets" && (
+        {activeTab === "datasets" && (
           <DatasetsPanel
             datasets={manifest.datasets}
             autoSelect={datasetAutoSelect}
           />
         )}
-        {activeTabDef?.type === "markdown" && activeTabDef.path && (
-          <MarkdownPanel
-            path={activeTabDef.path}
-            version={mdVersions[activeTabDef.path] ?? 0}
+        {activeTab === "project-context" && (
+          <ProjectContextPanel
+            files={manifest.markdown_files}
+            mdVersions={mdVersions}
+            autoSelect={mdAutoSelect}
           />
         )}
       </div>

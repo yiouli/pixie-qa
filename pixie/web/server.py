@@ -147,6 +147,35 @@ def _probe_server(host: str, port: int) -> int | None:
         return None
 
 
+def _send_navigate(
+    host: str,
+    port: int,
+    *,
+    tab: str | None = None,
+    item_id: str | None = None,
+) -> bool:
+    """Ask the running server to broadcast a ``navigate`` SSE event.
+
+    Returns *True* if the request succeeded, *False* otherwise.
+    """
+    from urllib.parse import quote, urlencode
+
+    params: dict[str, str] = {}
+    if tab:
+        params["tab"] = tab
+    if item_id:
+        params["id"] = item_id
+    if not params:
+        return False
+    url = f"http://{host}:{port}/api/navigate?{urlencode(params, quote_via=quote)}"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return int(resp.status) == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _is_server_running(root: str, host: str = _DEFAULT_HOST) -> int | None:
     """Check whether a pixie server is running for *root*.
 
@@ -210,7 +239,14 @@ def run_server(
     if running_port is not None:
         logger.info("Server already running on port %d", running_port)
         if open_browser:
-            webbrowser.open(build_url(host, running_port, tab=tab, item_id=item_id))
+            active = _probe_server(host, running_port)
+            if active and active > 0:
+                # Existing clients — send navigate event instead of new tab
+                _send_navigate(host, running_port, tab=tab, item_id=item_id)
+            else:
+                webbrowser.open(
+                    build_url(host, running_port, tab=tab, item_id=item_id)
+                )
         return
 
     # If the default port is taken by something else, find another
@@ -288,9 +324,22 @@ def open_webui(
     """
     running_port = _is_server_running(root, host)
     if running_port is not None:
-        url = build_url(host, running_port, tab=tab, item_id=item_id)
-        logger.info("Server already running on port %d, opening browser", running_port)
-        webbrowser.open(url)
+        active = _probe_server(host, running_port)
+        if active and active > 0:
+            # Existing clients — send navigate event instead of new tab
+            logger.info(
+                "Server on port %d has %d active client(s), sending navigate",
+                running_port,
+                active,
+            )
+            _send_navigate(host, running_port, tab=tab, item_id=item_id)
+        else:
+            url = build_url(host, running_port, tab=tab, item_id=item_id)
+            logger.info(
+                "Server on port %d has no active clients, opening browser",
+                running_port,
+            )
+            webbrowser.open(url)
         return
 
     # Start the server on a daemon thread so the caller is not blocked

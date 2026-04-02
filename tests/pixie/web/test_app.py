@@ -340,11 +340,30 @@ class TestBuildUrl:
 
 
 class TestOpenWebui:
-    def test_opens_browser_when_server_running(self) -> None:
+    def test_sends_navigate_when_active_clients(self) -> None:
+        """When the server has active SSE clients, send navigate instead of opening browser."""
         from pixie.web.server import open_webui
 
         with (
             patch("pixie.web.server._is_server_running", return_value=7118),
+            patch("pixie.web.server._probe_server", return_value=1),
+            patch("pixie.web.server._send_navigate") as mock_nav,
+            patch("pixie.web.server.webbrowser.open") as mock_open,
+        ):
+            open_webui("/tmp/root", tab="scorecards", item_id="scorecards/x.html")
+            mock_nav.assert_called_once_with(
+                "127.0.0.1", 7118, tab="scorecards", item_id="scorecards/x.html"
+            )
+            mock_open.assert_not_called()
+
+    def test_opens_browser_when_no_active_clients(self) -> None:
+        """When the server is running but has no active clients, open browser."""
+        from pixie.web.server import open_webui
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=7118),
+            patch("pixie.web.server._probe_server", return_value=0),
+            patch("pixie.web.server._send_navigate") as mock_nav,
             patch("pixie.web.server.webbrowser.open") as mock_open,
         ):
             open_webui("/tmp/root", tab="scorecards", item_id="scorecards/x.html")
@@ -352,6 +371,7 @@ class TestOpenWebui:
             url = mock_open.call_args[0][0]
             assert "tab=scorecards" in url
             assert "id=scorecards/x.html" in url
+            mock_nav.assert_not_called()
 
     def test_opens_browser_on_lock_port(self) -> None:
         """When the server is running on a non-default port, use that port."""
@@ -359,6 +379,7 @@ class TestOpenWebui:
 
         with (
             patch("pixie.web.server._is_server_running", return_value=9999),
+            patch("pixie.web.server._probe_server", return_value=0),
             patch("pixie.web.server.webbrowser.open") as mock_open,
         ):
             open_webui("/tmp/root", tab="scorecards")
