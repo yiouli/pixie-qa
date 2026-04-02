@@ -153,17 +153,17 @@ Map each eval criterion to an evaluator, write a test file that wires the utilit
 
 ---
 
-## Cleanup
+## Web Server Management
 
-When you are done with the eval-driven-dev workflow, stop the background web UI server:
+pixie-qa runs a web server in the background for displaying context, traces, and eval results to the user. It's automatically started by the setup script, and need to be explicitly cleaned up when display is no longer needed.
+
+When the user is done with the eval-driven-dev workflow, inform them the web server is still running and you can clean it up with the following command:
 
 ```bash
 bash resources/stop-server.sh
 ```
 
-This reads the port from `pixie_qa/server.lock`, kills the server process, and removes the lock file.
-
-If you restart the workflow later, run the setup script again to re-install dependencies and start the server:
+And whenever you restart the workflow, always run the setup script again to ensure the web server is running:
 
 ```bash
 bash resources/setup.sh
