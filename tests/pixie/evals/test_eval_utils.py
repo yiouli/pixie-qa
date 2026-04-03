@@ -321,7 +321,7 @@ class TestAssertPass:
 
     @pytest.mark.asyncio
     async def test_results_tensor_shape(self) -> None:
-        """Shape is [1][1][2] for 1 pass, 1 input, 2 evaluators."""
+        """Shape is [1][2] for 1 input, 2 evaluators."""
         with pytest.raises(EvalAssertionError) as exc_info:
             await assert_pass(
                 runnable=_sync_app,
@@ -329,25 +329,12 @@ class TestAssertPass:
                 evaluators=[_always_pass, _always_fail],
             )
         results = exc_info.value.results
-        assert len(results) == 1  # 1 pass
-        assert len(results[0]) == 1  # 1 input
-        assert len(results[0][0]) == 2  # 2 evaluators
-
-    @pytest.mark.asyncio
-    async def test_multiple_passes(self) -> None:
-        with pytest.raises(EvalAssertionError) as exc_info:
-            await assert_pass(
-                runnable=_sync_app,
-                eval_inputs=["q1"],
-                evaluators=[_always_fail],
-                passes=3,
-            )
-        results = exc_info.value.results
-        assert len(results) == 3
+        assert len(results) == 1  # 1 input
+        assert len(results[0]) == 2  # 2 evaluators
 
     @pytest.mark.asyncio
     async def test_multiple_inputs(self) -> None:
-        """Shape is [1][2][1] for 1 pass, 2 inputs, 1 evaluator."""
+        """Shape is [2][1] for 2 inputs, 1 evaluator."""
         await assert_pass(
             runnable=_sync_app,
             eval_inputs=["q1", "q2"],
@@ -357,7 +344,7 @@ class TestAssertPass:
     @pytest.mark.asyncio
     async def test_custom_pass_criteria(self) -> None:
         def lenient(
-            results: list[list[list[Evaluation]]],
+            results: list[list[Evaluation]],
         ) -> tuple[bool, str]:
             return (True, "always passes")
 
@@ -395,7 +382,7 @@ class TestAssertPass:
             )
         err = exc_info.value
         assert isinstance(err, AssertionError)
-        assert err.results[0][0][0].score == 0.2
+        assert err.results[0][0].score == 0.2
 
     @pytest.mark.asyncio
     async def test_score_exactly_half_passes_default(self) -> None:
@@ -719,21 +706,6 @@ class TestAssertDatasetPass:
             evaluators=[_always_pass],
             dataset_dir=str(custom_dir),
         )
-
-    @pytest.mark.asyncio
-    async def test_multiple_passes(self, tmp_path: Path) -> None:
-        """passes parameter is forwarded."""
-        store = DatasetStore(dataset_dir=tmp_path)
-        store.create("multi-ds", items=[Evaluable(eval_input="q1")])
-        with pytest.raises(EvalAssertionError) as exc_info:
-            await assert_dataset_pass(
-                runnable=_sync_app,
-                dataset_name="multi-ds",
-                evaluators=[_always_fail],
-                dataset_dir=str(tmp_path),
-                passes=3,
-            )
-        assert len(exc_info.value.results) == 3
 
     @pytest.mark.asyncio
     async def test_runnable_is_called_with_eval_output_from_trace(

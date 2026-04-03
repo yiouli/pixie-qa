@@ -35,8 +35,8 @@ class AssertRecord:
     Attributes:
         evaluator_names: Display names for each evaluator, in order.
         input_labels: Display labels for each eval input, in order.
-        results: Shape ``[passes][inputs][evaluators]`` — the evaluation
-            tensor returned by ``assert_pass``.
+        results: Shape ``[inputs][evaluators]`` — the evaluation
+            matrix returned by ``assert_pass``.
         passed: Whether the assertion passed.
         criteria_message: Human-readable summary from the pass criteria.
         scoring_strategy: Human-readable description of the scoring approach.
@@ -44,7 +44,7 @@ class AssertRecord:
 
     evaluator_names: tuple[str, ...]
     input_labels: tuple[str, ...]
-    results: list[list[list[Evaluation]]]
+    results: list[list[Evaluation]]
     passed: bool
     criteria_message: str
     scoring_strategy: str
@@ -189,8 +189,7 @@ def _describe_criteria(criteria: object) -> str:
         pct_str = f"{criteria.pct * 100:.0f}%"
         return (
             f"Each evaluator score must be ≥ {criteria.threshold}. "
-            f"At least {pct_str} of test-case inputs must pass on all evaluators. "
-            f"Uses best-of-N-passes semantics (any single pass meeting criteria is sufficient)."
+            f"At least {pct_str} of test-case inputs must pass on all evaluators."
         )
     # Custom callable — use repr
     return f"Custom criteria: {repr(criteria)}"
@@ -256,17 +255,14 @@ def _report_to_dict(report: ScorecardReport) -> dict[str, Any]:
                         "input_labels": list(ar.input_labels),
                         "results": [
                             [
-                                [
-                                    {
-                                        "score": ev.score,
-                                        "reasoning": ev.reasoning,
-                                        "details": ev.details,
-                                    }
-                                    for ev in inp_evals
-                                ]
-                                for inp_evals in pass_results
+                                {
+                                    "score": ev.score,
+                                    "reasoning": ev.reasoning,
+                                    "details": ev.details,
+                                }
+                                for ev in inp_evals
                             ]
-                            for pass_results in ar.results
+                            for inp_evals in ar.results
                         ],
                         "passed": ar.passed,
                         "criteria_message": ar.criteria_message,

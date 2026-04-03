@@ -38,17 +38,17 @@ def _make_assert_record(
     *,
     evaluator_names: tuple[str, ...] = ("EvalA",),
     input_labels: tuple[str, ...] = ("input1",),
-    scores: list[list[list[float]]] | None = None,
+    scores: list[list[float]] | None = None,
     passed: bool = True,
     criteria_message: str = "Pass",
     scoring_strategy: str = "All scores >= 0.5",
 ) -> AssertRecord:
-    """Build an AssertRecord with the given scores tensor."""
+    """Build an AssertRecord with the given scores matrix."""
     if scores is None:
-        scores = [[[1.0]]]
+        scores = [[1.0]]
     results = [
-        [[_make_evaluation(s) for s in inp_evals] for inp_evals in pass_results]
-        for pass_results in scores
+        [_make_evaluation(s) for s in inp_evals]
+        for inp_evals in scores
     ]
     return AssertRecord(
         evaluator_names=evaluator_names,
@@ -228,7 +228,7 @@ class TestReportToDict:
         ar = _make_assert_record(
             evaluator_names=("Levenshtein", "Factuality"),
             input_labels=("q1", "q2"),
-            scores=[[[0.9, 0.8], [0.3, 0.7]]],
+            scores=[[0.9, 0.8], [0.3, 0.7]],
             passed=False,
             criteria_message="Fail: 1/2 inputs",
             scoring_strategy="Each score >= 0.5",
@@ -252,18 +252,17 @@ class TestReportToDict:
         assert assert_data["passed"] is False
         assert assert_data["criteria_message"] == "Fail: 1/2 inputs"
         assert assert_data["scoring_strategy"] == "Each score >= 0.5"
-        # Check results tensor shape: [1 pass][2 inputs][2 evaluators]
-        assert len(assert_data["results"]) == 1
+        # Check results matrix shape: [2 inputs][2 evaluators]
+        assert len(assert_data["results"]) == 2
         assert len(assert_data["results"][0]) == 2
-        assert len(assert_data["results"][0][0]) == 2
-        assert assert_data["results"][0][0][0]["score"] == 0.9
-        assert assert_data["results"][0][1][0]["score"] == 0.3
+        assert assert_data["results"][0][0]["score"] == 0.9
+        assert assert_data["results"][1][0]["score"] == 0.3
 
     def test_multi_pass_results(self) -> None:
         ar = _make_assert_record(
             evaluator_names=("Eval",),
-            input_labels=("inp",),
-            scores=[[[1.0]], [[0.5]]],
+            input_labels=("inp1", "inp2"),
+            scores=[[1.0], [0.5]],
             passed=True,
         )
         report = ScorecardReport(
@@ -278,9 +277,9 @@ class TestReportToDict:
         )
         data = _report_to_dict(report)
         results = data["test_records"][0]["asserts"][0]["results"]
-        assert len(results) == 2  # Two passes
-        assert results[0][0][0]["score"] == 1.0
-        assert results[1][0][0]["score"] == 0.5
+        assert len(results) == 2  # Two inputs
+        assert results[0][0]["score"] == 1.0
+        assert results[1][0]["score"] == 0.5
 
     def test_serialization_is_json_safe(self) -> None:
         report = ScorecardReport(
@@ -334,7 +333,7 @@ class TestGenerateScorecardHtml:
         ar = _make_assert_record(
             evaluator_names=("Levenshtein", "Factuality"),
             input_labels=("q1", "q2"),
-            scores=[[[0.9, 0.8], [0.3, 0.7]]],
+            scores=[[0.9, 0.8], [0.3, 0.7]],
             passed=False,
             criteria_message="Fail: 1/2 inputs",
             scoring_strategy="Each score >= 0.5",

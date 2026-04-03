@@ -14,8 +14,8 @@ export interface EvaluableContext {
 export interface AssertRecordData {
   evaluator_names: string[];
   input_labels: string[];
-  /** Shape: [passes][inputs][evaluators] */
-  results: EvaluationData[][][];
+  /** Shape: [inputs][evaluators] */
+  results: EvaluationData[][];
   passed: boolean;
   criteria_message: string;
   scoring_strategy: string;

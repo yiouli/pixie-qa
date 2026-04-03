@@ -145,7 +145,7 @@ node.span               # the underlying span (ObserveSpan or LLMSpan)
 ### `assert_dataset_pass`
 
 ```python
-await assert_dataset_pass(runnable: 'Callable[..., Any]', dataset_name: 'str', evaluators: 'list[Callable[..., Any]]', *, dataset_dir: 'str | None' = None, passes: 'int' = 1, pass_criteria: 'Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None' = None, from_trace: 'Callable[[list[ObservationNode]], Evaluable] | None' = None) -> 'None'
+await assert_dataset_pass(runnable: 'Callable[..., Any]', dataset_name: 'str', evaluators: 'list[Callable[..., Any]]', *, dataset_dir: 'str | None' = None, pass_criteria: 'Callable[[list[list[Evaluation]]], tuple[bool, str]] | None' = None, from_trace: 'Callable[[list[ObservationNode]], Evaluable] | None' = None) -> 'None'
 ```
 
 **Parameters:**
@@ -156,7 +156,6 @@ await assert_dataset_pass(runnable: 'Callable[..., Any]', dataset_name: 'str', e
 - `pass_criteria` — `ScoreThreshold(threshold=..., pct=...)` (NOT `thresholds`)
 - `from_trace` — span selector: use `last_llm_call` or `root`
 - `dataset_dir` — override dataset directory (default: reads from config)
-- `passes` — number of times to run the full matrix (default: 1)
 
 ### `ScoreThreshold`
 

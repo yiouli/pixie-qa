@@ -46,23 +46,23 @@ def _run_sync_runnable_with_event_loop(
 class EvalAssertionError(AssertionError):
     """Raised by ``assert_pass`` when the pass criteria are not met.
 
-    Carries the full results tensor for detailed failure reporting.
+    Carries the full results matrix for detailed failure reporting.
     """
 
     def __init__(
         self,
         message: str,
-        results: list[list[list[Evaluation]]],
+        results: list[list[Evaluation]],
     ) -> None:
         super().__init__(message)
         self.results = results
 
 
 def _default_pass_criteria(
-    results: list[list[list[Evaluation]]],
+    results: list[list[Evaluation]],
 ) -> tuple[bool, str]:
     """Default pass criteria: every individual score must be >= 0.5."""
-    all_scores = [e.score for pass_ in results for input_ in pass_ for e in input_]
+    all_scores = [e.score for input_ in results for e in input_]
     avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
     passed = all(s >= 0.5 for s in all_scores)
     return (passed, f"Average score: {avg:.2f}, all >= 0.5: {passed}")
@@ -72,7 +72,7 @@ def _publish_to_scorecard(
     *,
     evaluators: list[Callable[..., Any]],
     eval_inputs: list[Any],
-    results: list[list[list[Evaluation]]],
+    results: list[list[Evaluation]],
     passed: bool,
     criteria_message: str,
     criteria: object,
@@ -296,21 +296,20 @@ async def assert_pass(
     evaluators: list[Callable[..., Any]],
     *,
     evaluables: list[Evaluable] | None = None,
-    passes: int = 1,
     pass_criteria: (
-        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
+        Callable[[list[list[Evaluation]]], tuple[bool, str]] | None
     ) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
-    """Run evaluators against a runnable over multiple inputs and passes.
+    """Run evaluators against a runnable over multiple inputs.
 
-    For each pass and each input, runs the runnable once via
-    ``_run_and_capture``, then evaluates with every evaluator
-    concurrently via ``asyncio.gather``.
+    For each input, runs the runnable once via ``_run_and_capture``,
+    then evaluates with every evaluator concurrently via
+    ``asyncio.gather``.
 
-    The full results tensor has shape ``[passes][eval_inputs][evaluators]``.
+    The results matrix has shape ``[eval_inputs][evaluators]``.
     If the pass criteria are not met, raises :class:`EvalAssertionError`
-    carrying the tensor.
+    carrying the matrix.
 
     When ``evaluables`` is provided, behaviour depends on whether each
     item already has ``eval_output`` populated:
@@ -329,9 +328,8 @@ async def assert_pass(
             When provided, their ``expected_output`` is forwarded to
             ``run_and_evaluate``.  Must have the same length as
             *eval_inputs*.
-        passes: How many times to run the entire test matrix.
-        pass_criteria: Receives the results tensor, returns
-            ``(passed, message)``.  Defaults to "every score >= 0.5".
+        pass_criteria: Receives the results matrix, returns
+            ``(passed, message)``.  Defaults to ``ScoreThreshold()``.
         from_trace: Optional span selector forwarded to
             ``run_and_evaluate``.
 
@@ -346,18 +344,15 @@ async def assert_pass(
         )
 
     criteria = pass_criteria or ScoreThreshold()
-    results: list[list[list[Evaluation]]] = []
     sem = asyncio.Semaphore(_get_runnable_concurrency())
 
-    for _ in range(passes):
-        input_tasks = [
-            _process_single_input(
-                idx, inp, evaluators, evaluables, runnable, from_trace, sem
-            )
-            for idx, inp in enumerate(eval_inputs)
-        ]
-        pass_results = list(await asyncio.gather(*input_tasks))
-        results.append(pass_results)
+    input_tasks = [
+        _process_single_input(
+            idx, inp, evaluators, evaluables, runnable, from_trace, sem
+        )
+        for idx, inp in enumerate(eval_inputs)
+    ]
+    results: list[list[Evaluation]] = list(await asyncio.gather(*input_tasks))
 
     passed, message = criteria(results)
 
@@ -382,9 +377,8 @@ async def assert_dataset_pass(
     evaluators: list[Callable[..., Any]],
     *,
     dataset_dir: str | None = None,
-    passes: int = 1,
     pass_criteria: (
-        Callable[[list[list[list[Evaluation]]]], tuple[bool, str]] | None
+        Callable[[list[list[Evaluation]]], tuple[bool, str]] | None
     ) = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
@@ -404,8 +398,7 @@ async def assert_dataset_pass(
         evaluators: List of evaluator callables.
         dataset_dir: Override directory for the dataset store.
             When ``None``, reads from ``PixieConfig.dataset_dir``.
-        passes: How many times to run the entire test matrix.
-        pass_criteria: Receives the results tensor, returns
+        pass_criteria: Receives the results matrix, returns
             ``(passed, message)``.
         from_trace: Optional span selector forwarded to
             ``assert_pass``.
@@ -426,7 +419,6 @@ async def assert_dataset_pass(
         eval_inputs=eval_inputs,
         evaluators=evaluators,
         evaluables=items,
-        passes=passes,
         pass_criteria=pass_criteria,
         from_trace=from_trace,
     )
