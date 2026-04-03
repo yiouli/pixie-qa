@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import WebUIApp from "./webui/WebUIApp";
-import "./webui/webui.css";
+import "./webui/tailwind.css";
 
 document.title = "Pixie — Eval Dashboard";
 

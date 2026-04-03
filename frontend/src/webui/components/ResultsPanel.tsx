@@ -51,8 +51,8 @@ export function ResultsPanel({ results, autoSelect }: ResultsPanelProps) {
   }, [selected]);
 
   return (
-    <div className="split-panel">
-      <aside className="split-sidebar">
+    <div className="flex h-full">
+      <aside className="w-60 min-w-60 overflow-y-auto border-r border-border bg-surface py-2">
         <SidebarList
           items={results}
           selected={selected}
@@ -60,11 +60,11 @@ export function ResultsPanel({ results, autoSelect }: ResultsPanelProps) {
           emptyMessage="No test results yet"
         />
       </aside>
-      <div className="split-main result-viewer">
+      <div className="flex-1 overflow-auto p-6">
         {resultData ? (
           <ResultView data={resultData} />
         ) : (
-          <div className="empty-state">
+          <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
             <p>Select a test result to view</p>
           </div>
         )}
@@ -83,57 +83,51 @@ function ResultView({ data }: { data: TestResultData }) {
   const duration = computeDuration(meta.startedAt, meta.endedAt);
 
   return (
-    <div className="result-view">
-      <div className="result-overview">
-        <h2>Test Overview</h2>
-        <table className="overview-table">
+    <div className="mx-auto max-w-240">
+      {/* Test Overview Card */}
+      <div className="mb-5 rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-4 border-b-2 border-border pb-2.5 font-mono text-sm font-bold uppercase tracking-tight text-ink-secondary">
+          Test Run Overview
+        </h2>
+        <table className="mb-4 w-full border-collapse">
           <tbody>
             <tr>
-              <td className="label">Command</td>
-              <td>
-                <code>{meta.command}</code>
+              <td
+                className="border-b border-border px-3 py-2 font-semibold text-ink-secondary"
+                style={{ width: "100px" }}
+              >
+                Command
+              </td>
+              <td className="border-b border-border px-3 py-2">
+                <code className="rounded-sm bg-bg-inset px-1.5 py-0.5 font-mono text-sm text-ink">
+                  {meta.command}
+                </code>
               </td>
             </tr>
             <tr>
-              <td className="label">Start Time</td>
-              <td>{startedAt}</td>
+              <td className="border-b border-border px-3 py-2 font-semibold text-ink-secondary">
+                Start Time
+              </td>
+              <td className="border-b border-border px-3 py-2 font-sans text-sm">
+                {startedAt}
+              </td>
             </tr>
             <tr>
-              <td className="label">End Time</td>
-              <td>{endedAt}</td>
+              <td className="border-b border-border px-3 py-2 font-semibold text-ink-secondary">
+                End Time
+              </td>
+              <td className="border-b border-border px-3 py-2 font-sans text-sm">
+                {endedAt}
+              </td>
             </tr>
             <tr>
-              <td className="label">Duration</td>
-              <td>{duration}</td>
+              <td className="border-b border-border px-3 py-2 font-semibold text-ink-secondary">
+                Duration
+              </td>
+              <td className="border-b border-border px-3 py-2 font-sans text-sm">
+                {duration}
+              </td>
             </tr>
-          </tbody>
-        </table>
-
-        <table className="dataset-summary-table">
-          <thead>
-            <tr>
-              <th>Dataset</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {datasets.map((ds) => {
-              const passed = ds.entries.filter((e) =>
-                e.evaluations.every((ev) => ev.score >= 0.5),
-              ).length;
-              return (
-                <tr key={ds.dataset}>
-                  <td>{ds.dataset}</td>
-                  <td>
-                    <span
-                      className={`result-badge ${passed === ds.entries.length ? "pass" : "fail"}`}
-                    >
-                      {passed}/{ds.entries.length} passed
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
           </tbody>
         </table>
       </div>
@@ -152,35 +146,54 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
     e.evaluations.every((ev) => ev.score >= 0.5),
   ).length;
   const total = dataset.entries.length;
+  const allPass = passed === total;
 
   return (
-    <section className="dataset-section">
-      <h2>
-        {dataset.dataset}{" "}
-        <span className={`result-badge ${passed === total ? "pass" : "fail"}`}>
+    <section className="mb-5 rounded-lg border border-border bg-surface p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-3">
+        <h2 className="font-mono text-lg font-bold">{dataset.dataset}</h2>
+        <span
+          className={`inline-block rounded-pill px-2.5 py-0.5 text-xs font-semibold ${
+            allPass ? "bg-pass-bg text-pass-text" : "bg-fail-bg text-fail-text"
+          }`}
+        >
           {passed}/{total} passed
         </span>
-      </h2>
-      <div className="analysis-section">
-        <h3>Analysis & Recommendations</h3>
+      </div>
+
+      {/* Analysis section */}
+      <div className="mb-5 rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
+        <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
+          Analysis &amp; Recommendations
+        </h3>
         {dataset.analysis ? (
           <div
-            className="analysis-content"
+            className="analysis-content text-sm leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: simpleMarkdown(dataset.analysis),
             }}
           />
         ) : (
-          <div>No analysis yet.</div>
+          <div className="text-sm text-ink-muted">No analysis yet.</div>
         )}
       </div>
-      <table className="entries-table">
+
+      {/* Entries table */}
+      <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th>Scenario</th>
-            <th>Result</th>
-            <th>Evaluations</th>
-            <th>Details</th>
+            <th className="border-b-2 border-border px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Scenario
+            </th>
+            <th className="border-b-2 border-border px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Result
+            </th>
+            <th className="border-b-2 border-border px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Evaluations
+            </th>
+            <th className="border-b-2 border-border px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Details
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -206,28 +219,42 @@ function EntryRow({ entry }: { entry: EntryResultData }) {
 
   return (
     <>
-      <tr className={allPass ? "row-pass" : "row-fail"}>
-        <td className="scenario-cell">{description}</td>
-        <td>
-          <span className={`pill ${allPass ? "pass" : "fail"}`}>
+      <tr className={allPass ? "bg-transparent" : "bg-fail-bg"}>
+        <td className="max-w-75 border-b border-border px-3 py-2.5 align-middle font-sans text-sm">
+          {description}
+        </td>
+        <td className="border-b border-border px-3 py-2.5 align-middle">
+          <span
+            className={`inline-block rounded-pill px-2 py-0.5 text-xs font-semibold ${
+              allPass
+                ? "bg-pass-bg text-pass-text"
+                : "bg-fail-bg text-fail-text"
+            }`}
+          >
             {allPass ? "Pass" : "Fail"}
           </span>
         </td>
-        <td className="evals-cell">
-          {sortedEvals.map((ev, i) => (
-            <span
-              key={i}
-              className={`eval-pill ${ev.score >= 0.5 ? "pass" : "fail"}`}
-              title={`${ev.evaluator}: ${ev.score.toFixed(2)}`}
-            >
-              {ev.evaluator}
-            </span>
-          ))}
+        <td className="border-b border-border px-3 py-2.5 align-middle">
+          <div className="flex flex-wrap gap-1">
+            {sortedEvals.map((ev, i) => (
+              <span
+                key={i}
+                className={`inline-block rounded-pill px-2 py-0.5 text-xs font-medium ${
+                  ev.score >= 0.5
+                    ? "bg-pass-bg text-pass-text"
+                    : "bg-fail-bg text-fail-text"
+                }`}
+                title={`${ev.evaluator}: ${ev.score.toFixed(2)}`}
+              >
+                {ev.evaluator}
+              </span>
+            ))}
+          </div>
         </td>
-        <td>
+        <td className="border-b border-border px-3 py-2.5 align-middle">
           <button
             type="button"
-            className="link-btn"
+            className="border-none bg-transparent p-0 text-sm text-accent underline hover:text-accent-hover"
             onClick={() => setDetailOpen(true)}
           >
             details
@@ -251,48 +278,80 @@ function EvalDetailModal({
   onClose: () => void;
 }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center bg-overlay p-6 animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="modal-card eval-detail-modal"
+        className="relative max-h-[80vh] w-full max-w-160 overflow-y-auto rounded-lg bg-surface p-7 shadow-lg animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className="modal-close" onClick={onClose}>
+        <button
+          type="button"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-pill border-none bg-border text-lg leading-none transition-colors hover:bg-border-strong"
+          onClick={onClose}
+        >
           ✕
         </button>
-        <h2>Evaluation detail</h2>
+        <h2 className="mb-4 font-mono text-base font-bold">
+          Evaluation detail
+        </h2>
 
-        <div className="detail-section">
-          <h3>Input</h3>
-          <pre className="detail-pre">{formatValue(entry.input)}</pre>
+        <div className="mb-5">
+          <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+            Input
+          </h3>
+          <pre className="max-h-50 overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-md bg-bg-inset px-4 py-3 font-mono text-xs">
+            {formatValue(entry.input)}
+          </pre>
         </div>
 
-        <div className="detail-section">
-          <h3>Output</h3>
-          <pre className="detail-pre">{formatValue(entry.output)}</pre>
+        <div className="mb-5">
+          <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+            Output
+          </h3>
+          <pre className="max-h-50 overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-md bg-bg-inset px-4 py-3 font-mono text-xs">
+            {formatValue(entry.output)}
+          </pre>
         </div>
 
         {entry.expectedOutput != null && (
-          <div className="detail-section">
-            <h3>Expected Output</h3>
-            <pre className="detail-pre">
+          <div className="mb-5">
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Expected Output
+            </h3>
+            <pre className="max-h-50 overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-md bg-bg-inset px-4 py-3 font-mono text-xs">
               {formatValue(entry.expectedOutput)}
             </pre>
           </div>
         )}
 
-        <div className="detail-section">
-          <h3>Evaluations</h3>
+        <div className="mb-5">
+          <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+            Evaluations
+          </h3>
           {entry.evaluations.map((ev, i) => (
-            <div key={i} className="eval-detail-item">
-              <div className="eval-detail-header">
+            <div
+              key={i}
+              className="mb-3 rounded-sm border-l-3 border-border px-3 py-2"
+            >
+              <div className="mb-1 flex items-center gap-3">
                 <span
-                  className={`eval-pill ${ev.score >= 0.5 ? "pass" : "fail"}`}
+                  className={`inline-block rounded-pill px-2 py-0.5 text-xs font-medium ${
+                    ev.score >= 0.5
+                      ? "bg-pass-bg text-pass-text"
+                      : "bg-fail-bg text-fail-text"
+                  }`}
                 >
                   {ev.evaluator}
                 </span>
-                <span className="eval-score">{ev.score.toFixed(2)}</span>
+                <span className="font-mono text-sm font-semibold">
+                  {ev.score.toFixed(2)}
+                </span>
               </div>
-              <p className="eval-reasoning">{ev.reasoning}</p>
+              <p className="m-0 text-sm leading-relaxed text-ink-secondary">
+                {ev.reasoning}
+              </p>
             </div>
           ))}
         </div>

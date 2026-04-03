@@ -51,8 +51,8 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
   }, [selected]);
 
   return (
-    <div className="split-panel">
-      <aside className="split-sidebar">
+    <div className="flex h-full">
+      <aside className="w-60 min-w-60 overflow-y-auto border-r border-border bg-surface py-2">
         <SidebarList
           items={datasets}
           selected={selected}
@@ -60,13 +60,15 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
           emptyMessage="No datasets yet"
         />
       </aside>
-      <div className="split-main">
+      <div className="flex-1 overflow-auto">
         {loading ? (
-          <div className="empty-state">Loading…</div>
+          <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
+            Loading…
+          </div>
         ) : data ? (
           <DatasetTable data={data} />
         ) : (
-          <div className="empty-state">
+          <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
             <p>Select a dataset to view</p>
           </div>
         )}
@@ -77,7 +79,11 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
 
 function DatasetTable({ data }: { data: DatasetData }) {
   if (!data.items || data.items.length === 0) {
-    return <div className="empty-state">Dataset is empty</div>;
+    return (
+      <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
+        Dataset is empty
+      </div>
+    );
   }
 
   // Derive columns from keys of first item
@@ -90,27 +96,41 @@ function DatasetTable({ data }: { data: DatasetData }) {
   const columns = Array.from(allKeys);
 
   return (
-    <div className="dataset-table-wrap">
-      <div className="dataset-header">
-        <span className="dataset-name">{data.name}</span>
-        <span className="dataset-count">{data.items.length} items</span>
+    <div className="p-6">
+      <div className="mb-4 flex items-baseline gap-3">
+        <span className="font-mono text-lg font-bold">{data.name}</span>
+        <span className="font-sans text-sm text-ink-secondary">
+          {data.items.length} items
+        </span>
       </div>
-      <div className="table-scroll">
-        <table className="dataset-table">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse font-sans text-sm">
           <thead>
             <tr>
-              <th>#</th>
+              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+                #
+              </th>
               {columns.map((col) => (
-                <th key={col}>{col}</th>
+                <th
+                  key={col}
+                  className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary"
+                >
+                  {col}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <tr key={idx}>
-                <td className="row-num">{idx + 1}</td>
+              <tr key={idx} className="hover:bg-surface-hover">
+                <td className="w-8 border-b border-border p-2 font-mono text-xs text-ink-muted">
+                  {idx + 1}
+                </td>
                 {columns.map((col) => (
-                  <td key={col}>
+                  <td
+                    key={col}
+                    className="max-w-100 border-b border-border p-2 align-top"
+                  >
                     <CellValue value={item[col]} />
                   </td>
                 ))}
@@ -125,17 +145,23 @@ function DatasetTable({ data }: { data: DatasetData }) {
 
 function CellValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <span className="cell-null">—</span>;
+    return <span className="text-ink-muted">—</span>;
   }
   if (typeof value === "string") {
     const truncated = value.length > 200 ? value.slice(0, 200) + "…" : value;
-    return <span className="cell-text">{truncated}</span>;
+    return (
+      <span className="whitespace-pre-wrap wrap-break-word">{truncated}</span>
+    );
   }
   if (typeof value === "number" || typeof value === "boolean") {
-    return <span className="cell-primitive">{String(value)}</span>;
+    return <span className="font-mono font-semibold">{String(value)}</span>;
   }
   // Object / array: render as compact JSON
   const json = JSON.stringify(value, null, 1);
   const truncated = json.length > 300 ? json.slice(0, 300) + "…" : json;
-  return <pre className="cell-json">{truncated}</pre>;
+  return (
+    <pre className="max-h-30 overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-sm bg-bg-inset px-2 py-1 font-mono text-xs">
+      {truncated}
+    </pre>
+  );
 }

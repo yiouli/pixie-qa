@@ -22,8 +22,6 @@ npm run dev:webui
 # Build both for production (outputs to ../pixie/assets/)
 npm run build
 
-# Build individually
-npm run build:scorecard    # → ../pixie/assets/index.html
 npm run build:webui        # → ../pixie/assets/webui.html
 ```
 

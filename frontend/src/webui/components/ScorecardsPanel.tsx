@@ -38,8 +38,8 @@ export function ScorecardsPanel({
   }, [scorecards, selected]);
 
   return (
-    <div className="split-panel">
-      <aside className="split-sidebar">
+    <div className="flex h-full">
+      <aside className="w-60 min-w-60 overflow-y-auto border-r border-border bg-surface py-2">
         <SidebarList
           items={scorecards}
           selected={selected}
@@ -47,16 +47,16 @@ export function ScorecardsPanel({
           emptyMessage="No scorecards yet"
         />
       </aside>
-      <div className="split-main">
+      <div className="flex-1 overflow-auto">
         {selected ? (
           <iframe
             key={selected}
             src={`/api/file?path=${encodeURIComponent(selected)}`}
-            className="scorecard-iframe"
+            className="h-full w-full border-none"
             title="Scorecard"
           />
         ) : (
-          <div className="empty-state">
+          <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
             <p>Select a scorecard to view</p>
           </div>
         )}

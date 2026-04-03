@@ -16,16 +16,24 @@ export function SidebarList({
   emptyMessage = "No items found",
 }: SidebarListProps) {
   if (items.length === 0) {
-    return <div className="sidebar-empty">{emptyMessage}</div>;
+    return (
+      <div className="px-5 py-6 font-sans text-sm italic text-ink-muted">
+        {emptyMessage}
+      </div>
+    );
   }
 
   return (
-    <ul className="sidebar-list">
+    <ul className="list-none">
       {items.map((item) => (
         <li key={item.path}>
           <button
             type="button"
-            className={`sidebar-item${selected === item.path ? " active" : ""}`}
+            className={`block w-full truncate border-none px-5 py-2 text-left font-mono text-xs transition-colors ${
+              selected === item.path
+                ? "bg-accent font-semibold text-white"
+                : "bg-transparent text-ink-secondary hover:bg-surface-hover hover:text-ink"
+            }`}
             onClick={() => onSelect(item.path)}
             title={item.name}
           >

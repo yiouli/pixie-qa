@@ -40,8 +40,8 @@ export function ProjectContextPanel({
   }, [files, selected]);
 
   return (
-    <div className="split-panel">
-      <aside className="split-sidebar">
+    <div className="flex h-full">
+      <aside className="w-60 min-w-60 overflow-y-auto border-r border-border bg-surface py-2">
         <SidebarList
           items={files}
           selected={selected}
@@ -49,11 +49,11 @@ export function ProjectContextPanel({
           emptyMessage="No project context files"
         />
       </aside>
-      <div className="split-main">
+      <div className="flex-1 overflow-auto">
         {selected ? (
           <MarkdownPanel path={selected} version={mdVersions[selected] ?? 0} />
         ) : (
-          <div className="empty-state">
+          <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
             <p>Select a file to view</p>
           </div>
         )}

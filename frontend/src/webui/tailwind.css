@@ -1,0 +1,210 @@
+/*
+ * Pixie Web UI — Tailwind v4 Theme
+ *
+ * Design tokens derived from the "Ink & Signal" design system.
+ * Uses CSS-first @theme configuration (Tailwind v4).
+ */
+@import "tailwindcss";
+
+@theme {
+  /* ── Color Tokens ────────────────── */
+
+  /* Status: pass / fail / error */
+  --color-pass: #059669;
+  --color-pass-bg: #ecfdf5;
+  --color-pass-border: #a7f3d0;
+  --color-pass-text: #166534;
+
+  --color-fail: #dc2626;
+  --color-fail-bg: #fef2f2;
+  --color-fail-border: #fecaca;
+  --color-fail-text: #991b1b;
+
+  --color-error: #d97706;
+  --color-error-bg: #fffbeb;
+  --color-error-border: #fde68a;
+
+  /* Surface & background */
+  --color-bg: #faf9f7;
+  --color-bg-inset: #f5f5f4;
+  --color-surface: #ffffff;
+  --color-surface-hover: #fafaf9;
+
+  /* Border */
+  --color-border: #e7e5e4;
+  --color-border-strong: #d6d3d1;
+
+  /* Text */
+  --color-ink: #1c1917;
+  --color-ink-secondary: #78716c;
+  --color-ink-muted: #a8a29e;
+
+  /* Accent */
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
+
+  /* Overlay */
+  --color-overlay: rgba(28, 25, 23, 0.55);
+
+  /* ── Typography ──────────────────── */
+  --font-mono:
+    "JetBrains Mono", "Fira Code", "SF Mono", "Cascadia Code", "Consolas",
+    "Liberation Mono", monospace;
+  --font-body: "Charter", "Georgia", "Noto Serif", "Times New Roman", serif;
+  --font-sans:
+    "DM Sans", "Avenir Next", "Avenir", "Segoe UI", system-ui, sans-serif;
+
+  /* ── Radius ──────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+
+  /* ── Shadow ──────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(28, 25, 23, 0.07);
+  --shadow-lg: 0 20px 50px rgba(28, 25, 23, 0.18);
+
+  /* ── Sizing ──────────────────────── */
+  --spacing-sidebar: 240px;
+
+  /* ── Width tokens ────────────────── */
+  --width-sidebar: 240px;
+
+  /* ── Animations ──────────────────── */
+  --animate-fade-in: fade-in 0.15s ease;
+  --animate-slide-up: slide-up 0.2s ease;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* ── Base Layer ─────────────────────── */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 15px;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  body.modal-open {
+    overflow: hidden;
+  }
+}
+
+/* ── Component Layer: Markdown content ─── */
+
+@layer components {
+  .markdown-content {
+    @apply mx-auto max-w-[800px] px-10 py-8 pb-16;
+    font-family: var(--font-body);
+    line-height: 1.7;
+  }
+
+  .markdown-content h1 {
+    @apply mb-4 border-b-2 border-border pb-2 text-2xl font-bold;
+    font-family: var(--font-mono);
+  }
+
+  .markdown-content h2 {
+    @apply mb-3 mt-8 text-lg font-bold text-ink;
+    font-family: var(--font-mono);
+  }
+
+  .markdown-content h3 {
+    @apply mb-2 mt-6 text-base font-bold text-ink-secondary;
+    font-family: var(--font-mono);
+  }
+
+  .markdown-content h4,
+  .markdown-content h5,
+  .markdown-content h6 {
+    @apply mb-1.5 mt-5 text-sm font-semibold;
+    font-family: var(--font-sans);
+  }
+
+  .markdown-content p {
+    @apply mb-3;
+  }
+
+  .markdown-content ul,
+  .markdown-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .markdown-content li {
+    @apply mb-1;
+  }
+
+  .markdown-content a {
+    @apply text-accent no-underline hover:underline;
+  }
+
+  .md-code-block {
+    @apply my-3 overflow-x-auto rounded-md px-5 py-4 font-mono text-sm leading-relaxed;
+    background: #1c1917;
+    color: #e7e5e4;
+  }
+
+  .md-inline-code {
+    @apply rounded-sm bg-bg-inset px-1.5 py-px font-mono text-sm text-ink;
+  }
+
+  .md-table {
+    @apply my-3 w-full border-collapse font-sans text-sm;
+  }
+
+  .md-table th {
+    @apply border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold;
+  }
+
+  .md-table td {
+    @apply border-b border-border p-2;
+  }
+
+  /* ── Analysis content (rendered markdown in results) ─── */
+  .analysis-content h3,
+  .analysis-content h4 {
+    @apply mb-1 mt-3;
+  }
+
+  .analysis-content ul {
+    @apply my-1 pl-5;
+  }
+}

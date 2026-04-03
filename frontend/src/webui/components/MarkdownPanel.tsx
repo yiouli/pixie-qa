@@ -28,7 +28,11 @@ export function MarkdownPanel({ path, version }: MarkdownPanelProps) {
   }, [path, version]);
 
   if (loading) {
-    return <div className="empty-state">Loading…</div>;
+    return (
+      <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">
+        Loading…
+      </div>
+    );
   }
 
   return (

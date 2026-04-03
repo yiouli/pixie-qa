@@ -119,28 +119,30 @@ export default function WebUIApp() {
   useSSE({ onManifest, onFileChange, onNavigate });
 
   return (
-    <div className="webui-root">
-      <header className="brand-header">
-        <div className="brand-lockup">
+    <div className="h-screen overflow-hidden">
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-surface px-10 py-3">
+        <div className="flex items-center gap-2">
           <img
             src={BRAND_ICON_URL}
-            className="brand-icon"
+            className="h-5.5 w-5.5 rounded-sm"
             alt="Pixie"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
-          <span className="brand-name">pixie</span>
+          <span className="font-mono text-base font-bold tracking-tight text-ink">
+            pixie
+          </span>
         </div>
-        <div className="brand-actions">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="btn-ghost"
+            className="rounded-sm border-none bg-transparent px-3 py-1.5 font-sans text-sm text-ink-secondary transition-colors hover:text-ink"
             onClick={() => setFeedbackOpen(true)}
           >
             Share feedback
           </button>
           <a
-            className="btn-primary"
+            className="inline-flex items-center gap-1 rounded-pill border-none bg-accent px-4 py-1.5 font-sans text-sm font-bold text-white no-underline transition-all hover:-translate-y-px hover:bg-accent-hover"
             href={REPO_URL}
             target="_blank"
             rel="noreferrer"
@@ -152,7 +154,7 @@ export default function WebUIApp() {
 
       <TabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
 
-      <div className="webui-content">
+      <div className="h-[calc(100vh-49px-43px)] overflow-hidden">
         {activeTab === "results" && (
           <ResultsPanel
             results={manifest.results}
@@ -189,21 +191,30 @@ export default function WebUIApp() {
 
 function FeedbackOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="modal-close" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center bg-overlay p-6 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-120 rounded-lg bg-surface p-7 shadow-lg animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-pill border-none bg-border text-lg leading-none transition-colors hover:bg-border-strong"
+          onClick={onClose}
+        >
           ✕
         </button>
-        <h2>Share Feedback</h2>
-        <p style={{ margin: "1rem 0", fontFamily: "var(--font-sans)" }}>
+        <h2 className="mb-2 font-mono text-base font-bold">Share Feedback</h2>
+        <p className="my-4 font-sans text-sm text-ink-secondary">
           We'd love to hear from you! Visit our feedback page:
         </p>
         <a
           href={FEEDBACK_URL}
           target="_blank"
           rel="noreferrer"
-          className="btn-primary"
-          style={{ display: "inline-block" }}
+          className="inline-flex items-center gap-1 rounded-pill border-none bg-accent px-4 py-1.5 font-sans text-sm font-bold text-white no-underline transition-all hover:-translate-y-px hover:bg-accent-hover"
         >
           Open Feedback Form
         </a>
