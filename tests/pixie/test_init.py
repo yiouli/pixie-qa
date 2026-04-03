@@ -98,14 +98,14 @@ class TestRootPackageExports:
     # -- Evaluators --
 
     def test_factuality_eval(self) -> None:
-        from pixie import FactualityEval
+        from pixie import Factuality
 
-        assert FactualityEval is not None
+        assert Factuality is not None
 
     def test_exact_match_eval(self) -> None:
-        from pixie import ExactMatchEval
+        from pixie import ExactMatch
 
-        assert ExactMatchEval is not None
+        assert ExactMatch is not None
 
     def test_levenshtein_match(self) -> None:
         from pixie import LevenshteinMatch
@@ -113,24 +113,24 @@ class TestRootPackageExports:
         assert LevenshteinMatch is not None
 
     def test_valid_json_eval(self) -> None:
-        from pixie import ValidJSONEval
+        from pixie import ValidJSON
 
-        assert ValidJSONEval is not None
+        assert ValidJSON is not None
 
     def test_json_diff_eval(self) -> None:
-        from pixie import JSONDiffEval
+        from pixie import JSONDiff
 
-        assert JSONDiffEval is not None
+        assert JSONDiff is not None
 
     def test_context_relevancy_eval(self) -> None:
-        from pixie import ContextRelevancyEval
+        from pixie import ContextRelevancy
 
-        assert ContextRelevancyEval is not None
+        assert ContextRelevancy is not None
 
     def test_faithfulness_eval(self) -> None:
-        from pixie import FaithfulnessEval
+        from pixie import Faithfulness
 
-        assert FaithfulnessEval is not None
+        assert Faithfulness is not None
 
     # -- Dataset / Storage --
 

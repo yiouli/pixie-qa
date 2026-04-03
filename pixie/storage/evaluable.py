@@ -54,6 +54,7 @@ class Evaluable(BaseModel):
     eval_output: JsonValue = None
     eval_metadata: dict[str, JsonValue] | None = None
     expected_output: JsonValue | _Unset = Field(default=UNSET)
+    evaluators: list[str] | None = None
 
     @model_validator(mode="before")
     @classmethod

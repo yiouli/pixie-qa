@@ -68,81 +68,6 @@ def _default_pass_criteria(
     return (passed, f"Average score: {avg:.2f}, all >= 0.5: {passed}")
 
 
-def _publish_to_scorecard(
-    *,
-    evaluators: list[Callable[..., Any]],
-    eval_inputs: list[Any],
-    results: list[list[Evaluation]],
-    passed: bool,
-    criteria_message: str,
-    criteria: object,
-    evaluables: list[Evaluable] | None = None,
-) -> None:
-    """Push an :class:`AssertRecord` to the active scorecard collector.
-
-    This is a no-op when no collector is active (i.e. when tests are
-    not run via ``pixie test``).
-    """
-    from pixie.evals.scorecard import (
-        AssertRecord,
-        _describe_criteria,
-        _evaluator_display_name,
-        _input_label,
-        get_active_collector,
-    )
-    from pixie.storage.evaluable import _Unset
-
-    collector = get_active_collector()
-    if collector is None:
-        return
-
-    evaluator_names = tuple(_evaluator_display_name(ev) for ev in evaluators)
-    input_labels = tuple(_input_label(inp) for inp in eval_inputs)
-
-    # Build per-row context for the scorecard detail modal
-    if evaluables is not None:
-        ev_dicts: tuple[dict[str, Any], ...] = tuple(
-            {
-                "input": str(ev.eval_input) if ev.eval_input is not None else None,
-                "expected_output": (
-                    None
-                    if isinstance(ev.expected_output, _Unset)
-                    else (
-                        str(ev.expected_output)
-                        if ev.expected_output is not None
-                        else None
-                    )
-                ),
-                "actual_output": (
-                    str(ev.eval_output) if ev.eval_output is not None else None
-                ),
-                "metadata": ev.eval_metadata,
-            }
-            for ev in evaluables
-        )
-    else:
-        ev_dicts = tuple(
-            {
-                "input": str(inp),
-                "expected_output": None,
-                "actual_output": None,
-                "metadata": None,
-            }
-            for inp in eval_inputs
-        )
-
-    record = AssertRecord(
-        evaluator_names=evaluator_names,
-        input_labels=input_labels,
-        results=results,
-        passed=passed,
-        criteria_message=criteria_message,
-        scoring_strategy=_describe_criteria(criteria),
-        evaluable_dicts=ev_dicts,
-    )
-    collector.record(record)
-
-
 async def _run_and_capture(
     runnable: Callable[..., Any],
     eval_input: Any,
@@ -296,9 +221,7 @@ async def assert_pass(
     evaluators: list[Callable[..., Any]],
     *,
     evaluables: list[Evaluable] | None = None,
-    pass_criteria: (
-        Callable[[list[list[Evaluation]]], tuple[bool, str]] | None
-    ) = None,
+    pass_criteria: Callable[[list[list[Evaluation]]], tuple[bool, str]] | None = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Run evaluators against a runnable over multiple inputs.
@@ -356,17 +279,6 @@ async def assert_pass(
 
     passed, message = criteria(results)
 
-    # ── Publish to scorecard collector (if active) ─────────────────
-    _publish_to_scorecard(
-        evaluators=evaluators,
-        eval_inputs=eval_inputs,
-        results=results,
-        passed=passed,
-        criteria_message=message,
-        criteria=criteria,
-        evaluables=evaluables,
-    )
-
     if not passed:
         raise EvalAssertionError(message, results=results)
 
@@ -377,9 +289,7 @@ async def assert_dataset_pass(
     evaluators: list[Callable[..., Any]],
     *,
     dataset_dir: str | None = None,
-    pass_criteria: (
-        Callable[[list[list[Evaluation]]], tuple[bool, str]] | None
-    ) = None,
+    pass_criteria: Callable[[list[list[Evaluation]]], tuple[bool, str]] | None = None,
     from_trace: Callable[[list[ObservationNode]], Evaluable] | None = None,
 ) -> None:
     """Load a dataset by name, then run ``assert_pass`` with its items.

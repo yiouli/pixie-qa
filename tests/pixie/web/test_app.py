@@ -418,16 +418,32 @@ class TestPixieTestOpensWebUI:
         """After generating a scorecard, pixie test calls open_webui."""
         from pixie.cli.test_command import main as pixie_test_main
 
-        # Create a minimal test file that always passes
-        test_file = tmp_path / "test_pass.py"
-        test_file.write_text("async def test_ok():\n    pass\n")
+        # Create a minimal dataset with a built-in evaluator
+        dataset_dir = tmp_path / "datasets"
+        dataset_dir.mkdir()
+        dataset_file = dataset_dir / "test-qa.json"
+        dataset_file.write_text(
+            json.dumps(
+                {
+                    "name": "test-qa",
+                    "items": [
+                        {
+                            "eval_input": "What is 1+1?",
+                            "eval_output": "2",
+                            "expected_output": "2",
+                            "evaluators": ["ExactMatch"],
+                        }
+                    ],
+                }
+            )
+        )
         pixie_root = tmp_path / "pixie_qa"
 
         with (
             patch("pixie.web.server.open_webui") as mock_open,
             patch.dict("os.environ", {"PIXIE_ROOT": str(pixie_root)}),
         ):
-            pixie_test_main([str(test_file)])
+            pixie_test_main([str(dataset_file)])
 
             mock_open.assert_called_once()
             call_args = mock_open.call_args
@@ -438,15 +454,31 @@ class TestPixieTestOpensWebUI:
         """--no-open flag suppresses web UI opening."""
         from pixie.cli.test_command import main as pixie_test_main
 
-        test_file = tmp_path / "test_pass.py"
-        test_file.write_text("async def test_ok():\n    pass\n")
+        dataset_dir = tmp_path / "datasets"
+        dataset_dir.mkdir()
+        dataset_file = dataset_dir / "test-qa.json"
+        dataset_file.write_text(
+            json.dumps(
+                {
+                    "name": "test-qa",
+                    "items": [
+                        {
+                            "eval_input": "What is 1+1?",
+                            "eval_output": "2",
+                            "expected_output": "2",
+                            "evaluators": ["ExactMatch"],
+                        }
+                    ],
+                }
+            )
+        )
         pixie_root = tmp_path / "pixie_qa"
 
         with (
             patch("pixie.web.server.open_webui") as mock_open,
             patch.dict("os.environ", {"PIXIE_ROOT": str(pixie_root)}),
         ):
-            pixie_test_main([str(test_file), "--no-open"])
+            pixie_test_main([str(dataset_file), "--no-open"])
             mock_open.assert_not_called()
 
 

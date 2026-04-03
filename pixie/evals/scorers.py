@@ -11,26 +11,26 @@ Public API (all are also re-exported from ``pixie.evals``):
 
 **Heuristic scorers (no LLM required):**
     - :func:`LevenshteinMatch` — edit-distance string similarity.
-    - :func:`ExactMatchEval` — exact value comparison.
-    - :func:`NumericDiffEval` — normalised numeric difference.
-    - :func:`JSONDiffEval` — structural JSON comparison.
-    - :func:`ValidJSONEval` — JSON syntax / schema validation.
-    - :func:`ListContainsEval` — overlap between two string lists.
+    - :func:`ExactMatch` — exact value comparison.
+    - :func:`NumericDiff` — normalised numeric difference.
+    - :func:`JSONDiff` — structural JSON comparison.
+    - :func:`ValidJSON` — JSON syntax / schema validation.
+    - :func:`ListContains` — overlap between two string lists.
 
 **Embedding scorer:**
-    - :func:`EmbeddingSimilarityEval` — cosine similarity via embeddings.
+    - :func:`EmbeddingSimilarity` — cosine similarity via embeddings.
 
 **LLM-as-judge scorers:**
-    - :func:`FactualityEval`, :func:`ClosedQAEval`, :func:`BattleEval`,
-      :func:`HumorEval`, :func:`SecurityEval`, :func:`SqlEval`,
-      :func:`SummaryEval`, :func:`TranslationEval`, :func:`PossibleEval`.
+    - :func:`Factuality`, :func:`ClosedQA`, :func:`Battle`,
+      :func:`Humor`, :func:`Security`, :func:`Sql`,
+      :func:`Summary`, :func:`Translation`, :func:`Possible`.
 
 **Moderation:**
-    - :func:`ModerationEval` — OpenAI content-moderation check.
+    - :func:`Moderation` — OpenAI content-moderation check.
 
 **RAGAS metrics:**
-    - :func:`ContextRelevancyEval`, :func:`FaithfulnessEval`,
-      :func:`AnswerRelevancyEval`, :func:`AnswerCorrectnessEval`.
+    - :func:`ContextRelevancy`, :func:`Faithfulness`,
+      :func:`AnswerRelevancy`, :func:`AnswerCorrectness`.
 """
 
 from __future__ import annotations
@@ -245,7 +245,7 @@ def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
     )
 
 
-def ExactMatchEval() -> AutoevalsAdapter:  # noqa: N802
+def ExactMatch() -> AutoevalsAdapter:  # noqa: N802
     """Exact value comparison evaluator.
 
     Wraps :class:`autoevals.value.ExactMatch`.  Pass ``expected_output``
@@ -257,7 +257,7 @@ def ExactMatchEval() -> AutoevalsAdapter:  # noqa: N802
     )
 
 
-def NumericDiffEval() -> AutoevalsAdapter:  # noqa: N802
+def NumericDiff() -> AutoevalsAdapter:  # noqa: N802
     """Normalised numeric difference evaluator.
 
     Wraps :class:`autoevals.number.NumericDiff`.  Pass ``expected_output``
@@ -269,7 +269,7 @@ def NumericDiffEval() -> AutoevalsAdapter:  # noqa: N802
     )
 
 
-def JSONDiffEval(  # noqa: N802
+def JSONDiff(  # noqa: N802
     *,
     string_scorer: Any = None,
 ) -> AutoevalsAdapter:
@@ -290,7 +290,7 @@ def JSONDiffEval(  # noqa: N802
     )
 
 
-def ValidJSONEval(  # noqa: N802
+def ValidJSON(  # noqa: N802
     *,
     schema: Any = None,
 ) -> AutoevalsAdapter:
@@ -310,7 +310,7 @@ def ValidJSONEval(  # noqa: N802
     )
 
 
-def ListContainsEval(  # noqa: N802
+def ListContains(  # noqa: N802
     *,
     pairwise_scorer: Any = None,
     allow_extra_entities: bool = False,
@@ -339,7 +339,7 @@ def ListContainsEval(  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def EmbeddingSimilarityEval(  # noqa: N802
+def EmbeddingSimilarity(  # noqa: N802
     *,
     prefix: str | None = None,
     model: str | None = None,
@@ -374,7 +374,7 @@ def EmbeddingSimilarityEval(  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def FactualityEval(  # noqa: N802
+def Factuality(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -401,7 +401,7 @@ def FactualityEval(  # noqa: N802
     )
 
 
-def ClosedQAEval(  # noqa: N802
+def ClosedQA(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -429,7 +429,7 @@ def ClosedQAEval(  # noqa: N802
     )
 
 
-def BattleEval(  # noqa: N802
+def Battle(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -455,7 +455,7 @@ def BattleEval(  # noqa: N802
     )
 
 
-def HumorEval(  # noqa: N802
+def Humor(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -479,7 +479,7 @@ def HumorEval(  # noqa: N802
     )
 
 
-def SecurityEval(  # noqa: N802
+def Security(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -504,7 +504,7 @@ def SecurityEval(  # noqa: N802
     )
 
 
-def SqlEval(  # noqa: N802
+def Sql(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -529,7 +529,7 @@ def SqlEval(  # noqa: N802
     )
 
 
-def SummaryEval(  # noqa: N802
+def Summary(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -554,7 +554,7 @@ def SummaryEval(  # noqa: N802
     )
 
 
-def TranslationEval(  # noqa: N802
+def Translation(  # noqa: N802
     *,
     language: str | None = None,
     model: str | None = None,
@@ -586,7 +586,7 @@ def TranslationEval(  # noqa: N802
     )
 
 
-def PossibleEval(  # noqa: N802
+def Possible(  # noqa: N802
     *,
     model: str | None = None,
     client: Any = None,
@@ -615,7 +615,7 @@ def PossibleEval(  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def ModerationEval(  # noqa: N802
+def Moderation(  # noqa: N802
     *,
     threshold: float | None = None,
     client: Any = None,
@@ -644,7 +644,7 @@ def ModerationEval(  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def ContextRelevancyEval(  # noqa: N802
+def ContextRelevancy(  # noqa: N802
     *,
     client: Any = None,
 ) -> AutoevalsAdapter:
@@ -667,7 +667,7 @@ def ContextRelevancyEval(  # noqa: N802
     )
 
 
-def FaithfulnessEval(  # noqa: N802
+def Faithfulness(  # noqa: N802
     *,
     client: Any = None,
 ) -> AutoevalsAdapter:
@@ -688,7 +688,7 @@ def FaithfulnessEval(  # noqa: N802
     )
 
 
-def AnswerRelevancyEval(  # noqa: N802
+def AnswerRelevancy(  # noqa: N802
     *,
     client: Any = None,
 ) -> AutoevalsAdapter:
@@ -709,7 +709,7 @@ def AnswerRelevancyEval(  # noqa: N802
     )
 
 
-def AnswerCorrectnessEval(  # noqa: N802
+def AnswerCorrectness(  # noqa: N802
     *,
     client: Any = None,
 ) -> AutoevalsAdapter:
@@ -738,26 +738,26 @@ def AnswerCorrectnessEval(  # noqa: N802
 
 __all__ = [
     "AutoevalsAdapter",
-    "AnswerCorrectnessEval",
-    "AnswerRelevancyEval",
-    "BattleEval",
-    "ClosedQAEval",
-    "ContextRelevancyEval",
-    "EmbeddingSimilarityEval",
-    "ExactMatchEval",
-    "FactualityEval",
-    "FaithfulnessEval",
-    "HumorEval",
-    "JSONDiffEval",
+    "AnswerCorrectness",
+    "AnswerRelevancy",
+    "Battle",
+    "ClosedQA",
+    "ContextRelevancy",
+    "EmbeddingSimilarity",
+    "ExactMatch",
+    "Factuality",
+    "Faithfulness",
+    "Humor",
+    "JSONDiff",
     "LevenshteinMatch",
-    "ListContainsEval",
-    "ModerationEval",
-    "NumericDiffEval",
-    "PossibleEval",
-    "SecurityEval",
-    "SqlEval",
-    "SummaryEval",
-    "TranslationEval",
-    "ValidJSONEval",
+    "ListContains",
+    "Moderation",
+    "NumericDiff",
+    "Possible",
+    "Security",
+    "Sql",
+    "Summary",
+    "Translation",
+    "ValidJSON",
     "_score_to_evaluation",
 ]

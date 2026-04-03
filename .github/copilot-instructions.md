@@ -24,8 +24,8 @@ pixie/
     test_command.py      # pixie test entry point
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
+    dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
     eval_utils.py        # assert_pass / assert_dataset_pass
-    runner.py            # test discovery and execution
   instrumentation/
     __init__.py          # public API: init(), start_observation(), observe(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
@@ -47,9 +47,8 @@ tests/
   README.md              # testing instructions and manual verification guide
   pixie/                 # automated tests (pytest)
     cli/
-      test_e2e_pixie_test.py  # 43 e2e tests
-      e2e_cases.json          # edge-case scenario definitions
-      e2e_fixtures/           # realistic test fixtures
+      test_test_command.py   # CLI unit tests
+      e2e_fixtures/          # mock evaluators and datasets for e2e
     evals/
       test_scorecard.py
     instrumentation/
@@ -59,10 +58,9 @@ tests/
       test_processor.py
       test_integration.py
   manual/                # manual testing fixtures (not run by pytest)
-    test_sample.py       # run with: pixie test tests/manual/test_sample.py
     mock_evaluators.py
     datasets/
-      sample-qa.json
+      sample-qa.json     # run with: pixie test tests/manual/datasets/sample-qa.json
 
 specs/                   # design specs and architecture docs
 ```
@@ -170,12 +168,10 @@ uv run pytest -k "test_function_name"   # Run specific test
 uv run pytest --cov=pixie               # Run with coverage report
 ```
 
-### 4a. End-to-End Tests for `pixie test`
+### 4a. End-to-End Verification for `pixie test`
 
-The `pixie test` CLI command has a dedicated e2e test suite that verifies the full
-command lifecycle — test discovery, execution, console output, exit codes, and
-HTML scorecard generation. The suite uses **realistic fixtures** that mirror how
-a real user would configure datasets, evaluators, and test files.
+The `pixie test` CLI command uses **dataset-driven mode** — each dataset
+JSON file specifies evaluators per row. There is no test-file mode.
 
 **Fixture layout:**
 
@@ -183,93 +179,93 @@ a real user would configure datasets, evaluators, and test files.
 tests/pixie/cli/
   e2e_fixtures/
     datasets/
-      customer-faq.json          # 5-item golden dataset (Evaluable items)
+      customer-faq.json          # 5-item golden dataset with evaluators per row
     mock_evaluators.py           # Deterministic mock evaluators (no LLM calls)
-    test_customer_faq.py         # Realistic test file using assert_dataset_pass
-  e2e_cases.json                 # Edge-case scenario definitions
-  test_e2e_pixie_test.py         # Automated pytest e2e tests
+
+tests/manual/
+  datasets/
+    sample-qa.json               # 5-item sample dataset with evaluators per row
+  mock_evaluators.py             # SimpleFactualityEval, StrictKeywordEval
 ```
-
-The automated pytest file (`test_e2e_pixie_test.py`) contains two test classes:
-
-1. **`TestPixieTestRealisticE2E`** (10 tests) — Runs `pixie test` on the
-   realistic fixture (`test_customer_faq.py`) that uses 4 evaluator/criteria
-   combinations against the customer-FAQ dataset. Verifies exit code, console
-   summary, test names, check/cross marks, scorecard HTML generation, evaluator
-   names, PASS/FAIL badges, per-input scores, summary counts, and scoring
-   strategy descriptions.
-
-2. **`TestPixieTestEdgeCases`** (32 tests) — Parametrised from `e2e_cases.json`
-   covering empty dirs, filters, verbose mode, single file targeting, etc.
 
 **Mock evaluators** (`e2e_fixtures/mock_evaluators.py`) are deterministic
 replacements for LLM-as-judge evaluators. They use string similarity, keyword
 overlap, or fixed scores to produce realistic but reproducible results:
+
 - `MockFactualityEval` — SequenceMatcher string similarity (most items pass)
 - `MockClosedQAEval` — keyword overlap ratio (strict; some items fail)
 - `MockHallucinationEval` — always returns score 0.95
 - `MockFailingEval` (name="MockStrictTone") — always returns score 0.2
 
-**Expected realistic fixture results:**
-- `test_faq_factuality` → PASS (MockFactuality, threshold=0.6, pct=0.8)
-- `test_faq_multi_evaluator` → FAIL (MockFactuality+MockClosedQA, threshold=0.5, pct=1.0)
-- `test_faq_no_hallucinations` → PASS (MockHallucination, threshold=0.5, pct=1.0)
-- `test_faq_tone_check` → FAIL (MockStrictTone, threshold=0.5, pct=1.0)
-- Console: "2 passed, 2 failed", exit code 1
-- Scorecard: HTML with evaluator names, scores, PASS/FAIL badges
+**When to run e2e verification:**
 
-**When to run e2e tests:**
+Run manual e2e verification whenever you change anything in:
 
-Run the e2e suite whenever you change anything in:
 - `pixie/cli/test_command.py` — the `pixie test` entry point
-- `pixie/evals/runner.py` — test discovery, execution, formatting
+- `pixie/cli/main.py` — CLI argument parsing and forwarding
+- `pixie/evals/dataset_runner.py` — dataset loading and evaluator resolution
 - `pixie/evals/scorecard.py` — scorecard models, HTML generation
 - `pixie/evals/eval_utils.py` — `assert_pass` / `assert_dataset_pass`
 - `pixie/evals/criteria.py` — pass criteria
 
-```bash
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Run all 43 e2e tests
-```
+**Agent verification protocol:**
 
-**Agent verification protocol (manual inspection):**
-
-In addition to the automated pytest tests, the coding agent should manually
-verify the `pixie test` output after making changes to CLI/eval/scorecard code.
-Use the manual test fixture in `tests/manual/`:
+After making changes to CLI/eval/scorecard code, manually verify `pixie test`
+output using both console inspection and Playwright-based scorecard verification.
 
 1. **Run the manual fixture directly:**
+
    ```bash
    export PIXIE_ROOT=/tmp/pixie_e2e_verify
-   uv run pixie test tests/manual/test_sample.py
+   uv run pixie test tests/manual/datasets/sample-qa.json --no-open
    ```
 
 2. **Inspect the console output** — verify that:
-   - All 3 test names appear with correct ✓/✗ marks
-   - Summary shows "1 passed, 2 failed"
+   - All 5 dataset entries appear with correct ✓/✗ marks
+   - Evaluator names are shown per row (e.g. `(SimpleFactualityEval, StrictKeywordEval)`)
+   - Scores are shown (e.g. `[1.00, 1.00]`)
+   - The scorecard file path is printed at the end
    - No unexpected errors or tracebacks
 
-3. **Inspect the HTML scorecard** — open the generated HTML file in a browser
-   (path is printed at the end of console output) and verify:
-   - Evaluator names appear (Factuality, KeywordMatch)
-   - Per-input score cells show reasonable numeric values
-   - PASS/FAIL badges match expectations (1 PASS, 2 FAIL)
-   - Scoring strategy descriptions are human-readable
-   - The scorecard is well-formatted and renders correctly
-   - Evaluation detail modal works (click any score's "details" link)
+3. **Inspect the HTML scorecard with Playwright** — write a Playwright script to:
+   - Open the generated HTML file via `file://` URL
+   - Verify evaluator names appear (SimpleFactualityEval, StrictKeywordEval)
+   - Verify per-input score cells show reasonable numeric values
+   - Verify PASS/FAIL badges are present
+   - Check that "details" links exist and clicking one opens the evaluation detail modal
+   - Take a screenshot for visual confirmation
+   - Example:
+
+     ```python
+     from playwright.sync_api import sync_playwright
+
+     with sync_playwright() as p:
+         browser = p.chromium.launch(headless=True)
+         page = browser.new_page()
+         page.goto("file:///tmp/pixie_e2e_verify/scorecards/<filename>.html")
+         page.wait_for_load_state("networkidle")
+
+         body = page.inner_text("body")
+         assert "SimpleFactualityEval" in body
+         assert "StrictKeywordEval" in body
+         assert "sample-qa" in body
+
+         # Verify detail modal opens
+         details = page.locator("text=details")
+         assert details.count() > 0
+         details.first.click()
+         page.wait_for_timeout(500)
+         assert "Evaluation detail" in page.inner_text("body")
+
+         page.screenshot(path="/tmp/pixie_scorecard.png", full_page=True)
+         browser.close()
+     ```
 
 4. **Evaluate holistically** — given the dataset contents and evaluator
    definitions, do the scores and pass/fail outcomes make sense?
 
-See `tests/README.md` for full manual testing instructions and expected results.
-
-This manual step catches rendering issues, layout regressions, and semantic
+This verification catches rendering issues, layout regressions, and semantic
 correctness problems that simple string assertions can miss.
-
-**Adding new edge-case scenarios:**
-
-1. Add a new object to `tests/pixie/cli/e2e_cases.json`.
-2. Run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` to verify.
-3. No code changes needed in the test file — it auto-discovers all cases.
 
 ### 5. Test Quality Guidelines
 
@@ -476,11 +472,9 @@ uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
 ```
 
-When changing `pixie test` or scorecard-related code, also run e2e explicitly:
-
-```bash
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v  # Verify pixie test e2e
-```
+When changing `pixie test` or scorecard-related code, also run the
+**agent verification protocol** (section 4a) — run `pixie test` on the manual
+fixture and inspect console output + scorecard HTML with Playwright.
 
 Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch type mismatches that mypy misses for untyped third-party packages).
 
@@ -578,14 +572,14 @@ Also verify **zero Pylance errors** in VS Code Problems panel (Pylance can catch
 
 **Which READMEs to update:**
 
-| Change type | READMEs to update |
-| --- | --- |
-| New top-level directory (e.g., `frontend/`) | Create `<dir>/README.md` + update root `README.md` |
-| New package directory (e.g., `pixie/assets/`) | Create `<dir>/README.md` + update `docs/package.md` |
-| New test fixtures or test directories | Update `tests/README.md` |
-| CLI or scorecard changes | Update `docs/package.md` + `tests/README.md` (manual verification) |
-| Build process changes | Update `frontend/README.md` + `pixie/assets/README.md` |
-| API changes | Update `docs/package.md` + relevant module docstrings |
+| Change type                                   | READMEs to update                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| New top-level directory (e.g., `frontend/`)   | Create `<dir>/README.md` + update root `README.md`                 |
+| New package directory (e.g., `pixie/assets/`) | Create `<dir>/README.md` + update `docs/package.md`                |
+| New test fixtures or test directories         | Update `tests/README.md`                                           |
+| CLI or scorecard changes                      | Update `docs/package.md` + `tests/README.md` (manual verification) |
+| Build process changes                         | Update `frontend/README.md` + `pixie/assets/README.md`             |
+| API changes                                   | Update `docs/package.md` + relevant module docstrings              |
 
 ### Changelog per Feature
 
@@ -666,9 +660,8 @@ This project has strict error-handling conventions due to operating inside OTel 
 6. ✅ Update docstrings / `README.md` / relevant `specs/` docs
 7. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
 8. ✅ Verify functionality works as expected
-9. ✅ If touching `pixie test` / scorecard / runner / eval code, run `uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v` — all 43 e2e tests must pass (11 realistic + 32 edge-case)
-10. ✅ If touching `pixie test` / scorecard code, also run the **agent verification protocol** (section 4a) — manually run `pixie test` on the manual fixture and inspect console + scorecard output
-11. ✅ All relevant `README.md` files are updated (see Documentation section — README Scoping Rules)
+9. ✅ If touching `pixie test` / scorecard / dataset runner / eval code, run the **agent verification protocol** (section 4a) — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
+10. ✅ All relevant `README.md` files are updated (see Documentation section — README Scoping Rules)
 
 **Development cycle:**
 
@@ -679,7 +672,7 @@ This project has strict error-handling conventions due to operating inside OTel 
 5. Implement feature (reuse existing code when possible)
 6. After each task: run tests and type check
 7. Run linting (`uv run ruff check .`)
-8. Run `pixie test` e2e suite if CLI/eval/scorecard code changed
+8. Run **agent verification protocol** (section 4a) if CLI/eval/scorecard code changed
 9. Update docs and changelog for the task
 10. Fix any issues
 11. Commit

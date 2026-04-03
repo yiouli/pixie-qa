@@ -12,28 +12,28 @@ from autoevals.score import Scorer as _AEScorer
 
 from pixie.evals.evaluation import Evaluation
 from pixie.evals.scorers import (
-    AnswerCorrectnessEval,
-    AnswerRelevancyEval,
+    AnswerCorrectness,
+    AnswerRelevancy,
     AutoevalsAdapter,
-    BattleEval,
-    ClosedQAEval,
-    ContextRelevancyEval,
-    EmbeddingSimilarityEval,
-    ExactMatchEval,
-    FactualityEval,
-    FaithfulnessEval,
-    HumorEval,
-    JSONDiffEval,
+    Battle,
+    ClosedQA,
+    ContextRelevancy,
+    EmbeddingSimilarity,
+    ExactMatch,
+    Factuality,
+    Faithfulness,
+    Humor,
+    JSONDiff,
     LevenshteinMatch,
-    ListContainsEval,
-    ModerationEval,
-    NumericDiffEval,
-    PossibleEval,
-    SecurityEval,
-    SqlEval,
-    SummaryEval,
-    TranslationEval,
-    ValidJSONEval,
+    ListContains,
+    Moderation,
+    NumericDiff,
+    Possible,
+    Security,
+    Sql,
+    Summary,
+    Translation,
+    ValidJSON,
     _score_to_evaluation,
 )
 from pixie.storage.evaluable import Evaluable
@@ -364,61 +364,61 @@ class TestLevenshteinMatch:
 
 
 class TestExactMatchEval:
-    """Tests for ExactMatchEval factory."""
+    """Tests for ExactMatch factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = ExactMatchEval()
+        evaluator = ExactMatch()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert evaluator._input_key is None  # noqa: SLF001
 
 
 class TestNumericDiffEval:
-    """Tests for NumericDiffEval factory."""
+    """Tests for NumericDiff factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = NumericDiffEval()
+        evaluator = NumericDiff()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert evaluator._input_key is None  # noqa: SLF001
 
 
 class TestJSONDiffEval:
-    """Tests for JSONDiffEval factory."""
+    """Tests for JSONDiff factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = JSONDiffEval()
+        evaluator = JSONDiff()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestValidJSONEval:
-    """Tests for ValidJSONEval factory."""
+    """Tests for ValidJSON factory."""
 
     def test_creates_adapter_without_expected(self) -> None:
-        evaluator = ValidJSONEval()
+        evaluator = ValidJSON()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestListContainsEval:
-    """Tests for ListContainsEval factory."""
+    """Tests for ListContains factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = ListContainsEval()
+        evaluator = ListContains()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestEmbeddingSimilarityEval:
-    """Tests for EmbeddingSimilarityEval factory."""
+    """Tests for EmbeddingSimilarity factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = EmbeddingSimilarityEval()
+        evaluator = EmbeddingSimilarity()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert evaluator._input_key is None  # noqa: SLF001
 
 
 class TestFactualityEval:
-    """Tests for FactualityEval factory."""
+    """Tests for Factuality factory."""
 
     def test_creates_adapter_with_input_key(self) -> None:
-        evaluator = FactualityEval()
+        evaluator = Factuality()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert evaluator._input_key == "input"  # noqa: SLF001
 
@@ -435,7 +435,7 @@ class TestFactualityEval:
             )
             MockCls.return_value = mock_instance
 
-            evaluator = FactualityEval()
+            evaluator = Factuality()
             result = await evaluator(
                 Evaluable(
                     eval_input="Q?",
@@ -453,106 +453,106 @@ class TestFactualityEval:
 
 
 class TestClosedQAEval:
-    """Tests for ClosedQAEval factory."""
+    """Tests for ClosedQA factory."""
 
     def test_creates_adapter_with_criteria_metadata(self) -> None:
-        evaluator = ClosedQAEval()
+        evaluator = ClosedQA()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert "criteria" in evaluator._extra_metadata_keys  # noqa: SLF001
 
 
 class TestBattleEval:
-    """Tests for BattleEval factory."""
+    """Tests for Battle factory."""
 
     def test_maps_input_to_instructions(self) -> None:
-        evaluator = BattleEval()
+        evaluator = Battle()
         assert evaluator._input_key == "instructions"  # noqa: SLF001
 
 
 class TestHumorEval:
-    """Tests for HumorEval factory."""
+    """Tests for Humor factory."""
 
     def test_no_expected_no_input(self) -> None:
-        evaluator = HumorEval()
+        evaluator = Humor()
         assert evaluator._input_key is None  # noqa: SLF001
 
 
 class TestSecurityEval:
-    """Tests for SecurityEval factory."""
+    """Tests for Security factory."""
 
     def test_maps_input_to_instructions(self) -> None:
-        evaluator = SecurityEval()
+        evaluator = Security()
         assert evaluator._input_key == "instructions"  # noqa: SLF001
 
 
 class TestSqlEval:
-    """Tests for SqlEval factory."""
+    """Tests for Sql factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = SqlEval()
+        evaluator = Sql()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestSummaryEval:
-    """Tests for SummaryEval factory."""
+    """Tests for Summary factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = SummaryEval()
+        evaluator = Summary()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestTranslationEval:
-    """Tests for TranslationEval factory."""
+    """Tests for Translation factory."""
 
     def test_passes_language_kwarg(self) -> None:
-        evaluator = TranslationEval(language="Spanish")
+        evaluator = Translation(language="Spanish")
         assert evaluator._scorer_kwargs.get("language") == "Spanish"  # noqa: SLF001
 
 
 class TestPossibleEval:
-    """Tests for PossibleEval factory."""
+    """Tests for Possible factory."""
 
     def test_creates_adapter(self) -> None:
-        evaluator = PossibleEval()
+        evaluator = Possible()
         assert isinstance(evaluator, AutoevalsAdapter)
 
 
 class TestModerationEval:
-    """Tests for ModerationEval factory."""
+    """Tests for Moderation factory."""
 
     def test_creates_adapter_no_input(self) -> None:
-        evaluator = ModerationEval()
+        evaluator = Moderation()
         assert isinstance(evaluator, AutoevalsAdapter)
         assert evaluator._input_key is None  # noqa: SLF001
 
 
 class TestContextRelevancyEval:
-    """Tests for ContextRelevancyEval factory."""
+    """Tests for ContextRelevancy factory."""
 
     def test_has_context_metadata_key(self) -> None:
-        evaluator = ContextRelevancyEval()
+        evaluator = ContextRelevancy()
         assert "context" in evaluator._extra_metadata_keys  # noqa: SLF001
 
 
 class TestFaithfulnessEval:
-    """Tests for FaithfulnessEval factory."""
+    """Tests for Faithfulness factory."""
 
     def test_has_context_metadata_key(self) -> None:
-        evaluator = FaithfulnessEval()
+        evaluator = Faithfulness()
         assert "context" in evaluator._extra_metadata_keys  # noqa: SLF001
 
 
 class TestAnswerRelevancyEval:
-    """Tests for AnswerRelevancyEval factory."""
+    """Tests for AnswerRelevancy factory."""
 
     def test_has_context_metadata_key(self) -> None:
-        evaluator = AnswerRelevancyEval()
+        evaluator = AnswerRelevancy()
         assert "context" in evaluator._extra_metadata_keys  # noqa: SLF001
 
 
 class TestAnswerCorrectnessEval:
-    """Tests for AnswerCorrectnessEval factory."""
+    """Tests for AnswerCorrectness factory."""
 
     def test_has_context_metadata_key(self) -> None:
-        evaluator = AnswerCorrectnessEval()
+        evaluator = AnswerCorrectness()
         assert "context" in evaluator._extra_metadata_keys  # noqa: SLF001

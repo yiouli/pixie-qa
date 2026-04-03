@@ -12,9 +12,6 @@ uv run pytest
 # Run only pixie module unit tests
 uv run pytest tests/pixie/
 
-# Run e2e tests for `pixie test` CLI
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v
-
 # Run a specific test file
 uv run pytest tests/pixie/evals/test_scorecard.py -v
 
@@ -36,116 +33,91 @@ tests/
 │   ├── test_config.py
 │   ├── test_init.py
 │   ├── cli/
-│   │   ├── e2e_cases.json             # Edge-case scenarios for pixie test
-│   │   ├── test_e2e_pixie_test.py     # 43 e2e tests (11 realistic + 32 edge)
 │   │   ├── test_test_command.py       # pixie test config wiring
 │   │   └── e2e_fixtures/
-│   │       ├── test_customer_faq.py   # Realistic 4-test fixture
 │   │       ├── mock_evaluators.py     # Deterministic mock evaluators
 │   │       ├── conftest.py
 │   │       └── datasets/
-│   │           └── customer-faq.json  # 5-item golden dataset
+│   │           └── customer-faq.json  # 5-item golden dataset with evaluators per row
 │   ├── dataset/
 │   ├── evals/
-│   │   ├── test_scorecard.py          # 31 scorecard unit tests
+│   │   ├── test_scorecard.py          # Scorecard helper unit tests
 │   │   └── ...
 │   ├── instrumentation/
 │   ├── observation_store/
 │   └── web/
-│       ├── test_app.py                # Web UI server + CLI tests (24 tests)
-│       └── test_watcher.py            # File watcher utility tests (8 tests)
+│       ├── test_app.py                # Web UI server + CLI tests
+│       └── test_watcher.py            # File watcher utility tests
 └── manual/                            # Manual testing fixtures
-    ├── test_sample.py                 # 3-test sample (run with pixie test)
     ├── mock_evaluators.py             # Simple deterministic evaluators
     └── datasets/
-        └── sample-qa.json            # 5-item sample dataset
+        └── sample-qa.json            # 5-item sample dataset with evaluators per row
 ```
 
-## Manual Testing — Viewing the Scorecard
+## Manual Testing — Agent Verification Protocol
 
-To visually inspect the HTML scorecard report, run the manual fixture:
+Whenever you change CLI, eval, or scorecard code, run the manual fixture and
+inspect both the console output and the generated HTML scorecard.
+
+### 1. Run the manual fixture
 
 ```bash
-export PIXIE_ROOT=/tmp/pixie_manual
-uv run pixie test tests/manual/test_sample.py
+export PIXIE_ROOT=/tmp/pixie_e2e_verify
+uv run pixie test tests/manual/datasets/sample-qa.json --no-open
 ```
 
-`pixie test` reads the central Pixie config, so evaluator rate limits can also be supplied in a local `.env` file:
+### 2. Inspect console output
 
-```bash
-cat > .env <<'EOF'
-PIXIE_RATE_LIMIT_ENABLED=true
-PIXIE_RATE_LIMIT_RPS=4
-PIXIE_RATE_LIMIT_RPM=50
-EOF
-uv run pixie test tests/manual/test_sample.py
+Verify that:
+
+- All 5 dataset entries appear with correct ✓/✗ marks
+- Evaluator names are shown per row (e.g. `(SimpleFactualityEval, StrictKeywordEval)`)
+- Scores are shown (e.g. `[1.00, 1.00]`)
+- The scorecard file path is printed at the end
+- No unexpected errors or tracebacks
+
+### 3. Inspect the HTML scorecard with Playwright
+
+Write a Playwright script to:
+
+- Open the generated HTML file via `file://` URL
+- Verify evaluator names appear (SimpleFactualityEval, StrictKeywordEval)
+- Verify per-input score cells show reasonable numeric values
+- Verify PASS/FAIL badges are present
+- Check that "details" links exist and clicking one opens the evaluation detail modal
+- Take a screenshot for visual confirmation
+
+Example:
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("file:///tmp/pixie_e2e_verify/scorecards/<filename>.html")
+    page.wait_for_load_state("networkidle")
+
+    body = page.inner_text("body")
+    assert "SimpleFactualityEval" in body
+    assert "StrictKeywordEval" in body
+    assert "sample-qa" in body
+
+    # Verify detail modal opens
+    details = page.locator("text=details")
+    assert details.count() > 0
+    details.first.click()
+    page.wait_for_timeout(500)
+    assert "Evaluation detail" in page.inner_text("body")
+
+    page.screenshot(path="/tmp/pixie_scorecard.png", full_page=True)
+    browser.close()
 ```
-
-This produces:
-
-- **Console output** — 1 passed, 2 failed with ✓/✗ marks
-- **HTML scorecard** — saved to `$PIXIE_ROOT/scorecards/<timestamp>.html`
-
-Open the HTML file in a browser to inspect the scorecard:
-
-```bash
-# macOS
-open /tmp/pixie_manual/scorecards/*.html
-
-# Linux
-xdg-open /tmp/pixie_manual/scorecards/*.html
-```
-
-The scorecard shows:
-
-- Test run overview with pass/fail summary
-- Per-test detail cards with scoring strategies
-- Per-input × per-evaluator score grids
-- Click any score to see evaluation detail (reasoning, input/output)
-- Feedback modal and GitHub star CTA
-
-### What to look for
-
-| Test                       | Expected | Why                                                                         |
-| -------------------------- | -------- | --------------------------------------------------------------------------- |
-| `test_factuality`          | PASS     | Lenient threshold (0.5 score, 80% items)                                    |
-| `test_keyword_coverage`    | FAIL     | Strict threshold (0.9 score, all items) — some items use different phrasing |
-| `test_combined_evaluators` | FAIL     | Both evaluators must score ≥0.7 on all items                                |
 
 ### Customising the fixture
 
-- Edit `tests/manual/datasets/sample-qa.json` to change test data
+- Edit `tests/manual/datasets/sample-qa.json` to change test data and evaluators
 - Edit `tests/manual/mock_evaluators.py` to change scoring heuristics
-- Edit `tests/manual/test_sample.py` to change evaluators or thresholds
-
-## Automated E2E Tests
-
-The `tests/pixie/cli/test_e2e_pixie_test.py` file contains 43 automated tests
-split into two classes:
-
-### TestPixieTestRealisticE2E (11 tests)
-
-Runs `pixie test` on a realistic fixture with 4 evaluator/criteria combinations
-against a 5-item customer-FAQ dataset. Verifies:
-
-- Exit codes, console output, test names, ✓/✗ marks
-- Scorecard HTML generation
-- Evaluator names, PASS/FAIL badges, per-input scores
-- Summary counts, scoring strategy descriptions
-- Branding and feedback elements
-
-### TestPixieTestEdgeCases (32 tests)
-
-Parametrised from `e2e_cases.json`. Covers empty dirs, -k filters, verbose
-mode, single file targeting, error handling. Each case specifies:
-
-- `test_files` — inline Python test file contents
-- `argv` — CLI arguments
-- `expected_exit_code`
-- `console_contains` / `console_not_contains`
-- `scorecard_html_contains`
-
-To add new edge cases, add entries to `e2e_cases.json` — no code changes needed.
 
 ## Unit Tests
 
@@ -154,7 +126,7 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 | Test file                           | Module tested                     | Tests                             |
 | ----------------------------------- | --------------------------------- | --------------------------------- |
 | `cli/test_test_command.py`          | `pixie.cli.test_command`          | dotenv/config wiring              |
-| `evals/test_scorecard.py`           | `pixie.evals.scorecard`           | 31                                |
+| `evals/test_scorecard.py`           | `pixie.evals.scorecard`           | Scorecard helpers                 |
 | `evals/test_eval_utils.py`          | `pixie.evals.eval_utils`          | assert_pass / assert_dataset_pass |
 | `instrumentation/test_spans.py`     | `pixie.instrumentation.spans`     | Span data models                  |
 | `instrumentation/test_processor.py` | `pixie.instrumentation.processor` | OTel processor                    |
@@ -172,16 +144,6 @@ uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
 ```
 
-If you changed `pixie test`, scorecard, runner, or eval code, also run:
-
-```bash
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v   # 43 e2e tests
-```
-
-For scorecard visual changes, also do a manual inspection:
-
-```bash
-export PIXIE_ROOT=/tmp/pixie_verify
-uv run pixie test tests/manual/test_sample.py
-# Open the generated HTML and inspect visually
-```
+If you changed `pixie test`, scorecard, dataset runner, or eval code, also run the
+**agent verification protocol** (see Manual Testing section above) — run `pixie test`
+on the manual fixture and inspect console output + scorecard HTML with Playwright.

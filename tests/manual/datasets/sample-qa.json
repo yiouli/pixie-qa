@@ -7,7 +7,11 @@
             },
             "eval_output": "The capital of France is Paris.",
             "expected_output": "The capital of France is Paris.",
-            "eval_metadata": null
+            "eval_metadata": null,
+            "evaluators": [
+                "tests.manual.mock_evaluators.SimpleFactualityEval",
+                "tests.manual.mock_evaluators.StrictKeywordEval"
+            ]
         },
         {
             "eval_input": {
@@ -15,7 +19,11 @@
             },
             "eval_output": "The answer is 4.",
             "expected_output": "The answer is 4.",
-            "eval_metadata": null
+            "eval_metadata": null,
+            "evaluators": [
+                "tests.manual.mock_evaluators.SimpleFactualityEval",
+                "tests.manual.mock_evaluators.StrictKeywordEval"
+            ]
         },
         {
             "eval_input": {
@@ -23,7 +31,11 @@
             },
             "eval_output": "William Shakespeare wrote Hamlet.",
             "expected_output": "Shakespeare authored Hamlet.",
-            "eval_metadata": null
+            "eval_metadata": null,
+            "evaluators": [
+                "tests.manual.mock_evaluators.SimpleFactualityEval",
+                "tests.manual.mock_evaluators.StrictKeywordEval"
+            ]
         },
         {
             "eval_input": {
@@ -31,7 +43,10 @@
             },
             "eval_output": "Water boils at 100 degrees Celsius at sea level.",
             "expected_output": "Water boils at 100 degrees Celsius.",
-            "eval_metadata": null
+            "eval_metadata": null,
+            "evaluators": [
+                "tests.manual.mock_evaluators.SimpleFactualityEval"
+            ]
         },
         {
             "eval_input": {
@@ -39,7 +54,10 @@
             },
             "eval_output": "Jupiter is the largest planet in the solar system.",
             "expected_output": "The largest planet in the solar system is Jupiter.",
-            "eval_metadata": null
+            "eval_metadata": null,
+            "evaluators": [
+                "tests.manual.mock_evaluators.SimpleFactualityEval"
+            ]
         }
     ]
 }

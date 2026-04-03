@@ -24,8 +24,8 @@ pixie/
     test_command.py      # pixie test entry point
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
+    dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
     eval_utils.py        # assert_pass / assert_dataset_pass
-    runner.py            # test discovery and execution
   instrumentation/
     __init__.py          # public API: init(), start_observation(), observe(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
@@ -45,12 +45,14 @@ frontend/                # React scorecard SPA source
 tests/
   pixie/                 # automated tests (pytest)
     cli/
-      test_e2e_pixie_test.py  # 43 e2e tests
-      e2e_cases.json          # edge-case scenario definitions
-      e2e_fixtures/           # realistic test fixtures
+      test_test_command.py   # CLI unit tests
+      e2e_fixtures/          # mock evaluators and datasets for e2e
     evals/
     instrumentation/
   manual/                # manual testing fixtures (not run by pytest)
+    mock_evaluators.py
+    datasets/
+      sample-qa.json     # run with: pixie test tests/manual/datasets/sample-qa.json
 
 specs/                   # design specs and architecture docs
 ```
@@ -83,6 +85,7 @@ Always run tools through `uv run`. Commit `uv.lock` alongside `pyproject.toml` c
 **Write or verify tests BEFORE implementing features.**
 
 **Workflow:**
+
 1. Write test first → verify it fails (red)
 2. Implement minimal code → verify it passes (green)
 3. Refactor if needed, keeping tests green
@@ -95,27 +98,32 @@ Always run tools through `uv run`. Commit `uv.lock` alongside `pyproject.toml` c
 ```bash
 uv run pytest                                                      # All tests
 uv run pytest tests/pixie/                                        # pixie tests only
-uv run pytest tests/pixie/cli/test_e2e_pixie_test.py -v          # All 43 e2e tests
 uv run pytest --cov=pixie                                         # With coverage
 ```
 
-### E2E Tests for `pixie test`
+### E2E Verification for `pixie test`
 
-Run e2e whenever changing:
+Run manual e2e verification whenever changing:
+
 - `pixie/cli/test_command.py`
-- `pixie/evals/runner.py`
+- `pixie/cli/main.py`
+- `pixie/evals/dataset_runner.py`
 - `pixie/evals/scorecard.py`
 - `pixie/evals/eval_utils.py`
 - `pixie/evals/criteria.py`
 
-After CLI/eval/scorecard changes, also run the **manual verification protocol**:
+**Agent verification protocol:**
 
-```bash
-export PIXIE_ROOT=/tmp/pixie_e2e_verify
-uv run pixie test tests/manual/test_sample.py
-```
+1. Run the manual fixture:
 
-Inspect console output (3 test names, "1 passed, 2 failed") and open the HTML scorecard to verify evaluator names, scores, PASS/FAIL badges, and modal behavior.
+   ```bash
+   export PIXIE_ROOT=/tmp/pixie_e2e_verify
+   uv run pixie test tests/manual/datasets/sample-qa.json --no-open
+   ```
+
+2. Inspect console output — verify all 5 items appear with evaluator names and scores
+
+3. Inspect HTML scorecard with Playwright — verify evaluator names, scores, PASS/FAIL badges, and detail modals
 
 ### Test Quality
 
@@ -138,6 +146,7 @@ uv run mypy tests/pixie/         # Type check tests
 Also check **Pylance diagnostics** in VS Code Problems panel — zero errors required before committing.
 
 **Rules:**
+
 - All function signatures must have type annotations for parameters and return values
 - Use `|` syntax for unions (not `Optional` or `Union`)
 - Use `from __future__ import annotations` at top of files
@@ -181,18 +190,19 @@ Before writing new code, search the codebase for existing similar code. Extract 
 
 ### README Scoping Rules
 
-| Change type | READMEs to update |
-|---|---|
-| New top-level directory | Create `<dir>/README.md` + update root `README.md` |
-| New package directory | Create `<dir>/README.md` + update `docs/package.md` |
-| New test fixtures or test directories | Update `tests/README.md` |
-| CLI or scorecard changes | Update `docs/package.md` + `tests/README.md` |
-| Build process changes | Update `frontend/README.md` + `pixie/assets/README.md` |
-| API changes | Update `docs/package.md` + relevant module docstrings |
+| Change type                           | READMEs to update                                      |
+| ------------------------------------- | ------------------------------------------------------ |
+| New top-level directory               | Create `<dir>/README.md` + update root `README.md`     |
+| New package directory                 | Create `<dir>/README.md` + update `docs/package.md`    |
+| New test fixtures or test directories | Update `tests/README.md`                               |
+| CLI or scorecard changes              | Update `docs/package.md` + `tests/README.md`           |
+| Build process changes                 | Update `frontend/README.md` + `pixie/assets/README.md` |
+| API changes                           | Update `docs/package.md` + relevant module docstrings  |
 
 ### Changelog
 
 Every non-trivial feature or bug fix requires a file under `changelogs/<feature>.md` containing:
+
 - What changed and why
 - Files affected
 - Migration notes (if API behavior changed)
@@ -200,6 +210,7 @@ Every non-trivial feature or bug fix requires a file under `changelogs/<feature>
 ### Hard Completion Gate
 
 A task is **not complete** until all of the following are updated in the same change set:
+
 1. Relevant `README.md` files
 2. Relevant `specs/*.md` (design/behavior/architecture)
 3. `changelogs/<feature>.md`
@@ -227,5 +238,5 @@ A task is **not complete** until all of the following are updated in the same ch
 5. ✅ `uv run ruff check .` — no linting errors
 6. ✅ Docstrings / `README.md` / `specs/` updated
 7. ✅ `changelogs/<feature>.md` added/updated
-8. ✅ If touching `pixie test`/scorecard/runner/eval: run all 43 e2e tests + manual verification protocol
+8. ✅ If touching `pixie test`/scorecard/dataset runner/eval: run the **agent verification protocol** — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
 9. ✅ All relevant `README.md` files updated per scoping rules

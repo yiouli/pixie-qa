@@ -153,15 +153,8 @@ def _build_parser() -> argparse.ArgumentParser:
     test_parser.add_argument(
         "test_path",
         nargs="?",
-        default=".",
-        help="File or directory to search for tests (default: current directory)",
-    )
-    test_parser.add_argument(
-        "-k",
-        "--filter",
-        dest="filter_pattern",
         default=None,
-        help="Only run tests whose names contain this substring",
+        help="Dataset file or directory (default: pixie datasets directory)",
     )
     test_parser.add_argument(
         "-v",
@@ -169,6 +162,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Show detailed evaluation results",
+    )
+    test_parser.add_argument(
+        "--no-open",
+        action="store_true",
+        default=False,
+        help="Do not automatically open the scorecard HTML in a browser",
     )
 
     # -- pixie init ----------------------------------------------------------
@@ -349,11 +348,13 @@ def main(argv: list[str] | None = None) -> int:
         from pixie.cli.test_command import main as test_main
 
         # Forward args in the format test_command.main() expects
-        test_argv: list[str] = [args.test_path]
-        if args.filter_pattern:
-            test_argv.extend(["-k", args.filter_pattern])
+        test_argv: list[str] = []
+        if args.test_path is not None:
+            test_argv.append(args.test_path)
         if args.verbose:
             test_argv.append("-v")
+        if args.no_open:
+            test_argv.append("--no-open")
         return test_main(test_argv)
 
     elif args.command == "init":

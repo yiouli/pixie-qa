@@ -41,22 +41,13 @@ class TestTestCommandRateLimitConfig:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(instrumentation, "init", lambda: None)
         monkeypatch.setattr(
-            test_command, "discover_tests", lambda *_args, **_kwargs: []
-        )
-        monkeypatch.setattr(test_command, "run_tests", lambda _cases: [])
-        monkeypatch.setattr(
-            test_command, "format_results", lambda _results, verbose: "ok"
-        )
-        monkeypatch.setattr(
-            test_command,
-            "save_scorecard",
-            lambda _report: str(tmp_path / "scorecard.html"),
+            test_command, "discover_dataset_files", lambda *_args, **_kwargs: []
         )
 
-        result = test_command.main(["--no-open"])
+        result = test_command.main([str(tmp_path), "--no-open"])
 
         limiter = get_rate_limiter()
-        assert result == 0
+        assert result == 1  # No dataset files found
         assert limiter is not None
         assert limiter.config.rps == 7.0
         assert limiter.config.rpm == 70.0
