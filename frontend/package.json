@@ -4,10 +4,9 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "vite",
+        "dev": "VITE_BUILD_TARGET=webui vite",
         "dev:webui": "VITE_BUILD_TARGET=webui vite",
-        "build": "tsc && vite build && VITE_BUILD_TARGET=webui vite build",
-        "build:scorecard": "tsc && vite build",
+        "build": "tsc && VITE_BUILD_TARGET=webui vite build",
         "build:webui": "tsc && VITE_BUILD_TARGET=webui vite build",
         "preview": "vite preview"
     },

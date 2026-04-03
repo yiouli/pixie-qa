@@ -292,7 +292,7 @@ Older `pixie test` runs that produced standalone HTML scorecards are still viewa
 
 ## Web UI
 
-View all generated artifacts — markdown documents, datasets, and scorecards — in a live-updating local web UI:
+View all generated artifacts — results, markdown documents, datasets, and legacy scorecards — in a live-updating local web UI:
 
 ```bash
 pixie start              # starts server on port 7118 and opens browser
