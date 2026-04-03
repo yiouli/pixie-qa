@@ -11,7 +11,8 @@ The `qa-eval` skill guides your coding agent through the full eval-based QA loop
 3. **Build a dataset** — save representative traces as test cases with `pixie dataset save`
 4. **Write eval tests** — generate `test_*.py` files with `assert_dataset_pass` and appropriate evaluators
 5. **Run the tests** — `pixie test` to run all evals and report per-case scores
-6. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
+6. **Analyse results** — `pixie analyze <test_id>` to get LLM-generated analysis of test results
+7. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
 
 ## Getting Started
 

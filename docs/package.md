@@ -254,30 +254,39 @@ pixie test -v              # verbose: shows per-case scores and reasoning
 
 `pixie test` applies the central Pixie config before running evaluators, so `.env`-backed `PIXIE_RATE_LIMIT_*` settings are honored automatically.
 
-### HTML Scorecard
+### Test Results (JSON)
 
-Every `pixie test` run generates an **HTML scorecard** saved to `{PIXIE_ROOT}/scorecards/<timestamp>.html`. After generating the scorecard, `pixie test` opens the web UI (see [Web UI](#web-ui)) with the new scorecard selected. If the web UI server is not already running, one is started in the background automatically.
+Every `pixie test` run generates a **JSON result file** saved to `{PIXIE_ROOT}/results/<test_id>/result.json`, where `<test_id>` is a timestamp like `20250615-120000`. After generating the result, `pixie test` opens the web UI (see [Web UI](#web-ui)) with the Results tab selected. If the web UI server is not already running, one is started in the background automatically.
 
 Pass `--no-open` to suppress automatic browser opening.
 
-The scorecard contains:
+The JSON result contains:
 
-- **Test run overview** — command args, timestamp, pass/fail summary, and a table of all tests with their status.
-- **Per-test detail** — for each test function that calls `assert_pass` / `assert_dataset_pass`:
-  - Scoring strategy description (human-readable).
-  - Per-evaluator pass rate table.
-  - Per-input × per-evaluator score grid with detail links.
-  - **Tabbed view** for multi-pass runs (one tab per pass).
-- **Evaluation detail modal** — click any score to see full reasoning, input, expected/actual output, and metadata.
-- **Feedback modal** — share feedback directly from the scorecard.
+- **Meta** — test ID, command args, start/end timestamps.
+- **Datasets** — array of per-dataset results, each containing:
+  - Dataset name and optional analysis (markdown).
+  - Per-entry results with input, output, expected output, description, and evaluations.
+  - Each evaluation has evaluator name, score, and reasoning.
 
-The frontend source lives in `frontend/` and compiles to `pixie/assets/index.html` via Vite. At runtime, Python injects JSON data into the template. See [frontend/README.md](../frontend/README.md) for development and build instructions.
-
-After the test run, the CLI prints the scorecard path:
+After the test run, the CLI prints the result path:
 
 ```text
-See /path/to/pixie_qa/scorecards/20250615-120000-pixie-test.html for test details
+Result saved to /path/to/pixie_qa/results/20250615-120000/result.json
 ```
+
+### Analysing Test Results
+
+Use `pixie analyze` to generate LLM-powered analysis for each dataset in a test run:
+
+```bash
+pixie analyze <test_id>    # e.g. pixie analyze 20250615-120000
+```
+
+This calls an OpenAI-compatible model (configurable via `PIXIE_ANALYZE_MODEL`, default: `gpt-4o-mini`) to produce a markdown analysis for each dataset. Analysis files are saved alongside the result as `dataset-<index>.md` and are merged into the result when loaded by the web UI.
+
+### Legacy HTML Scorecards
+
+Older `pixie test` runs that produced standalone HTML scorecards are still viewable in the Scorecards tab of the web UI.
 
 ---
 
@@ -292,8 +301,9 @@ pixie start my_dir       # use a custom artifact root directory
 
 The web UI provides:
 
-- **Tabbed navigation** — Scorecards tab, Datasets tab, plus one tab per markdown file
-- **Scorecards panel** — sidebar list of all scorecards with iframe viewer
+- **Tabbed navigation** — Results tab, Scorecards tab, Datasets tab, plus one tab per markdown file
+- **Results panel** — sidebar list of test runs with a result viewer showing test overview, per-dataset analysis, and per-entry evaluation details
+- **Scorecards panel** — sidebar list of legacy HTML scorecards with iframe viewer
 - **Datasets panel** — sidebar list of datasets with table viewer
 - **Markdown panel** — renders `.md` files as formatted HTML
 - **Live updates** — file changes are pushed to the browser via SSE; the view automatically switches to the updated artifact

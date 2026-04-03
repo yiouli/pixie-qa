@@ -558,3 +558,289 @@ body.modal-open {
   align-items: center;
   justify-content: center;
 }
+
+/* ── Results Panel ──────────────────────────────────────────── */
+
+.result-viewer {
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.result-view {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.result-overview {
+  margin-bottom: 2rem;
+}
+
+.result-overview h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: var(--c-text);
+}
+
+.overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.overview-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.overview-table .label {
+  font-weight: 600;
+  width: 100px;
+  color: var(--c-text-secondary);
+}
+
+.overview-table code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--c-bg-inset);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.dataset-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.dataset-summary-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--c-border);
+  font-weight: 600;
+  color: var(--c-text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dataset-summary-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.result-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.result-badge.pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.result-badge.fail {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+/* ── Dataset Section ──────────────────────────────────────── */
+
+.dataset-section {
+  margin-bottom: 2.5rem;
+  border-top: 2px solid var(--c-border);
+  padding-top: 1.5rem;
+}
+
+.dataset-section h2 {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.analysis-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--c-bg-inset);
+  border-radius: 8px;
+  border-left: 3px solid var(--c-accent, #6366f1);
+}
+
+.analysis-section h3 {
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  color: var(--c-text-secondary);
+}
+
+.analysis-content {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.analysis-content h3,
+.analysis-content h4 {
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.analysis-content ul {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+/* ── Entries Table ────────────────────────────────────────── */
+
+.entries-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.entries-table th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 2px solid var(--c-border);
+  font-weight: 600;
+  color: var(--c-text-secondary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.entries-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--c-border);
+  vertical-align: middle;
+}
+
+.entries-table .scenario-cell {
+  max-width: 300px;
+}
+
+.entries-table .evals-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+tr.row-fail {
+  background: #fef2f2;
+}
+
+tr.row-pass {
+  background: transparent;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pill.pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pill.fail {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.eval-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: default;
+}
+
+.eval-pill.pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.eval-pill.fail {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--c-accent, #6366f1);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.link-btn:hover {
+  color: var(--c-accent-hover, #4f46e5);
+}
+
+/* ── Eval Detail Modal ────────────────────────────────────── */
+
+.eval-detail-modal {
+  max-width: 640px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.detail-section {
+  margin-bottom: 1.25rem;
+}
+
+.detail-section h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-text-secondary);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-pre {
+  background: var(--c-bg-inset);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.eval-detail-item {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--c-border);
+  border-radius: 4px;
+}
+
+.eval-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.eval-score {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.eval-reasoning {
+  font-size: 0.85rem;
+  color: var(--c-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}

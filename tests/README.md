@@ -34,6 +34,7 @@ tests/
 │   ├── test_init.py
 │   ├── cli/
 │   │   ├── test_test_command.py       # pixie test config wiring
+│   │   ├── test_analyze_command.py    # pixie analyze CLI tests
 │   │   └── e2e_fixtures/
 │   │       ├── mock_evaluators.py     # Deterministic mock evaluators
 │   │       ├── conftest.py
@@ -42,6 +43,7 @@ tests/
 │   ├── dataset/
 │   ├── evals/
 │   │   ├── test_scorecard.py          # Scorecard helper unit tests
+│   │   ├── test_test_result.py        # Test result JSON model tests
 │   │   └── ...
 │   ├── instrumentation/
 │   ├── observation_store/
@@ -57,7 +59,7 @@ tests/
 ## Manual Testing — Agent Verification Protocol
 
 Whenever you change CLI, eval, or scorecard code, run the manual fixture and
-inspect both the console output and the generated HTML scorecard.
+inspect both the console output and the generated result.
 
 ### 1. Run the manual fixture
 
@@ -73,10 +75,10 @@ Verify that:
 - All 5 dataset entries appear with correct ✓/✗ marks
 - Evaluator names are shown per row (e.g. `(SimpleFactualityEval, StrictKeywordEval)`)
 - Scores are shown (e.g. `[1.00, 1.00]`)
-- The scorecard file path is printed at the end
+- The result JSON file path is printed at the end
 - No unexpected errors or tracebacks
 
-### 3. Inspect the HTML scorecard with Playwright
+### 3. Inspect the result JSON and web UI
 
 Write a Playwright script to:
 
@@ -126,7 +128,9 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 | Test file                           | Module tested                     | Tests                             |
 | ----------------------------------- | --------------------------------- | --------------------------------- |
 | `cli/test_test_command.py`          | `pixie.cli.test_command`          | dotenv/config wiring              |
+| `cli/test_analyze_command.py`       | `pixie.cli.analyze_command`       | pixie analyze CLI                 |
 | `evals/test_scorecard.py`           | `pixie.evals.scorecard`           | Scorecard helpers                 |
+| `evals/test_test_result.py`         | `pixie.evals.test_result`         | Test result JSON models           |
 | `evals/test_eval_utils.py`          | `pixie.evals.eval_utils`          | assert_pass / assert_dataset_pass |
 | `instrumentation/test_spans.py`     | `pixie.instrumentation.spans`     | Span data models                  |
 | `instrumentation/test_processor.py` | `pixie.instrumentation.processor` | OTel processor                    |

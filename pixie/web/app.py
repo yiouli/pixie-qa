@@ -59,12 +59,25 @@ def _list_scorecards(root: Path) -> list[dict[str, str]]:
     return files
 
 
+def _list_results(root: Path) -> list[dict[str, str]]:
+    """Return test result directories, newest first."""
+    results_dir = root / "results"
+    dirs: list[dict[str, str]] = []
+    if not results_dir.exists():
+        return dirs
+    for p in sorted(results_dir.iterdir(), reverse=True):
+        if p.is_dir() and (p / "result.json").exists():
+            dirs.append({"name": p.name, "path": f"results/{p.name}"})
+    return dirs
+
+
 def _build_manifest(root: Path) -> dict[str, object]:
     """Build a full manifest of all artifacts."""
     return {
         "markdown_files": _list_md_files(root),
         "datasets": _list_datasets(root),
         "scorecards": _list_scorecards(root),
+        "results": _list_results(root),
     }
 
 
@@ -197,19 +210,43 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
         tab = request.query_params.get("tab")
         item_id = request.query_params.get("id")
         if not tab:
-            return JSONResponse(
-                {"error": "tab parameter required"}, status_code=400
-            )
+            return JSONResponse({"error": "tab parameter required"}, status_code=400)
         payload: dict[str, str] = {"tab": tab}
         if item_id:
             payload["id"] = item_id
         await sse.broadcast("navigate", payload)
         return JSONResponse({"ok": True})
 
+    async def api_result(request: Request) -> Response:
+        """Serve a test result with analysis content merged in."""
+        test_id = request.query_params.get("id", "")
+        if not test_id:
+            return JSONResponse({"error": "id parameter required"}, status_code=400)
+
+        # Prevent path traversal
+        safe_id = Path(test_id).name
+        result_dir = artifact_root / "results" / safe_id
+        result_file = result_dir / "result.json"
+
+        if not result_file.exists():
+            return JSONResponse({"error": "result not found"}, status_code=404)
+
+        content = result_file.read_text(encoding="utf-8")
+        data = json.loads(content)
+
+        # Merge analysis markdown into dataset objects
+        for i, ds in enumerate(data.get("datasets", [])):
+            analysis_path = result_dir / f"dataset-{i}.md"
+            if analysis_path.exists():
+                ds["analysis"] = analysis_path.read_text(encoding="utf-8")
+
+        return JSONResponse(data)
+
     routes = [
         Route("/", index),
         Route("/api/manifest", api_manifest),
         Route("/api/file", api_file_content),
+        Route("/api/result", api_result),
         Route("/api/events", api_events),
         Route("/api/status", api_status),
         Route("/api/navigate", api_navigate),

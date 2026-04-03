@@ -34,6 +34,18 @@ class TestIsArtifact:
         path = tmp_path / "other" / "config.json"
         assert not _is_artifact(path, tmp_path)
 
+    def test_result_json_is_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "results" / "20260403-120000" / "result.json"
+        assert _is_artifact(path, tmp_path)
+
+    def test_result_analysis_md_is_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "results" / "20260403-120000" / "dataset-0.md"
+        assert _is_artifact(path, tmp_path)
+
+    def test_result_other_file_not_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "results" / "20260403-120000" / "data.py"
+        assert not _is_artifact(path, tmp_path)
+
 
 class TestChangeLabel:
     def test_added(self) -> None:

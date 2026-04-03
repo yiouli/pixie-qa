@@ -32,7 +32,12 @@ def _is_artifact(path: Path, root: Path) -> bool:
     if len(parts) == 2 and parts[0] == "datasets" and path.suffix == ".json":
         return True
     # scorecards/*.html
-    return len(parts) == 2 and parts[0] == "scorecards" and path.suffix == ".html"
+    if len(parts) == 2 and parts[0] == "scorecards" and path.suffix == ".html":
+        return True
+    # results/<test_id>/result.json or results/<test_id>/dataset-*.md
+    if len(parts) == 3 and parts[0] == "results":
+        return path.suffix in (".json", ".md")
+    return False
 
 
 def _change_label(change: Change) -> str:
@@ -67,6 +72,7 @@ async def watch_artifacts(root: str, sse: SSEManager) -> None:
     root_path.mkdir(parents=True, exist_ok=True)
     (root_path / "datasets").mkdir(exist_ok=True)
     (root_path / "scorecards").mkdir(exist_ok=True)
+    (root_path / "results").mkdir(exist_ok=True)
 
     logger.info("Watching for artifact changes in %s", root_path)
 

@@ -9,6 +9,7 @@ export interface Manifest {
   markdown_files: ArtifactEntry[];
   datasets: ArtifactEntry[];
   scorecards: ArtifactEntry[];
+  results: ArtifactEntry[];
 }
 
 export interface DatasetItem {
@@ -36,4 +37,38 @@ export interface FileChangeEvent {
 export interface NavigateEvent {
   tab: string;
   id?: string;
+}
+
+// ── Test result types ──────────────────────────────────────────────────
+
+export interface EvaluationResultData {
+  evaluator: string;
+  score: number;
+  reasoning: string;
+}
+
+export interface EntryResultData {
+  input: unknown;
+  output: unknown;
+  expectedOutput?: unknown;
+  description?: string;
+  evaluations: EvaluationResultData[];
+}
+
+export interface DatasetResultData {
+  dataset: string;
+  entries: EntryResultData[];
+  analysis?: string;
+}
+
+export interface ResultMeta {
+  testId: string;
+  command: string;
+  startedAt: string;
+  endedAt: string;
+}
+
+export interface TestResultData {
+  meta: ResultMeta;
+  datasets: DatasetResultData[];
 }

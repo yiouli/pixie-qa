@@ -17,6 +17,7 @@ from pixie.web.app import (
     _build_manifest,
     _list_datasets,
     _list_md_files,
+    _list_results,
     _list_scorecards,
     create_app,
 )
@@ -83,6 +84,33 @@ class TestBuildManifest:
         assert len(manifest["markdown_files"]) == 1  # type: ignore[arg-type]
         assert len(manifest["datasets"]) == 1  # type: ignore[arg-type]
         assert len(manifest["scorecards"]) == 1  # type: ignore[arg-type]
+
+    def test_manifest_includes_results(self, tmp_path: Path) -> None:
+        results_dir = tmp_path / "results" / "20260403-120000"
+        results_dir.mkdir(parents=True)
+        (results_dir / "result.json").write_text("{}")
+
+        manifest = _build_manifest(tmp_path)
+        assert len(manifest["results"]) == 1  # type: ignore[arg-type]
+
+
+class TestListResults:
+    def test_returns_result_directories(self, tmp_path: Path) -> None:
+        results_dir = tmp_path / "results" / "20260403-120000"
+        results_dir.mkdir(parents=True)
+        (results_dir / "result.json").write_text("{}")
+
+        result = _list_results(tmp_path)
+        assert len(result) == 1
+        assert result[0]["name"] == "20260403-120000"
+        assert result[0]["path"] == "results/20260403-120000"
+
+    def test_ignores_dirs_without_result_json(self, tmp_path: Path) -> None:
+        (tmp_path / "results" / "orphan").mkdir(parents=True)
+        assert _list_results(tmp_path) == []
+
+    def test_empty_when_no_dir(self, tmp_path: Path) -> None:
+        assert _list_results(tmp_path) == []
 
 
 # ── SSEManager ───────────────────────────────────────────────────────
@@ -220,6 +248,62 @@ class TestAppEndpoints:
         data = resp.json()
         assert "active_clients" in data
         assert data["active_clients"] == 0
+
+    def test_result_endpoint_returns_data(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        result_data = {
+            "meta": {"testId": "20260403-120000"},
+            "datasets": [{"dataset": "test", "entries": []}],
+        }
+        (result_dir / "result.json").write_text(json.dumps(result_data))
+
+        resp = client.get("/api/result?id=20260403-120000")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["meta"]["testId"] == "20260403-120000"
+
+    def test_result_endpoint_merges_analysis(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        result_data = {
+            "meta": {"testId": "20260403-120000"},
+            "datasets": [{"dataset": "test", "entries": []}],
+        }
+        (result_dir / "result.json").write_text(json.dumps(result_data))
+        (result_dir / "dataset-0.md").write_text("## Analysis\nAll good.")
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert data["datasets"][0]["analysis"] == "## Analysis\nAll good."
+
+    def test_result_endpoint_missing_id(self, client: TestClient) -> None:
+        resp = client.get("/api/result")
+        assert resp.status_code == 400
+
+    def test_result_endpoint_not_found(self, client: TestClient) -> None:
+        resp = client.get("/api/result?id=nonexistent")
+        assert resp.status_code == 404
+
+    def test_result_endpoint_path_traversal_blocked(self, client: TestClient) -> None:
+        resp = client.get("/api/result?id=../../etc/passwd")
+        assert resp.status_code == 404
+
+    def test_manifest_includes_results(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "result.json").write_text("{}")
+
+        resp = client.get("/api/manifest")
+        data = resp.json()
+        assert "results" in data
+        assert len(data["results"]) == 1
 
 
 # ── CLI Start Command ────────────────────────────────────────────────
@@ -447,8 +531,8 @@ class TestPixieTestOpensWebUI:
 
             mock_open.assert_called_once()
             call_args = mock_open.call_args
-            assert call_args[1]["tab"] == "scorecards"
-            assert "scorecards/" in call_args[1]["item_id"]
+            assert call_args[1]["tab"] == "results"
+            assert "results/" in call_args[1]["item_id"]
 
     def test_pixie_test_no_open_skips_webui(self, tmp_path: Path) -> None:
         """--no-open flag suppresses web UI opening."""

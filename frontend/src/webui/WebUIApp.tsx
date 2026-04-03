@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { Manifest, FileChangeEvent, NavigateEvent } from "./types";
 import { useSSE } from "./useSSE";
 import { TabBar } from "./components/TabBar";
+import { ResultsPanel } from "./components/ResultsPanel";
 import { ScorecardsPanel } from "./components/ScorecardsPanel";
 import { DatasetsPanel } from "./components/DatasetsPanel";
 import { ProjectContextPanel } from "./components/ProjectContextPanel";
@@ -19,6 +20,7 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
+  { id: "results", label: "Results" },
   { id: "scorecards", label: "Scorecards" },
   { id: "datasets", label: "Datasets" },
   { id: "project-context", label: "Project Context" },
@@ -32,7 +34,7 @@ function getInitialSelection(): { tab: string; id: string | null } {
   const tab =
     rawTab && rawTab.startsWith("md:")
       ? "project-context"
-      : (rawTab ?? "scorecards");
+      : (rawTab ?? "results");
   const id = params.get("id") ?? null;
   return { tab, id };
 }
@@ -44,6 +46,7 @@ export default function WebUIApp() {
     markdown_files: [],
     datasets: [],
     scorecards: [],
+    results: [],
   });
   const [activeTab, setActiveTab] = useState(initial.tab);
   const [scorecardAutoSelect, setScorecardAutoSelect] = useState<string | null>(
@@ -51,6 +54,9 @@ export default function WebUIApp() {
   );
   const [datasetAutoSelect, setDatasetAutoSelect] = useState<string | null>(
     initial.tab === "datasets" ? initial.id : null,
+  );
+  const [resultAutoSelect, setResultAutoSelect] = useState<string | null>(
+    initial.tab === "results" ? initial.id : null,
   );
   const [mdAutoSelect, setMdAutoSelect] = useState<string | null>(
     initial.tab === "project-context" ? initial.id : null,
@@ -64,7 +70,16 @@ export default function WebUIApp() {
 
   const onFileChange = useCallback((changes: FileChangeEvent[]) => {
     for (const change of changes) {
-      if (change.path.startsWith("scorecards/")) {
+      if (change.path.startsWith("results/")) {
+        setActiveTab("results");
+        if (change.type === "added" || change.type === "modified") {
+          // Extract the result dir path (results/<test_id>)
+          const parts = change.path.split("/");
+          if (parts.length >= 2) {
+            setResultAutoSelect(`results/${parts[1]}`);
+          }
+        }
+      } else if (change.path.startsWith("scorecards/")) {
         setActiveTab("scorecards");
         if (change.type === "added" || change.type === "modified") {
           setScorecardAutoSelect(change.path);
@@ -89,7 +104,9 @@ export default function WebUIApp() {
     const tab = nav.tab.startsWith("md:") ? "project-context" : nav.tab;
     setActiveTab(tab);
     if (nav.id) {
-      if (tab === "scorecards") {
+      if (tab === "results") {
+        setResultAutoSelect(nav.id);
+      } else if (tab === "scorecards") {
         setScorecardAutoSelect(nav.id);
       } else if (tab === "datasets") {
         setDatasetAutoSelect(nav.id);
@@ -136,6 +153,12 @@ export default function WebUIApp() {
       <TabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
 
       <div className="webui-content">
+        {activeTab === "results" && (
+          <ResultsPanel
+            results={manifest.results}
+            autoSelect={resultAutoSelect}
+          />
+        )}
         {activeTab === "scorecards" && (
           <ScorecardsPanel
             scorecards={manifest.scorecards}

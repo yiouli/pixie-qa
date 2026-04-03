@@ -1,4 +1,5 @@
 .claude
+.agents
 __pycache__
 pixie_qa/
 uv.lock

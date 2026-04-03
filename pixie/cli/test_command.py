@@ -7,7 +7,7 @@ Usage::
 Supports two modes:
 
 1. **Dataset mode** — when *path* is a ``.json`` file or a directory
-   containing dataset JSON files. Each dataset produces its own scorecard.
+   containing dataset JSON files. Each dataset produces its own result.
 2. **Default** — no path searches the pixie datasets directory.
 """
 
@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pixie.instrumentation as px
@@ -27,61 +28,56 @@ from pixie.evals.dataset_runner import (
 )
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.rate_limiter import configure_rate_limits_from_config
-from pixie.evals.scorecard import (
-    DatasetEntryResult,
-    DatasetScorecard,
-    save_dataset_scorecard,
+from pixie.evals.test_result import (
+    DatasetResult,
+    EntryResult,
+    EvaluationResult,
+    RunResult,
+    generate_test_id,
+    save_test_result,
 )
+from pixie.storage.evaluable import _Unset
 
 
-async def _run_dataset(dataset_path: Path) -> DatasetScorecard:
-    """Run evaluations for a single dataset and return a scorecard."""
+async def _run_dataset(dataset_path: Path) -> DatasetResult:
+    """Run evaluations for a single dataset and return a DatasetResult."""
     dataset_name, entries = load_dataset_entries(dataset_path)
 
-    results: list[DatasetEntryResult] = []
+    entry_results: list[EntryResult] = []
     for evaluable, evaluator_names in entries:
         evaluators = [_resolve_evaluator(name) for name in evaluator_names]
-        short_names = tuple(_short_name(n) for n in evaluator_names)
+        short_names = [_short_name(n) for n in evaluator_names]
 
         evals: list[Evaluation] = []
         for ev in evaluators:
             result = await evaluate(ev, evaluable)
             evals.append(result)
 
-        input_label = str(evaluable.eval_input)
-        if len(input_label) > 80:
-            input_label = input_label[:80] + "…"
-
-        from pixie.storage.evaluable import _Unset
-
         exp_out = evaluable.expected_output
-        exp_str = (
-            None if isinstance(exp_out, _Unset) or exp_out is None else str(exp_out)
+        expected_output = (
+            None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
         )
 
-        results.append(
-            DatasetEntryResult(
-                evaluator_names=short_names,
-                evaluations=tuple(evals),
-                input_label=input_label,
-                evaluable_dict={
-                    "input": (
-                        str(evaluable.eval_input)
-                        if evaluable.eval_input is not None
-                        else None
-                    ),
-                    "expected_output": exp_str,
-                    "actual_output": (
-                        str(evaluable.eval_output)
-                        if evaluable.eval_output is not None
-                        else None
-                    ),
-                    "metadata": evaluable.eval_metadata,
-                },
+        eval_results = [
+            EvaluationResult(
+                evaluator=name,
+                score=ev.score,
+                reasoning=ev.reasoning,
+            )
+            for name, ev in zip(short_names, evals, strict=True)
+        ]
+
+        entry_results.append(
+            EntryResult(
+                input=evaluable.eval_input,
+                output=evaluable.eval_output,
+                expected_output=expected_output,
+                description=evaluable.description,
+                evaluations=eval_results,
             )
         )
 
-    return DatasetScorecard(dataset_name=dataset_name, entries=results)
+    return DatasetResult(dataset=dataset_name, entries=entry_results)
 
 
 def _run_dataset_mode(
@@ -91,7 +87,7 @@ def _run_dataset_mode(
     no_open: bool = False,
     argv: list[str] | None = None,
 ) -> int:
-    """Execute dataset-driven mode: find datasets, run evals, generate scorecards."""
+    """Execute dataset-driven mode: find datasets, run evals, save result JSON."""
     dataset_files = discover_dataset_files(path)
     if not dataset_files:
         print("No dataset files found.")  # noqa: T201
@@ -99,45 +95,67 @@ def _run_dataset_mode(
 
     raw_argv = argv if argv is not None else sys.argv[1:]
     command_str = "pixie test " + " ".join(raw_argv)
+
+    test_id = generate_test_id()
+    started_at = datetime.now(timezone.utc).isoformat()
     all_passed = True
+    dataset_results: list[DatasetResult] = []
 
     for ds_path in dataset_files:
-        scorecard = asyncio.run(_run_dataset(ds_path))
+        ds_result = asyncio.run(_run_dataset(ds_path))
+        dataset_results.append(ds_result)
 
         # Print results
-        print(f"\n{'=' * 52} {scorecard.dataset_name} {'=' * 52}")  # noqa: T201
-        for i, entry in enumerate(scorecard.entries):
-            evals_str = ", ".join(entry.evaluator_names)
-            scores = [f"{e.score:.2f}" for e in entry.evaluations]
-            all_pass = all(e.score >= 0.5 for e in entry.evaluations)
+        passed_count = sum(
+            1
+            for entry in ds_result.entries
+            if all(ev.score >= 0.5 for ev in entry.evaluations)
+        )
+        total_count = len(ds_result.entries)
+        print(f"\n{'=' * 52} {ds_result.dataset} {'=' * 52}")  # noqa: T201
+        for i, entry in enumerate(ds_result.entries):
+            evals_str = ", ".join(ev.evaluator for ev in entry.evaluations)
+            scores = [f"{ev.score:.2f}" for ev in entry.evaluations]
+            all_pass = all(ev.score >= 0.5 for ev in entry.evaluations)
             mark = "\u2713" if all_pass else "\u2717"
-            print(
-                f"  [{i+1}] {entry.input_label} ({evals_str}) [{', '.join(scores)}] {mark}"
-            )  # noqa: T201
+            desc = entry.description or str(entry.input)
+            if len(desc) > 80:
+                desc = desc[:80] + "…"
+            print(  # noqa: T201
+                f"  [{i+1}] {desc} ({evals_str}) [{', '.join(scores)}] {mark}"
+            )
             if not all_pass:
                 all_passed = False
                 if verbose:
-                    for name, ev in zip(
-                        entry.evaluator_names,
-                        entry.evaluations,
-                        strict=True,
-                    ):
+                    for ev in entry.evaluations:
                         if ev.score < 0.5:
-                            print(f"      {name}: {ev.reasoning}")  # noqa: T201
+                            print(f"      {ev.evaluator}: {ev.reasoning}")  # noqa: T201
 
-        # Generate scorecard
-        scorecard_path = save_dataset_scorecard(scorecard, command_args=command_str)
-        print(f"\nSee {scorecard_path} for details")  # noqa: T201
+        print(f"  {passed_count}/{total_count} passed")  # noqa: T201
 
-        if not no_open:
-            from pixie.config import get_config
-            from pixie.web.server import open_webui
+    ended_at = datetime.now(timezone.utc).isoformat()
+    run_result = RunResult(
+        test_id=test_id,
+        command=command_str,
+        started_at=started_at,
+        ended_at=ended_at,
+        datasets=dataset_results,
+    )
+    result_path = save_test_result(run_result)
+    print(f"\nResults saved to {result_path}")  # noqa: T201
 
-            config = get_config()
-            scorecard_rel = str(
-                Path(scorecard_path).relative_to(Path(config.root).resolve())
-            )
-            open_webui(config.root, tab="scorecards", item_id=scorecard_rel)
+    if not no_open:
+        from pixie.config import get_config
+        from pixie.web.server import open_webui
+
+        config = get_config()
+        open_webui(
+            config.root,
+            tab="results",
+            item_id=f"results/{test_id}",
+        )
+
+    return 0 if all_passed else 1
 
     return 0 if all_passed else 1
 
