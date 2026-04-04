@@ -18,6 +18,38 @@ from pixie.storage.evaluable import Evaluable, _Unset
 from pixie.storage.tree import ObservationNode
 
 
+def customer_faq_runnable(eval_input: object) -> str:
+    """Deterministic runnable for customer-faq fixture dataset."""
+    if isinstance(eval_input, dict):
+        message = str(eval_input.get("user_message", "")).strip().lower()
+    else:
+        message = str(eval_input).strip().lower()
+
+    answers = {
+        "what is the baggage allowance?": (
+            "You may bring one carry-on bag weighing up to 50 pounds, "
+            "with maximum dimensions of 22 x 14 x 9 inches."
+        ),
+        "how many seats are on the plane?": (
+            "There are 120 seats total — 22 business class and 98 economy. "
+            "Exit rows are at rows 4 and 16."
+        ),
+        "is there wifi on the plane?": (
+            "Yes, we offer complimentary wifi. Connect to the network named "
+            "Airline-Wifi once on board."
+        ),
+        "what is the cancellation policy?": (
+            "You can cancel your booking up to 24 hours before departure for "
+            "a full refund. Cancellations within 24 hours incur a $50 fee."
+        ),
+        "do you serve meals on the flight?": (
+            "We serve complimentary snacks and beverages on all flights. "
+            "Business class passengers receive a full meal service."
+        ),
+    }
+    return answers.get(message, "")
+
+
 class MockFactualityEval:
     """Deterministic factuality evaluator using string similarity.
 

@@ -1,5 +1,6 @@
 {
     "name": "sample-qa",
+    "runnable": "tests.manual.mock_evaluators.sample_qa_runnable",
     "items": [
         {
             "eval_input": {

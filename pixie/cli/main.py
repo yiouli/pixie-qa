@@ -34,6 +34,7 @@ from pixie.cli.dataset_command import (
 from pixie.cli.trace_command import trace_last, trace_list, trace_show, trace_verify
 from pixie.config import get_config
 from pixie.dataset.store import DatasetStore
+from pixie.evals.dataset_runner import discover_dataset_files, validate_dataset_file
 from pixie.storage.evaluable import UNSET, _Unset
 from pixie.storage.store import ObservationStore
 
@@ -88,6 +89,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--notes",
         default=None,
         help="Optional notes to attach to the evaluable metadata",
+    )
+
+    # pixie dataset validate [path]
+    validate_parser = dataset_sub.add_parser(
+        "validate",
+        help="Validate dataset JSON files",
+    )
+    validate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Dataset file or directory (default: pixie datasets directory)",
     )
 
     # -- pixie trace ---------------------------------------------------------
@@ -206,6 +219,16 @@ def _build_parser() -> argparse.ArgumentParser:
     dag_parser = subparsers.add_parser(
         "dag", help="Data-flow DAG validation and trace checking"
     )
+
+    # -- pixie evaluators ----------------------------------------------------
+    eval_parser = subparsers.add_parser(
+        "evaluators", help="Evaluator management commands"
+    )
+    eval_sub = eval_parser.add_subparsers(
+        dest="evaluators_action", help="Evaluator actions"
+    )
+    eval_sub.add_parser("list", help="List all available built-in evaluator names")
+
     dag_sub = dag_parser.add_subparsers(dest="dag_action", help="DAG actions")
 
     # pixie dag validate <json_file> [--project-root PATH]
@@ -284,6 +307,37 @@ def _run_dataset_save(
     )
 
 
+def _run_dataset_validate(path: str) -> int:
+    """Validate one dataset file or all datasets under a directory."""
+    dataset_files = discover_dataset_files(path)
+    if not dataset_files:
+        print("No dataset files found.")  # noqa: T201
+        return 1
+
+    total_errors = 0
+    files_with_errors = 0
+    for dataset_file in dataset_files:
+        errors = validate_dataset_file(dataset_file)
+        if errors:
+            files_with_errors += 1
+            total_errors += len(errors)
+            print(f"\n{dataset_file}:")  # noqa: T201
+            for error in errors:
+                print(f"  - {error}")  # noqa: T201
+        else:
+            print(f"{dataset_file}: OK")  # noqa: T201
+
+    if total_errors:
+        print(  # noqa: T201
+            f"\nValidation failed: {total_errors} error(s) in "
+            f"{files_with_errors} dataset file(s)."
+        )
+        return 1
+
+    print("\nAll datasets are valid.")  # noqa: T201
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``pixie`` command.
 
@@ -320,6 +374,11 @@ def main(argv: list[str] | None = None) -> int:
                     expected_output_flag=args.expected_output,
                     notes=args.notes,
                 )
+            elif args.dataset_action == "validate":
+                if args.path is None:
+                    config = get_config()
+                    return _run_dataset_validate(config.dataset_dir)
+                return _run_dataset_validate(args.path)
         except (
             ValueError,
             FileExistsError,
@@ -382,6 +441,17 @@ def main(argv: list[str] | None = None) -> int:
         from pixie.cli.start_command import start
 
         return start(root=args.root)
+
+    elif args.command == "evaluators":
+        if args.evaluators_action is None:
+            parser.parse_args(["evaluators", "--help"])
+            return 1
+
+        if args.evaluators_action == "list":
+            from pixie.evals.dataset_runner import list_available_evaluators
+
+            for name in list_available_evaluators():
+                print(name)  # noqa: T201
 
     elif args.command == "dag":
         if args.dag_action is None:

@@ -109,6 +109,9 @@ pixie dataset save <name> --select last_llm_call               # last LLM call i
 pixie dataset save <name> --select by_name --span-name <name>  # span matching a name
 pixie dataset save <name> --notes "some context note"          # attach metadata
 
+# Validate one dataset file or all datasets under a directory
+pixie dataset validate [dir_or_dataset_path]
+
 # Pipe in an expected output when saving
 echo '"Paris"' | pixie dataset save <name> --expected-output
 ```
@@ -122,6 +125,64 @@ echo '"Paris"' | pixie dataset save <name> --expected-output
 | `by_name`        | The last span matching the `--span-name` argument   |
 
 Dataset files are stored as JSON under `PIXIE_DATASET_DIR` (default: `pixie_qa/datasets/`). Each item is an `Evaluable` with `eval_input`, `eval_output`, optional `expected_output`, and `eval_metadata`.
+
+### Dataset JSON Schema
+
+A dataset file supports these top-level fields:
+
+- `name` (`string`, optional): display name (defaults to filename stem).
+- `runnable` (`string`, required): fully qualified name of a callable that produces `eval_output` from `eval_input` (for example, `myapp.chat.ask`).
+- `evaluators` (`string[]`, optional): default evaluator names applied to every item unless overridden.
+- `items` (`object[]`, required): array of dataset entries (see below).
+
+Each item supports:
+
+- `eval_input` (`any`, required): input to the operation.
+- `eval_output` (`any`, optional): output of the operation (omit when using a `runnable`).
+- `expected_output` (`any`, optional): reference output for evaluation.
+- `description` (`string`, required): one-sentence scenario description.
+- `evaluators` (`string[]`, optional): row-level evaluators (override defaults). Use `"..."` to include all default evaluators.
+
+**Evaluator resolution:** Bare names (e.g. `"Factuality"`) resolve to built-in evaluators. Dotted names (e.g. `"myapp.evals.Custom"`) are treated as fully qualified. Use `pixie evaluators list` to see available built-ins.
+
+**Validation rules:**
+
+- `runnable` is required and must resolve to a valid callable.
+- Every row must include a non-empty `description`.
+- Every row must resolve to at least one evaluator (from row-level evaluators, dataset defaults, or both).
+- Evaluator names must resolve to valid evaluator classes.
+
+Use validation proactively:
+
+```bash
+pixie dataset validate                     # validates all datasets in PIXIE_DATASET_DIR
+pixie dataset validate path/to/dataset.json
+pixie dataset validate path/to/datasets/
+```
+
+**Example with runnable and default evaluators:**
+
+```json
+{
+  "name": "qa-tests",
+  "runnable": "myapp.chat.answer_question",
+  "evaluators": ["Factuality", "ClosedQA"],
+  "items": [
+    { "eval_input": { "question": "What is 2+2?" }, "expected_output": "4" },
+    {
+      "eval_input": { "question": "Capital of France?" },
+      "expected_output": "Paris",
+      "evaluators": ["...", "ExactMatch"]
+    }
+  ]
+}
+```
+
+### Listing Available Evaluators
+
+```bash
+pixie evaluators list      # prints all built-in evaluator names
+```
 
 ---
 

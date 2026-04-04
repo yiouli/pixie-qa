@@ -10,9 +10,10 @@ The `qa-eval` skill guides your coding agent through the full eval-based QA loop
 2. **Instrument it** — add `enable_storage()` and `@observe` so every run is captured to a local SQLite database
 3. **Build a dataset** — save representative traces as test cases with `pixie dataset save`
 4. **Write eval tests** — generate `test_*.py` files with `assert_dataset_pass` and appropriate evaluators
-5. **Run the tests** — `pixie test` to run all evals and report per-case scores
-6. **Analyse results** — `pixie analyze <test_id>` to get LLM-generated analysis of test results
-7. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
+5. **Validate datasets** — `pixie dataset validate [dir_or_dataset_path]` to catch schema/config errors early
+6. **Run the tests** — `pixie test` to run all evals and report per-case scores
+7. **Analyse results** — `pixie analyze <test_id>` to get LLM-generated analysis of test results
+8. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
 
 ## Getting Started
 

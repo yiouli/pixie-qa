@@ -12,7 +12,14 @@ So the goal now is to restructure how dataset & test should be defined to stream
 
 The new architecture removes the need for the user to define tests. Instead, they only define evaluators if they need custom ones.
 
-In the dataset, an `evaluators` column (JSON array) is added to each row, so each row can directly specify its evaluators. Built-in evaluator names (e.g. `"Factuality"`) are resolved automatically; custom evaluators use fully qualified names (e.g. `"myapp.evals.Custom"`).
+Datasets now carry execution and evaluator configuration directly:
+
+- Top-level `runnable` (required): fully qualified function name used to generate `eval_output` from each row's `eval_input`.
+- Top-level `evaluators` (optional): default evaluators for rows.
+- Row-level `evaluators` (optional): overrides defaults; supports `"..."` to include all defaults.
+- Row-level `description` (required): human-readable description for each case.
+
+Built-in evaluator names (e.g. `"Factuality"`) are resolved automatically; custom evaluators use fully qualified names (e.g. `"myapp.evals.Custom"`).
 
 The test harness command takes the dataset path (absolute or relative to the pixie folder) and runs it. It also supports no-argument mode (scan all datasets in the pixie folder) and directory mode (scan all `.json` files recursively).
 
@@ -20,23 +27,24 @@ The test harness command takes the dataset path (absolute or relative to the pix
 
 ### Dataset Format
 
-Each item in the dataset JSON can include an `evaluators` field — a JSON array of evaluator names:
+Dataset files include required `runnable` and per-row `description`, with optional dataset defaults and row-level evaluator overrides:
 
 ```json
 {
   "name": "customer-faq",
+  "runnable": "myapp.chat.answer_question",
+  "evaluators": ["Factuality", "ClosedQA"],
   "items": [
     {
       "eval_input": { "question": "What is the baggage allowance?" },
-      "eval_output": "You may bring one carry-on bag...",
       "expected_output": "You are allowed one bag under 50 pounds...",
-      "evaluators": ["Factuality", "ClosedQA"]
+      "description": "Verify baggage policy response"
     },
     {
       "eval_input": { "question": "How many seats?" },
-      "eval_output": "There are 120 seats...",
       "expected_output": "120 seats...",
-      "evaluators": ["Factuality"]
+      "description": "Verify seat-count response",
+      "evaluators": ["...", "ExactMatch"]
     }
   ]
 }
@@ -59,6 +67,7 @@ The `Eval` suffix has been removed from all built-in evaluator factory functions
 pixie test path/to/dataset.json       # single dataset file
 pixie test path/to/dir/               # all datasets in directory tree
 pixie test                            # all datasets in pixie folder
+pixie dataset validate [path]         # validate one dataset or a dataset directory
 ```
 
 When the path is a `.json` file or a directory containing `.json` files, the CLI uses dataset-driven mode. When no path is given, it searches the configured `dataset_dir`. Otherwise it falls back to test-file discovery.
@@ -66,11 +75,13 @@ When the path is a `.json` file or a directory containing `.json` files, the CLI
 ### How It Works
 
 1. **Dataset discovery** — `discover_dataset_files(path)` finds `.json` files (single file, directory, or recursive scan).
-2. **Entry loading** — `load_dataset_entries(path)` loads the JSON and extracts entries with their evaluator name lists. Items without `evaluators` are skipped.
-3. **Name resolution** — `resolve_evaluator_name(name)` maps bare names to `pixie.{Name}` for built-ins, passes through FQNs with dots, and raises `ValueError` for unknown bare names.
-4. **Evaluator instantiation** — `_resolve_evaluator(name)` imports and instantiates the evaluator.
-5. **Execution** — each entry is evaluated against its own set of evaluators using `evaluate()`. Evaluators per row are non-uniform.
-6. **Scorecard** — each dataset produces its own `DatasetScorecard` with a 2D structure: `DatasetEntryResult[]` (one per row), each containing `Evaluation[]` (one per evaluator). The scorecard is saved as an HTML file.
+2. **Validation** — `validate_dataset_file(path)` checks required fields (`runnable`, row `description`), evaluator/runnable name validity, and evaluator resolution per row.
+3. **Entry loading** — `load_dataset_entries(path)` validates then loads entries with resolved evaluator name lists.
+4. **Name resolution** — `resolve_evaluator_name(name)` maps bare names to `pixie.{Name}` for built-ins, passes through FQNs with dots, and raises `ValueError` for unknown bare names.
+5. **Runnable resolution** — `_resolve_runnable(name)` imports the dataset runnable callable.
+6. **Evaluator instantiation** — `_resolve_evaluator(name)` imports and instantiates evaluators.
+7. **Execution** — each entry runs through the runnable first, then evaluators are applied to produced output.
+8. **Result JSON** — each dataset contributes to `result.json` under `{PIXIE_ROOT}/results/<test_id>/`.
 
 ### Key Files
 

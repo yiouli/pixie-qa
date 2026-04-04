@@ -197,10 +197,15 @@ class TestMainDatasetSave:
         monkeypatch.setenv("PIXIE_DATASET_DIR", str(ds_dir))
         DatasetStore(dataset_dir=ds_dir).create("llm-target")
 
-        result = main([
-            "dataset", "save", "llm-target",
-            "--select", "last_llm_call",
-        ])
+        result = main(
+            [
+                "dataset",
+                "save",
+                "llm-target",
+                "--select",
+                "last_llm_call",
+            ]
+        )
         assert result == 0
         ds = DatasetStore(dataset_dir=ds_dir).get("llm-target")
         assert len(ds.items) == 1
@@ -217,10 +222,15 @@ class TestMainDatasetSave:
         monkeypatch.setenv("PIXIE_DATASET_DIR", str(ds_dir))
         DatasetStore(dataset_dir=ds_dir).create("noted")
 
-        result = main([
-            "dataset", "save", "noted",
-            "--notes", "edge case",
-        ])
+        result = main(
+            [
+                "dataset",
+                "save",
+                "noted",
+                "--notes",
+                "edge case",
+            ]
+        )
         assert result == 0
         ds = DatasetStore(dataset_dir=ds_dir).get("noted")
         assert ds.items[0].eval_metadata is not None
@@ -259,3 +269,103 @@ class TestMainDatasetSave:
 
         result = main(["dataset", "save", "empty"])
         assert result == 1
+
+
+class TestMainDatasetValidate:
+    """Tests for `pixie dataset validate`."""
+
+    def test_validate_single_valid_dataset(
+        self,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        dataset_path = tmp_path / "valid.json"
+        dataset_path.write_text(
+            """
+            {
+              "name": "valid",
+              "runnable": "json.dumps",
+              "items": [
+                {
+                  "eval_input": {"q": "hello"},
+                  "description": "test row",
+                  "evaluators": ["ExactMatch"]
+                }
+              ]
+            }
+            """.strip(),
+            encoding="utf-8",
+        )
+
+        result = main(["dataset", "validate", str(dataset_path)])
+
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "All datasets are valid" in output
+
+    def test_validate_reports_all_errors(
+        self,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        dataset_path = tmp_path / "invalid.json"
+        dataset_path.write_text(
+            """
+            {
+              "name": "invalid",
+              "items": [
+                {
+                  "eval_input": {"q": "hello"},
+                  "evaluators": ["NotARealEvaluator"]
+                },
+                {
+                  "eval_input": {"q": "world"},
+                  "description": ""
+                }
+              ]
+            }
+            """.strip(),
+            encoding="utf-8",
+        )
+
+        result = main(["dataset", "validate", str(dataset_path)])
+
+        assert result == 1
+        output = capsys.readouterr().out
+        assert "missing required top-level 'runnable'" in output
+        assert "invalid evaluator" in output
+        assert "missing required 'description'" in output
+        assert "no evaluators resolved" in output
+
+    def test_validate_uses_default_dataset_dir_when_path_omitted(
+        self,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        ds_dir = tmp_path / "datasets"
+        ds_dir.mkdir(parents=True)
+        dataset_path = ds_dir / "valid.json"
+        dataset_path.write_text(
+            """
+            {
+              "name": "valid",
+              "runnable": "json.dumps",
+              "items": [
+                {
+                  "eval_input": {"q": "hello"},
+                  "description": "test row",
+                  "evaluators": ["ExactMatch"]
+                }
+              ]
+            }
+            """.strip(),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("PIXIE_DATASET_DIR", str(ds_dir))
+
+        result = main(["dataset", "validate"])
+
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "All datasets are valid" in output

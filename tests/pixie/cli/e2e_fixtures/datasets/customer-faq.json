@@ -1,5 +1,6 @@
 {
     "name": "customer-faq",
+    "runnable": "tests.pixie.cli.e2e_fixtures.mock_evaluators.customer_faq_runnable",
     "items": [
         {
             "eval_input": {

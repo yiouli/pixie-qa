@@ -22,6 +22,7 @@ from pathlib import Path
 import pixie.instrumentation as px
 from pixie.evals.dataset_runner import (
     _resolve_evaluator,
+    _resolve_runnable,
     _short_name,
     discover_dataset_files,
     load_dataset_entries,
@@ -41,10 +42,20 @@ from pixie.storage.evaluable import _Unset
 
 async def _run_dataset(dataset_path: Path) -> DatasetResult:
     """Run evaluations for a single dataset and return a DatasetResult."""
-    dataset_name, entries = load_dataset_entries(dataset_path)
+    loaded = load_dataset_entries(dataset_path)
+    runnable = _resolve_runnable(loaded.runnable)
 
     entry_results: list[EntryResult] = []
-    for evaluable, evaluator_names in entries:
+    for evaluable, evaluator_names in loaded.entries:
+        # Call runnable to produce eval_output for this row.
+        import inspect
+
+        if inspect.iscoroutinefunction(runnable):
+            output = await runnable(evaluable.eval_input)
+        else:
+            output = runnable(evaluable.eval_input)
+        evaluable = evaluable.model_copy(update={"eval_output": output})
+
         evaluators = [_resolve_evaluator(name) for name in evaluator_names]
         short_names = [_short_name(n) for n in evaluator_names]
 
@@ -77,7 +88,7 @@ async def _run_dataset(dataset_path: Path) -> DatasetResult:
             )
         )
 
-    return DatasetResult(dataset=dataset_name, entries=entry_results)
+    return DatasetResult(dataset=loaded.name, entries=entry_results)
 
 
 def _run_dataset_mode(
@@ -102,7 +113,11 @@ def _run_dataset_mode(
     dataset_results: list[DatasetResult] = []
 
     for ds_path in dataset_files:
-        ds_result = asyncio.run(_run_dataset(ds_path))
+        try:
+            ds_result = asyncio.run(_run_dataset(ds_path))
+        except ValueError as exc:
+            print(str(exc))  # noqa: T201
+            return 1
         dataset_results.append(ds_result)
 
         # Print results
@@ -154,8 +169,6 @@ def _run_dataset_mode(
             tab="results",
             item_id=f"results/{test_id}",
         )
-
-    return 0 if all_passed else 1
 
     return 0 if all_passed else 1
 

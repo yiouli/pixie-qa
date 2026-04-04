@@ -13,6 +13,27 @@ from pixie.storage.evaluable import Evaluable, _Unset
 from pixie.storage.tree import ObservationNode
 
 
+def sample_qa_runnable(eval_input: object) -> str:
+    """Deterministic runnable for tests/manual/datasets/sample-qa.json."""
+    if isinstance(eval_input, dict):
+        question = str(eval_input.get("question", "")).strip().lower()
+    else:
+        question = str(eval_input).strip().lower()
+
+    answers = {
+        "what is the capital of france?": "The capital of France is Paris.",
+        "what is 2 + 2?": "The answer is 4.",
+        "who wrote hamlet?": "William Shakespeare wrote Hamlet.",
+        "what is the boiling point of water?": (
+            "Water boils at 100 degrees Celsius at sea level."
+        ),
+        "what is the largest planet?": (
+            "Jupiter is the largest planet in the solar system."
+        ),
+    }
+    return answers.get(question, "")
+
+
 class SimpleFactualityEval:
     """String-similarity evaluator. Scores high when output matches expected."""
 
