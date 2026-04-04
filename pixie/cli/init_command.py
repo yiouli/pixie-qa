@@ -42,6 +42,11 @@ def init_pixie_dir(root: str | None = None) -> Path:
     for subdir in _SUBDIRS:
         (root_path / subdir).mkdir(parents=True, exist_ok=True)
 
+    # Ensure the root pixie directory is importable as a Python package.
+    root_init_py = root_path / "__init__.py"
+    if not root_init_py.exists():
+        root_init_py.write_text("")
+
     # Ensure scripts/ is importable as a Python package.
     init_py = root_path / "scripts" / "__init__.py"
     if not init_py.exists():
