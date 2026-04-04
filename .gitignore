@@ -7,3 +7,4 @@ pixie/assets/index.html
 frontend/node_modules/
 frontend/dist/
 ts/node_modules/
+ts/dist/
