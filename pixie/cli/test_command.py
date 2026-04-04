@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pixie.instrumentation as px
 from pixie.evals.dataset_runner import (
@@ -27,6 +30,7 @@ from pixie.evals.dataset_runner import (
     discover_dataset_files,
     load_dataset_entries,
 )
+from pixie.evals.eval_utils import _get_runnable_concurrency
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.rate_limiter import configure_rate_limits_from_config
 from pixie.evals.test_result import (
@@ -37,56 +41,69 @@ from pixie.evals.test_result import (
     generate_test_id,
     save_test_result,
 )
-from pixie.storage.evaluable import _Unset
+from pixie.storage.evaluable import Evaluable, _Unset
 
 
-async def _run_dataset(dataset_path: Path) -> DatasetResult:
-    """Run evaluations for a single dataset and return a DatasetResult."""
-    loaded = load_dataset_entries(dataset_path)
-    runnable = _resolve_runnable(loaded.runnable)
-
-    entry_results: list[EntryResult] = []
-    for evaluable, evaluator_names in loaded.entries:
-        # Call runnable to produce eval_output for this row.
-        import inspect
-
+async def _run_entry(
+    evaluable: Evaluable,
+    evaluator_names: list[str],
+    runnable: Callable[..., Any],
+    semaphore: asyncio.Semaphore,
+) -> EntryResult:
+    """Process a single dataset entry: call runnable, then evaluate concurrently."""
+    async with semaphore:
         if inspect.iscoroutinefunction(runnable):
             output = await runnable(evaluable.eval_input)
         else:
             output = runnable(evaluable.eval_input)
-        evaluable = evaluable.model_copy(update={"eval_output": output})
+    evaluable = evaluable.model_copy(update={"eval_output": output})
 
-        evaluators = [_resolve_evaluator(name) for name in evaluator_names]
-        short_names = [_short_name(n) for n in evaluator_names]
+    evaluators = [_resolve_evaluator(name) for name in evaluator_names]
+    short_names = [_short_name(n) for n in evaluator_names]
 
-        evals: list[Evaluation] = []
-        for ev in evaluators:
-            result = await evaluate(ev, evaluable)
-            evals.append(result)
+    evals: list[Evaluation] = list(
+        await asyncio.gather(*(evaluate(ev, evaluable) for ev in evaluators))
+    )
 
-        exp_out = evaluable.expected_output
-        expected_output = (
-            None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
+    exp_out = evaluable.expected_output
+    expected_output = (
+        None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
+    )
+
+    eval_results = [
+        EvaluationResult(
+            evaluator=name,
+            score=ev.score,
+            reasoning=ev.reasoning,
         )
+        for name, ev in zip(short_names, evals, strict=True)
+    ]
 
-        eval_results = [
-            EvaluationResult(
-                evaluator=name,
-                score=ev.score,
-                reasoning=ev.reasoning,
-            )
-            for name, ev in zip(short_names, evals, strict=True)
-        ]
+    return EntryResult(
+        input=evaluable.eval_input,
+        output=evaluable.eval_output,
+        expected_output=expected_output,
+        description=evaluable.description,
+        evaluations=eval_results,
+    )
 
-        entry_results.append(
-            EntryResult(
-                input=evaluable.eval_input,
-                output=evaluable.eval_output,
-                expected_output=expected_output,
-                description=evaluable.description,
-                evaluations=eval_results,
-            )
-        )
+
+async def _run_dataset(dataset_path: Path) -> DatasetResult:
+    """Run evaluations for a single dataset and return a DatasetResult.
+
+    Entries run concurrently (gated by a semaphore for runnables).
+    Evaluators within each entry also run concurrently.
+    Rate limiting is enforced inside ``evaluate()`` when configured.
+    """
+    loaded = load_dataset_entries(dataset_path)
+    runnable = _resolve_runnable(loaded.runnable)
+    semaphore = asyncio.Semaphore(_get_runnable_concurrency())
+
+    entry_tasks = [
+        _run_entry(evaluable, evaluator_names, runnable, semaphore)
+        for evaluable, evaluator_names in loaded.entries
+    ]
+    entry_results: list[EntryResult] = list(await asyncio.gather(*entry_tasks))
 
     return DatasetResult(dataset=loaded.name, entries=entry_results)
 

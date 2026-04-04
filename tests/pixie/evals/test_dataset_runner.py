@@ -48,6 +48,52 @@ class TestResolveEvaluator:
         with pytest.raises(AttributeError):
             _resolve_evaluator("pixie.NonexistentEvaluator")
 
+    def test_resolve_function_evaluator(self, tmp_path: Path) -> None:
+        """A module-level function should be returned as-is, not called."""
+        mod_path = tmp_path / "func_eval.py"
+        mod_path.write_text(
+            "from pixie.evals.evaluation import Evaluation\n"
+            "from pixie.storage.evaluable import Evaluable\n"
+            "\n"
+            "def my_func_eval(evaluable: Evaluable, *, trace=None) -> Evaluation:\n"
+            "    return Evaluation(score=1.0, reasoning='ok')\n"
+        )
+        import sys
+
+        sys.path.insert(0, str(tmp_path))
+        try:
+            result = _resolve_evaluator("func_eval.my_func_eval")
+            assert callable(result)
+            # Should be the function itself, not a call result
+            assert result.__name__ == "my_func_eval"
+        finally:
+            sys.path.remove(str(tmp_path))
+            sys.modules.pop("func_eval", None)
+
+    def test_resolve_prebuilt_instance(self, tmp_path: Path) -> None:
+        """A module-level callable instance should be returned as-is."""
+        mod_path = tmp_path / "inst_eval.py"
+        mod_path.write_text(
+            "from pixie.evals.evaluation import Evaluation\n"
+            "from pixie.storage.evaluable import Evaluable\n"
+            "\n"
+            "class _Inner:\n"
+            "    def __call__(self, evaluable: Evaluable, *, trace=None) -> Evaluation:\n"
+            "        return Evaluation(score=1.0, reasoning='ok')\n"
+            "\n"
+            "my_instance = _Inner()\n"
+        )
+        import sys
+
+        sys.path.insert(0, str(tmp_path))
+        try:
+            result = _resolve_evaluator("inst_eval.my_instance")
+            assert callable(result)
+            assert type(result).__name__ == "_Inner"
+        finally:
+            sys.path.remove(str(tmp_path))
+            sys.modules.pop("inst_eval", None)
+
 
 # ---------------------------------------------------------------------------
 # _resolve_runnable / _short_name / _noop_runnable

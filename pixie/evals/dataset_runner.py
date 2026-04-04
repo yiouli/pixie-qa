@@ -14,6 +14,7 @@ Usage::
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -78,23 +79,68 @@ def resolve_evaluator_name(name: str) -> str:
 
 
 def _resolve_evaluator(name: str) -> Callable[..., Any]:
-    """Import and instantiate an evaluator by name.
+    """Import and return an evaluator by name.
 
     Accepts both bare built-in names (``"Factuality"``) and fully
     qualified names (``"myapp.evals.Custom"``).
+
+    The resolved attribute can be:
+
+    - A **class** — instantiated via ``cls()``.
+    - A **zero-arg factory function** (e.g. built-in ``ExactMatch``) —
+      called to produce the evaluator instance.
+    - A **function with required parameters** (evaluator function) —
+      returned as-is.
+    - A **pre-instantiated callable** (e.g. the return value of
+      ``create_llm_evaluator()``) — returned as-is.
 
     Args:
         name: Evaluator name (bare or fully qualified).
 
     Returns:
-        An instantiated evaluator object.
+        A callable evaluator (class instance, function, or closure).
+
+    Raises:
+        TypeError: If the resolved attribute is not callable.
     """
     fqn = resolve_evaluator_name(name)
-    module_path, _, class_name = fqn.rpartition(".")
+    module_path, _, attr_name = fqn.rpartition(".")
     module = importlib.import_module(module_path)
-    cls = getattr(module, class_name)
-    instance: Callable[..., Any] = cls()
-    return instance
+    attr = getattr(module, attr_name)
+
+    # Classes are instantiated (e.g. class-based evaluators).
+    if isinstance(attr, type):
+        instance: Callable[..., Any] = attr()
+        return instance
+
+    # Functions: distinguish zero-arg factories (like built-in ExactMatch)
+    # from evaluator functions that take evaluable as the first parameter.
+    if inspect.isfunction(attr):
+        sig = inspect.signature(attr)
+        required = [
+            p
+            for p in sig.parameters.values()
+            if p.default is inspect.Parameter.empty
+            and p.kind
+            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        ]
+        if not required:
+            # Zero-arg factory → call to produce evaluator instance.
+            factory_result: Callable[..., Any] = attr()
+            return factory_result
+        # Has required params → evaluator function itself.
+        func_eval: Callable[..., Any] = attr
+        return func_eval
+
+    # Callable instances (e.g. create_llm_evaluator result): use as-is.
+    if callable(attr):
+        callable_eval: Callable[..., Any] = attr
+        return callable_eval
+
+    raise TypeError(
+        f"Evaluator {name!r} resolved to {type(attr).__name__}, "
+        f"which is not callable."
+    )
 
 
 def _resolve_runnable(fqn: str) -> Callable[..., Any]:
