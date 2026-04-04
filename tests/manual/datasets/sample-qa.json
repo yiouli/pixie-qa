@@ -1,6 +1,6 @@
 {
     "name": "sample-qa",
-    "runnable": "tests.manual.mock_evaluators.sample_qa_runnable",
+    "runnable": "tests/manual/mock_evaluators.py:sample_qa_runnable",
     "items": [
         {
             "eval_input": {
@@ -11,8 +11,8 @@
             "eval_metadata": null,
             "description": "Identify the capital of France",
             "evaluators": [
-                "tests.manual.mock_evaluators.SimpleFactualityEval",
-                "tests.manual.mock_evaluators.StrictKeywordEval"
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval",
+                "tests/manual/mock_evaluators.py:StrictKeywordEval"
             ]
         },
         {
@@ -24,8 +24,8 @@
             "eval_metadata": null,
             "description": "Basic arithmetic addition",
             "evaluators": [
-                "tests.manual.mock_evaluators.SimpleFactualityEval",
-                "tests.manual.mock_evaluators.StrictKeywordEval"
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval",
+                "tests/manual/mock_evaluators.py:StrictKeywordEval"
             ]
         },
         {
@@ -37,8 +37,8 @@
             "eval_metadata": null,
             "description": "Identify Hamlet's author with varied phrasing",
             "evaluators": [
-                "tests.manual.mock_evaluators.SimpleFactualityEval",
-                "tests.manual.mock_evaluators.StrictKeywordEval"
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval",
+                "tests/manual/mock_evaluators.py:StrictKeywordEval"
             ]
         },
         {
@@ -50,7 +50,7 @@
             "eval_metadata": null,
             "description": "State boiling point of water",
             "evaluators": [
-                "tests.manual.mock_evaluators.SimpleFactualityEval"
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval"
             ]
         },
         {
@@ -62,7 +62,7 @@
             "eval_metadata": null,
             "description": "Identify the largest planet in the solar system",
             "evaluators": [
-                "tests.manual.mock_evaluators.SimpleFactualityEval"
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval"
             ]
         }
     ]

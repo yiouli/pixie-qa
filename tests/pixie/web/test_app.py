@@ -498,9 +498,14 @@ class TestOpenWebui:
 
 
 class TestPixieTestOpensWebUI:
-    def test_pixie_test_calls_open_webui_with_scorecard(self, tmp_path: Path) -> None:
+    def test_pixie_test_calls_open_webui_with_scorecard(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """After generating a scorecard, pixie test calls open_webui."""
         from pixie.cli.test_command import main as pixie_test_main
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
 
         # Create a minimal dataset with a built-in evaluator
         dataset_dir = tmp_path / "datasets"
@@ -510,7 +515,7 @@ class TestPixieTestOpensWebUI:
             json.dumps(
                 {
                     "name": "test-qa",
-                    "runnable": "json.dumps",
+                    "runnable": "_run.py:run",
                     "items": [
                         {
                             "eval_input": "What is 1+1?",
@@ -535,9 +540,14 @@ class TestPixieTestOpensWebUI:
             assert call_args[1]["tab"] == "results"
             assert "results/" in call_args[1]["item_id"]
 
-    def test_pixie_test_no_open_skips_webui(self, tmp_path: Path) -> None:
+    def test_pixie_test_no_open_skips_webui(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """--no-open flag suppresses web UI opening."""
         from pixie.cli.test_command import main as pixie_test_main
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
 
         dataset_dir = tmp_path / "datasets"
         dataset_dir.mkdir()
@@ -546,7 +556,7 @@ class TestPixieTestOpensWebUI:
             json.dumps(
                 {
                     "name": "test-qa",
-                    "runnable": "json.dumps",
+                    "runnable": "_run.py:run",
                     "items": [
                         {
                             "eval_input": "What is 1+1?",

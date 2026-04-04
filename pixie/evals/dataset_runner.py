@@ -14,6 +14,7 @@ Usage::
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import inspect
 import json
 from collections.abc import Callable
@@ -53,36 +54,79 @@ BUILTIN_EVALUATOR_NAMES: frozenset[str] = frozenset(
 )
 
 
+def _load_callable(reference: str, base_dir: Path) -> Any:
+    """Load a Python object from a ``filepath:name`` reference.
+
+    Uses :func:`importlib.util.spec_from_file_location` to load the
+    ``.py`` file directly from disk without any module/package resolution.
+
+    Args:
+        reference: Reference in ``filepath:callable_name`` format where
+            *filepath* is relative to *base_dir*.
+        base_dir: Directory to resolve relative file paths against.
+
+    Returns:
+        The resolved Python object (function, class, or instance).
+
+    Raises:
+        ValueError: If *reference* does not contain ``:``.
+        FileNotFoundError: If the resolved file does not exist.
+        ImportError: If the module cannot be loaded from the file.
+        AttributeError: If the named attribute does not exist.
+    """
+    if ":" not in reference:
+        raise ValueError(f"Reference must use filepath:name format, got {reference!r}.")
+    file_part, attr_name = reference.rsplit(":", 1)
+    file_path = (base_dir / file_part).resolve()
+
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Module file not found: {file_path}")
+
+    spec = importlib.util.spec_from_file_location("_pixie_user_mod", file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot create module spec from {file_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return getattr(module, attr_name)
+
+
 def resolve_evaluator_name(name: str) -> str:
-    """Resolve short built-in name to fully qualified, or pass through FQN.
+    """Resolve short built-in name or validate a custom evaluator reference.
 
     Args:
         name: Either a bare class name (``"Factuality"``) for built-ins
-            or a fully qualified name (``"myapp.evals.Custom"``).
+            or a ``filepath:callable_name`` reference for custom evaluators
+            (e.g. ``"pixie_qa/evaluators.py:ConciseVoiceStyle"``).
 
     Returns:
-        A fully qualified name suitable for :func:`_resolve_evaluator`.
+        A resolved evaluator name: ``"pixie.{Name}"`` for built-ins,
+        or the original ``filepath:name`` reference for custom evaluators.
 
     Raises:
-        ValueError: If *name* has no dots and is not a known built-in.
+        ValueError: If *name* is not a known built-in and does not use
+            the ``filepath:name`` format.
     """
     name = name.strip()
-    if "." in name:
+    if ":" in name:
         return name
     if name in BUILTIN_EVALUATOR_NAMES:
         return f"pixie.{name}"
     raise ValueError(
         f"Unknown evaluator {name!r}. "
-        f"Use a fully qualified name for custom evaluators "
-        f"(e.g. 'myapp.evals.{name}')."
+        f"Built-in evaluators use bare names (e.g. 'Factuality'). "
+        f"Custom evaluators use filepath:name format "
+        f"(e.g. 'pixie_qa/evaluators.py:{name}')."
     )
 
 
 def _resolve_evaluator(name: str) -> Callable[..., Any]:
     """Import and return an evaluator by name.
 
-    Accepts both bare built-in names (``"Factuality"``) and fully
-    qualified names (``"myapp.evals.Custom"``).
+    Accepts bare built-in names (``"Factuality"``) and
+    ``filepath:callable_name`` references for custom evaluators
+    (e.g. ``"pixie_qa/evaluators.py:ConciseVoiceStyle"``).
 
     The resolved attribute can be:
 
@@ -95,7 +139,7 @@ def _resolve_evaluator(name: str) -> Callable[..., Any]:
       ``create_llm_evaluator()``) — returned as-is.
 
     Args:
-        name: Evaluator name (bare or fully qualified).
+        name: Evaluator name — bare built-in name or ``filepath:name``.
 
     Returns:
         A callable evaluator (class instance, function, or closure).
@@ -104,9 +148,13 @@ def _resolve_evaluator(name: str) -> Callable[..., Any]:
         TypeError: If the resolved attribute is not callable.
     """
     fqn = resolve_evaluator_name(name)
-    module_path, _, attr_name = fqn.rpartition(".")
-    module = importlib.import_module(module_path)
-    attr = getattr(module, attr_name)
+
+    if ":" in fqn:
+        attr = _load_callable(fqn, Path.cwd())
+    else:
+        module_path, _, attr_name = fqn.rpartition(".")
+        module = importlib.import_module(module_path)
+        attr = getattr(module, attr_name)
 
     # Classes are instantiated (e.g. class-based evaluators).
     if isinstance(attr, type):
@@ -143,23 +191,28 @@ def _resolve_evaluator(name: str) -> Callable[..., Any]:
     )
 
 
-def _resolve_runnable(fqn: str) -> Callable[..., Any]:
-    """Import a runnable function by fully qualified name.
+def _resolve_runnable(reference: str) -> Callable[..., Any]:
+    """Load a runnable function from a ``filepath:callable_name`` reference.
 
     Args:
-        fqn: Fully qualified name (e.g. ``"myapp.chat.ask_question"``).
+        reference: Reference in ``filepath:callable_name`` format
+            (e.g. ``"pixie_qa/scripts/run_app.py:run_app"``).
+            The file path is relative to the current working directory.
 
     Returns:
         The resolved callable.
+
+    Raises:
+        ValueError: If *reference* does not use ``filepath:name`` format.
     """
-    module_path, _, func_name = fqn.rpartition(".")
-    if not module_path:
+    reference = reference.strip()
+    if ":" not in reference:
         raise ValueError(
-            f"Runnable must be a fully qualified name (e.g. 'myapp.module.func'), "
-            f"got {fqn!r}."
+            f"Runnable must use filepath:name format "
+            f"(e.g. 'pixie_qa/scripts/run_app.py:run_app'), "
+            f"got {reference!r}."
         )
-    module = importlib.import_module(module_path)
-    func: Callable[..., Any] = getattr(module, func_name)
+    func: Callable[..., Any] = _load_callable(reference, Path.cwd())
     return func
 
 
@@ -168,7 +221,12 @@ async def _noop_runnable(eval_input: object) -> None:
 
 
 def _short_name(name: str) -> str:
-    """Extract the class name from a possibly fully qualified name."""
+    """Extract the short callable name from a reference.
+
+    Handles both ``filepath:callable_name`` and ``module.ClassName`` formats.
+    """
+    if ":" in name:
+        return name.rsplit(":", 1)[1]
     return name.rpartition(".")[2] or name
 
 
@@ -213,7 +271,7 @@ class LoadedDataset:
 
     Attributes:
         name: Dataset display name.
-        runnable: Fully qualified name of the runnable function.
+        runnable: ``filepath:callable_name`` reference for the runnable.
         entries: List of ``(evaluable, evaluator_names)`` pairs.
     """
 
@@ -385,8 +443,8 @@ def load_dataset_entries(
 
         The dataset JSON requires:
 
-        - top-level ``runnable`` (str) — fully qualified name of a callable
-            that produces ``eval_output`` from ``eval_input``.
+        - top-level ``runnable`` (str) — ``filepath:callable_name`` reference
+            to a function that produces ``eval_output`` from ``eval_input``.
         - top-level ``items`` (list[dict]) — dataset entries.
         - per-item ``description`` (str).
         - at least one evaluator per item, via row-level ``evaluators`` or

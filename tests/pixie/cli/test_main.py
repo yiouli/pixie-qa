@@ -277,14 +277,17 @@ class TestMainDatasetValidate:
     def test_validate_single_valid_dataset(
         self,
         tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
         dataset_path = tmp_path / "valid.json"
         dataset_path.write_text(
             """
             {
               "name": "valid",
-              "runnable": "json.dumps",
+              "runnable": "_run.py:run",
               "items": [
                 {
                   "eval_input": {"q": "hello"},
@@ -343,6 +346,8 @@ class TestMainDatasetValidate:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
         ds_dir = tmp_path / "datasets"
         ds_dir.mkdir(parents=True)
         dataset_path = ds_dir / "valid.json"
@@ -350,7 +355,7 @@ class TestMainDatasetValidate:
             """
             {
               "name": "valid",
-              "runnable": "json.dumps",
+              "runnable": "_run.py:run",
               "items": [
                 {
                   "eval_input": {"q": "hello"},

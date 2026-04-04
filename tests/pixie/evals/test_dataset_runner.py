@@ -11,6 +11,7 @@ import pytest
 from pixie.evals.dataset_runner import (
     BUILTIN_EVALUATOR_NAMES,
     _expand_evaluator_names,
+    _load_callable,
     _noop_runnable,
     _resolve_evaluator,
     _resolve_runnable,
@@ -31,8 +32,9 @@ class TestResolveEvaluatorName:
     def test_builtin_name_resolved(self) -> None:
         assert resolve_evaluator_name("Factuality") == "pixie.Factuality"
 
-    def test_fqn_passed_through(self) -> None:
-        assert resolve_evaluator_name("myapp.evals.Custom") == "myapp.evals.Custom"
+    def test_filepath_reference_passed_through(self) -> None:
+        ref = "pixie_qa/evaluators.py:Custom"
+        assert resolve_evaluator_name(ref) == ref
 
     def test_unknown_bare_name_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown evaluator"):
@@ -44,36 +46,32 @@ class TestResolveEvaluator:
         evaluator = _resolve_evaluator("ExactMatch")
         assert hasattr(evaluator, "name")
 
-    def test_invalid_class_name_raises(self) -> None:
-        with pytest.raises(AttributeError):
-            _resolve_evaluator("pixie.NonexistentEvaluator")
+    def test_unknown_bare_name_raises(self) -> None:
+        with pytest.raises(ValueError, match="Unknown evaluator"):
+            _resolve_evaluator("NonexistentEvaluator")
 
-    def test_resolve_function_evaluator(self, tmp_path: Path) -> None:
+    def test_resolve_function_evaluator(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """A module-level function should be returned as-is, not called."""
-        mod_path = tmp_path / "func_eval.py"
-        mod_path.write_text(
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "func_eval.py").write_text(
             "from pixie.evals.evaluation import Evaluation\n"
             "from pixie.storage.evaluable import Evaluable\n"
             "\n"
             "def my_func_eval(evaluable: Evaluable, *, trace=None) -> Evaluation:\n"
             "    return Evaluation(score=1.0, reasoning='ok')\n"
         )
-        import sys
+        result = _resolve_evaluator("func_eval.py:my_func_eval")
+        assert callable(result)
+        assert result.__name__ == "my_func_eval"
 
-        sys.path.insert(0, str(tmp_path))
-        try:
-            result = _resolve_evaluator("func_eval.my_func_eval")
-            assert callable(result)
-            # Should be the function itself, not a call result
-            assert result.__name__ == "my_func_eval"
-        finally:
-            sys.path.remove(str(tmp_path))
-            sys.modules.pop("func_eval", None)
-
-    def test_resolve_prebuilt_instance(self, tmp_path: Path) -> None:
+    def test_resolve_prebuilt_instance(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """A module-level callable instance should be returned as-is."""
-        mod_path = tmp_path / "inst_eval.py"
-        mod_path.write_text(
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "inst_eval.py").write_text(
             "from pixie.evals.evaluation import Evaluation\n"
             "from pixie.storage.evaluable import Evaluable\n"
             "\n"
@@ -83,16 +81,9 @@ class TestResolveEvaluator:
             "\n"
             "my_instance = _Inner()\n"
         )
-        import sys
-
-        sys.path.insert(0, str(tmp_path))
-        try:
-            result = _resolve_evaluator("inst_eval.my_instance")
-            assert callable(result)
-            assert type(result).__name__ == "_Inner"
-        finally:
-            sys.path.remove(str(tmp_path))
-            sys.modules.pop("inst_eval", None)
+        result = _resolve_evaluator("inst_eval.py:my_instance")
+        assert callable(result)
+        assert type(result).__name__ == "_Inner"
 
 
 # ---------------------------------------------------------------------------
@@ -100,19 +91,46 @@ class TestResolveEvaluator:
 # ---------------------------------------------------------------------------
 
 
+class TestLoadCallable:
+    def test_loads_function(self, tmp_path: Path) -> None:
+        (tmp_path / "mymod.py").write_text("def greet(x): return f'hi {x}'\n")
+        func = _load_callable("mymod.py:greet", tmp_path)
+        assert func("world") == "hi world"
+
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="Module file not found"):
+            _load_callable("nope.py:func", tmp_path)
+
+    def test_missing_attr_raises(self, tmp_path: Path) -> None:
+        (tmp_path / "empty.py").write_text("x = 1\n")
+        with pytest.raises(AttributeError):
+            _load_callable("empty.py:missing", tmp_path)
+
+    def test_no_colon_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="filepath:name"):
+            _load_callable("nocolon", tmp_path)
+
+
 class TestResolveRunnable:
-    def test_resolves_builtin_function(self) -> None:
-        func = _resolve_runnable("json.dumps")
+    def test_resolves_filepath_reference(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "run.py").write_text("def my_func(x): return str(x)\n")
+        func = _resolve_runnable("run.py:my_func")
         assert callable(func)
 
-    def test_bare_name_raises(self) -> None:
-        with pytest.raises(ValueError, match="fully qualified"):
-            _resolve_runnable("dumps")
+    def test_no_colon_raises(self) -> None:
+        with pytest.raises(ValueError, match="filepath:name"):
+            _resolve_runnable("json.dumps")
 
 
 class TestShortName:
     def test_fully_qualified(self) -> None:
         assert _short_name("pixie.evals.scorers.Factuality") == "Factuality"
+
+    def test_filepath_reference(self) -> None:
+        assert _short_name("pixie_qa/evaluators.py:ConciseStyle") == "ConciseStyle"
 
 
 class TestNoopRunnable:
@@ -126,14 +144,23 @@ class TestNoopRunnable:
 # ---------------------------------------------------------------------------
 
 
+def _write_runnable(tmp_path: Path) -> str:
+    """Write a minimal runnable file and return ``filepath:name`` reference."""
+    fpath = tmp_path / "_test_runnable.py"
+    fpath.write_text("def run(x):\n    return str(x)\n")
+    return "_test_runnable.py:run"
+
+
 def _write_dataset(
     tmp_path: Path,
     name: str,
     items: list[dict[str, Any]],
     *,
-    runnable: str = "json.dumps",
+    runnable: str | None = None,
     evaluators: list[str] | None = None,
 ) -> Path:
+    if runnable is None:
+        runnable = _write_runnable(tmp_path)
     dataset: dict[str, Any] = {
         "name": name,
         "runnable": runnable,
@@ -184,7 +211,10 @@ class TestExpandEvaluatorNames:
 
 
 class TestValidateDatasetFile:
-    def test_valid_dataset(self, tmp_path: Path) -> None:
+    def test_valid_dataset(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "valid",
@@ -216,7 +246,10 @@ class TestValidateDatasetFile:
         errors = validate_dataset_file(fpath)
         assert any("missing required top-level 'runnable'" in err for err in errors)
 
-    def test_missing_description(self, tmp_path: Path) -> None:
+    def test_missing_description(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "bad-desc",
@@ -225,7 +258,10 @@ class TestValidateDatasetFile:
         errors = validate_dataset_file(fpath)
         assert any("missing required 'description'" in err for err in errors)
 
-    def test_requires_at_least_one_evaluator_per_row(self, tmp_path: Path) -> None:
+    def test_requires_at_least_one_evaluator_per_row(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "bad-evals",
@@ -234,17 +270,23 @@ class TestValidateDatasetFile:
         errors = validate_dataset_file(fpath)
         assert any("no evaluators resolved" in err for err in errors)
 
-    def test_invalid_runnable_name(self, tmp_path: Path) -> None:
+    def test_invalid_runnable_name(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "bad-run",
             [{"eval_input": "Q1", "description": "desc", "evaluators": ["ExactMatch"]}],
-            runnable="not_a_fqn",
+            runnable="not_a_filepath",
         )
         errors = validate_dataset_file(fpath)
         assert any("invalid runnable" in err for err in errors)
 
-    def test_invalid_evaluator_name(self, tmp_path: Path) -> None:
+    def test_invalid_evaluator_name(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "bad-evaluator",
@@ -253,7 +295,10 @@ class TestValidateDatasetFile:
         errors = validate_dataset_file(fpath)
         assert any("invalid evaluator" in err for err in errors)
 
-    def test_defaults_used_when_row_evaluators_missing(self, tmp_path: Path) -> None:
+    def test_defaults_used_when_row_evaluators_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "defaults",
@@ -270,7 +315,11 @@ class TestValidateDatasetFile:
 
 
 class TestLoadDatasetEntries:
-    def test_loads_valid_dataset(self, tmp_path: Path) -> None:
+    def test_loads_valid_dataset(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        runnable_ref = _write_runnable(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "ok",
@@ -282,13 +331,17 @@ class TestLoadDatasetEntries:
                     "evaluators": ["ExactMatch"],
                 }
             ],
+            runnable=runnable_ref,
         )
         loaded = load_dataset_entries(fpath)
         assert loaded.name == "ok"
-        assert loaded.runnable == "json.dumps"
+        assert loaded.runnable == runnable_ref
         assert len(loaded.entries) == 1
 
-    def test_row_ellipsis_expands_defaults(self, tmp_path: Path) -> None:
+    def test_row_ellipsis_expands_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "ellipsis",
@@ -304,7 +357,10 @@ class TestLoadDatasetEntries:
         loaded = load_dataset_entries(fpath)
         assert loaded.entries[0][1] == ["ExactMatch", "LevenshteinMatch"]
 
-    def test_invalid_dataset_raises(self, tmp_path: Path) -> None:
+    def test_invalid_dataset_raises(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         fpath = _write_dataset(
             tmp_path,
             "invalid",

@@ -131,7 +131,7 @@ Dataset files are stored as JSON under `PIXIE_DATASET_DIR` (default: `pixie_qa/d
 A dataset file supports these top-level fields:
 
 - `name` (`string`, optional): display name (defaults to filename stem).
-- `runnable` (`string`, required): fully qualified name of a callable that produces `eval_output` from `eval_input` (for example, `myapp.chat.ask`).
+- `runnable` (`string`, required): `filepath:callable_name` reference to a function that produces `eval_output` from `eval_input` (for example, `pixie_qa/scripts/run_app.py:run_app`). The file path is relative to the project root.
 - `evaluators` (`string[]`, optional): default evaluator names applied to every item unless overridden.
 - `items` (`object[]`, required): array of dataset entries (see below).
 
@@ -143,7 +143,7 @@ Each item supports:
 - `description` (`string`, required): one-sentence scenario description.
 - `evaluators` (`string[]`, optional): row-level evaluators (override defaults). Use `"..."` to include all default evaluators.
 
-**Evaluator resolution:** Bare names (e.g. `"Factuality"`) resolve to built-in evaluators. Dotted names (e.g. `"myapp.evals.Custom"`) are treated as fully qualified. Use `pixie evaluators list` to see available built-ins.
+**Evaluator resolution:** Bare names (e.g. `"Factuality"`) resolve to built-in evaluators. Custom evaluators use `filepath:callable_name` format (e.g. `"pixie_qa/evaluators.py:ConciseVoiceStyle"`). Use `pixie evaluators list` to see available built-ins.
 
 **Validation rules:**
 
@@ -165,7 +165,7 @@ pixie dataset validate path/to/datasets/
 ```json
 {
   "name": "qa-tests",
-  "runnable": "myapp.chat.answer_question",
+  "runnable": "pixie_qa/scripts/run_app.py:run_app",
   "evaluators": ["Factuality", "ClosedQA"],
   "items": [
     { "eval_input": { "question": "What is 2+2?" }, "expected_output": "4" },
