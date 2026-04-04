@@ -76,11 +76,12 @@ datasetCmd
     ) => {
       const { datasetSave } = require("./datasetCommand");
       const { UNSET } = require("../storage/evaluable");
-      const json = require("fs");
 
       let expectedOutput = UNSET;
       if (options.expectedOutput) {
-        const raw = require("fs").readFileSync("/dev/stdin", "utf-8").trim();
+        const fs = require("fs");
+        const fd = fs.openSync(0, "r"); // fd 0 = stdin
+        const raw = fs.readFileSync(fd, "utf-8").trim();
         if (!raw) {
           console.error(
             "--expected-output flag set but no JSON provided on stdin."

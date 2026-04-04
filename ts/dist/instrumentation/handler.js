@@ -1,0 +1,65 @@
+"use strict";
+/**
+ * InstrumentationHandler base class and handler registry.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HandlerRegistry = exports.InstrumentationHandler = void 0;
+/**
+ * Base class for instrumentation handlers.
+ *
+ * Both methods are optional async overrides — a handler only implementing
+ * `onLlm` is valid, and vice versa. Implementations may be long-running
+ * (e.g. calling external APIs) since each handler runs concurrently with
+ * other registered handlers.
+ */
+class InstrumentationHandler {
+    /**
+     * Called when an LLM provider call completes.
+     * Default: no-op. Override to capture LLM call data.
+     * Exceptions are caught and suppressed.
+     */
+    async onLlm(_span) {
+        // no-op
+    }
+    /**
+     * Called when a startObservation() block completes.
+     * Default: no-op. Override to capture eval-relevant data.
+     * Exceptions are caught and suppressed.
+     */
+    async onObserve(_span) {
+        // no-op
+    }
+}
+exports.InstrumentationHandler = InstrumentationHandler;
+/**
+ * Fan-out handler that dispatches to multiple registered handlers.
+ *
+ * Each handler runs concurrently via `Promise.allSettled`; per-handler
+ * exceptions are isolated so one failing handler does not prevent
+ * delivery to the remaining handlers.
+ *
+ * @internal
+ */
+class HandlerRegistry extends InstrumentationHandler {
+    _handlers = [];
+    add(handler) {
+        this._handlers.push(handler);
+    }
+    remove(handler) {
+        const idx = this._handlers.indexOf(handler);
+        if (idx === -1) {
+            throw new Error("Handler not found in registry");
+        }
+        this._handlers.splice(idx, 1);
+    }
+    async onLlm(span) {
+        const snapshot = [...this._handlers];
+        await Promise.allSettled(snapshot.map((h) => h.onLlm(span)));
+    }
+    async onObserve(span) {
+        const snapshot = [...this._handlers];
+        await Promise.allSettled(snapshot.map((h) => h.onObserve(span)));
+    }
+}
+exports.HandlerRegistry = HandlerRegistry;
+//# sourceMappingURL=handler.js.map

@@ -12,6 +12,10 @@
 import path from "path";
 
 import type { Evaluable } from "../storage/evaluable";
+
+const CHECK_MARK = "\u2713";
+const CROSS_MARK = "\u2717";
+const ELLIPSIS = "\u2026";
 import {
   discoverDatasetFiles,
   loadDatasetEntries,
@@ -146,9 +150,9 @@ export async function testMain(opts: {
       const evalsStr = entry.evaluations.map((ev) => ev.evaluator).join(", ");
       const scores = entry.evaluations.map((ev) => ev.score.toFixed(2));
       const allPass = entry.evaluations.every((ev) => ev.score >= 0.5);
-      const mark = allPass ? "\u2713" : "\u2717";
+      const mark = allPass ? CHECK_MARK : CROSS_MARK;
       let desc = entry.description ?? JSON.stringify(entry.input);
-      if (desc.length > 80) desc = desc.substring(0, 80) + "\u2026";
+      if (desc.length > 80) desc = desc.substring(0, 80) + ELLIPSIS;
       console.log(
         `  [${i + 1}] ${desc} (${evalsStr}) [${scores.join(", ")}] ${mark}`
       );
