@@ -241,7 +241,7 @@ export function observe<TArgs extends unknown[], TReturn>(
   const spanName = name ?? fn.name ?? "observe";
 
   const wrapper = (...args: TArgs): TReturn | Promise<TReturn> => {
-    const serializedInput = JSON.parse(JSON.stringify(args));
+    const serializedInput = args;
 
     if (!_state.tracer) {
       return fn(...args);
@@ -252,7 +252,7 @@ export function observe<TArgs extends unknown[], TReturn>(
       { input: serializedInput, name: spanName },
       async (ctx) => {
         const ret = await fn(...args);
-        ctx.setOutput(JSON.parse(JSON.stringify(ret)));
+        ctx.setOutput(ret);
         return ret;
       }
     );

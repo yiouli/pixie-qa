@@ -232,6 +232,8 @@ function parseToolDefinitions(attrs: Attrs): ToolDefinition[] {
   return tools;
 }
 
+const NULL_SPAN_ID = "0000000000000000";
+
 // ── Processor ────────────────────────────────────────────────────────────────
 
 /**
@@ -284,7 +286,7 @@ export class LLMSpanProcessor implements SpanProcessor {
     const ctx = span.spanContext();
     const spanId = ctx.spanId;
     const traceId = ctx.traceId;
-    const parentSpanId = span.parentSpanId && span.parentSpanId !== "0000000000000000"
+    const parentSpanId = span.parentSpanId && span.parentSpanId !== NULL_SPAN_ID
       ? span.parentSpanId
       : null;
 

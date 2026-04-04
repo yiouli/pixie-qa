@@ -8,6 +8,8 @@
 import type { Span } from "@opentelemetry/api";
 import type { ObserveSpan } from "./spans";
 
+const NULL_SPAN_ID = "0000000000000000";
+
 /**
  * Extract parent span ID from an OTel span, if present.
  */
@@ -18,7 +20,7 @@ function extractParentSpanId(otelSpan: Span): string | null {
   const parentId = (otelSpan as unknown as Record<string, unknown>)["parentSpanId"] as
     | string
     | undefined;
-  if (parentId && parentId !== "0000000000000000") {
+  if (parentId && parentId !== NULL_SPAN_ID) {
     return parentId;
   }
   return null;
@@ -134,7 +136,7 @@ export class NoOpObservationContext extends ObservationContext {
 
   /** @internal */
   override _snapshot(): ObserveSpan {
-    // Return a dummy span — this should never be used
-    return null as unknown as ObserveSpan;
+    // NoOp context should never produce a span — throw if called unexpectedly
+    throw new Error("NoOpObservationContext._snapshot() should never be called");
   }
 }
