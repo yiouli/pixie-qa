@@ -235,7 +235,10 @@ function parseDate(value: unknown): Date {
   if (typeof value === "string") {
     const d = new Date(value);
     if (isNaN(d.getTime())) {
-      throw new Error(`Invalid date string: ${value}`);
+      throw new Error(
+        `Invalid ISO 8601 date string: ${value}. ` +
+          "Expected format: YYYY-MM-DDTHH:mm:ss.sssZ"
+      );
     }
     return d;
   }

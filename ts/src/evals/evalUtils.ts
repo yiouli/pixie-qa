@@ -227,7 +227,8 @@ export async function assertPass(
     );
   }
 
-  const criteria = opts?.passCriteria ?? new ScoreThreshold().__call__.bind(new ScoreThreshold());
+  const defaultCriteria = new ScoreThreshold();
+  const criteria = opts?.passCriteria ?? defaultCriteria.__call__.bind(defaultCriteria);
   const sem = createSemaphore(getRunnableConcurrency());
 
   const inputTasks = evalInputs.map((inp, idx) =>

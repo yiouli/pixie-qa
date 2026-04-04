@@ -26,7 +26,12 @@ export class EvalRateLimiter {
     return this._config;
   }
 
-  /** Estimate token count using `len(text) / 3` approximation. */
+  /**
+   * Estimate token count using `len(text) / 3` approximation.
+   *
+   * This is a rough heuristic — actual tokenization varies by model
+   * and language. It intentionally over-counts to stay within limits.
+   */
   estimateTokens(text: string): number {
     return Math.floor(text.length / 3);
   }
