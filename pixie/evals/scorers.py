@@ -31,6 +31,29 @@ Public API (all are also re-exported from ``pixie.evals``):
 **RAGAS metrics:**
     - :func:`ContextRelevancy`, :func:`Faithfulness`,
       :func:`AnswerRelevancy`, :func:`AnswerCorrectness`.
+
+Evaluator Selection Guide
+-------------------------
+
+Choose evaluators based on the **output type** and eval criteria:
+
+| Output type | Evaluator category | Examples |
+| --- | --- | --- |
+| Deterministic (labels, yes/no, fixed-format) | Heuristic: ``ExactMatch``, ``JSONDiff``, ``ValidJSON`` | Label classification, JSON extraction |
+| Open-ended text with a reference answer | LLM-as-judge: ``Factuality``, ``ClosedQA``, ``AnswerCorrectness`` | Chatbot responses, QA, summaries |
+| Text with expected context/grounding | RAG: ``Faithfulness``, ``ContextRelevancy`` | RAG pipelines |
+| Text with style/format requirements | Custom via ``create_llm_evaluator`` | Voice-friendly responses, tone checks |
+| Multi-aspect quality | Multiple evaluators combined | Factuality + relevance + tone |
+
+Critical rules:
+
+- For open-ended LLM text, **never** use ``ExactMatch`` — LLM outputs are
+  non-deterministic.
+- ``AnswerRelevancy`` is **RAG-only** — requires ``context`` in the trace.
+  Returns 0.0 without it. For general relevance, use ``create_llm_evaluator``.
+- Do NOT use comparison evaluators (``Factuality``, ``ClosedQA``,
+  ``ExactMatch``) on items without ``expected_output`` — they produce
+  meaningless scores.
 """
 
 from __future__ import annotations
@@ -217,7 +240,9 @@ class AutoevalsAdapter:
                         kwargs[key] = evaluable.eval_metadata[key]
             kwargs.update(self._scorer_kwargs)
 
-            score = await self._scorer.eval_async(output=output, expected=expected, **kwargs)
+            score = await self._scorer.eval_async(
+                output=output, expected=expected, **kwargs
+            )
             return _score_to_evaluation(score)
         except Exception as exc:
             tb = _tb.format_exc()
@@ -236,8 +261,16 @@ class AutoevalsAdapter:
 def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
     """Edit-distance string similarity evaluator.
 
-    Wraps :class:`autoevals.string.Levenshtein`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Computes a normalised Levenshtein distance between ``eval_output`` and
+    ``expected_output``.  Returns 1.0 for identical strings and decreasing
+    scores as edit distance grows.
+
+    **When to use**: Deterministic or near-deterministic outputs where small
+    textual variations are acceptable (e.g. formatting differences, minor
+    spelling).  Not suitable for open-ended LLM text — use an LLM-as-judge
+    evaluator instead.
+
+    **Requires ``expected_output``**: Yes.
     """
     return AutoevalsAdapter(
         _Levenshtein(),
@@ -248,8 +281,15 @@ def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
 def ExactMatch() -> AutoevalsAdapter:  # noqa: N802
     """Exact value comparison evaluator.
 
-    Wraps :class:`autoevals.value.ExactMatch`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Returns 1.0 if ``eval_output`` exactly equals ``expected_output``,
+    0.0 otherwise.
+
+    **When to use**: Deterministic, structured outputs (classification labels,
+    yes/no answers, fixed-format strings).  **Never** use for open-ended LLM
+    text — LLM outputs are non-deterministic, so exact match will almost always
+    fail.
+
+    **Requires ``expected_output``**: Yes.
     """
     return AutoevalsAdapter(
         _ExactMatch(),
@@ -260,8 +300,14 @@ def ExactMatch() -> AutoevalsAdapter:  # noqa: N802
 def NumericDiff() -> AutoevalsAdapter:  # noqa: N802
     """Normalised numeric difference evaluator.
 
-    Wraps :class:`autoevals.number.NumericDiff`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Computes a normalised numeric distance between ``eval_output`` and
+    ``expected_output``.  Returns 1.0 for identical numbers and decreasing
+    scores as the difference grows.
+
+    **When to use**: Numeric outputs where approximate equality is acceptable
+    (e.g. price calculations, scores, measurements).
+
+    **Requires ``expected_output``**: Yes.
     """
     return AutoevalsAdapter(
         _NumericDiff(),
@@ -275,8 +321,13 @@ def JSONDiff(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Structural JSON comparison evaluator.
 
-    Wraps :class:`autoevals.json.JSONDiff`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Recursively compares two JSON structures and produces a similarity
+    score.  Handles nested objects, arrays, and mixed types.
+
+    **When to use**: Structured JSON outputs where field-level comparison
+    is needed (e.g. extracted data, API response schemas, tool call arguments).
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         string_scorer: Optional pairwise scorer for string fields.
@@ -294,9 +345,15 @@ def ValidJSON(  # noqa: N802
     *,
     schema: Any = None,
 ) -> AutoevalsAdapter:
-    """JSON syntax / schema validation evaluator.
+    """JSON syntax and schema validation evaluator.
 
-    Wraps :class:`autoevals.json.ValidJSON`.
+    Returns 1.0 if ``eval_output`` is valid JSON (and optionally matches
+    the provided schema), 0.0 otherwise.
+
+    **When to use**: Outputs that must be valid JSON — optionally conforming
+    to a specific schema (e.g. tool call responses, structured extraction).
+
+    **Requires ``expected_output``**: No.
 
     Args:
         schema: Optional JSON Schema to validate against.
@@ -317,8 +374,13 @@ def ListContains(  # noqa: N802
 ) -> AutoevalsAdapter:
     """List overlap evaluator.
 
-    Wraps :class:`autoevals.list.ListContains`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Checks whether ``eval_output`` contains all items from
+    ``expected_output``.  Scores based on overlap ratio.
+
+    **When to use**: Outputs that produce a list of items where completeness
+    matters (e.g. extracted entities, search results, recommendations).
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         pairwise_scorer: Optional scorer for pairwise element comparison.
@@ -345,11 +407,16 @@ def EmbeddingSimilarity(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Embedding-based string similarity evaluator.
+    """Embedding-based semantic similarity evaluator.
 
-    Wraps :class:`autoevals.string.EmbeddingSimilarity`.  Pass
-    ``expected_output`` via :func:`~pixie.evals.eval_utils.assert_pass`
-    or at call time.
+    Computes cosine similarity between embedding vectors of ``eval_output``
+    and ``expected_output``.
+
+    **When to use**: Comparing semantic meaning of two texts when exact
+    wording doesn't matter.  More robust than Levenshtein for paraphrased
+    content but less nuanced than LLM-as-judge evaluators.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         prefix: Optional text to prepend for domain context.
@@ -379,12 +446,17 @@ def Factuality(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Factual accuracy evaluator.
+    """Factual accuracy evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Factuality`.  The evaluable's
-    ``eval_input`` is forwarded as the ``input`` kwarg.  Pass
-    ``expected_output`` via :func:`~pixie.evals.eval_utils.assert_pass`
-    or at call time.
+    Uses an LLM to judge whether ``eval_output`` is factually consistent
+    with ``expected_output`` given the ``eval_input`` context.
+
+    **When to use**: Open-ended text where factual correctness matters
+    (chatbot responses, QA answers, summaries).  Preferred over
+    ``ExactMatch`` for LLM-generated text.
+
+    **Requires ``expected_output``**: Yes — do NOT use on items without
+    ``expected_output``; produces meaningless scores.
 
     Args:
         model: LLM model name.
@@ -406,12 +478,17 @@ def ClosedQA(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Closed-book question-answering evaluator.
+    """Closed-book question-answering evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.ClosedQA`.  Forwards ``eval_input`` as
-    ``input`` and ``eval_metadata["criteria"]`` when present.  Pass
-    ``expected_output`` via :func:`~pixie.evals.eval_utils.assert_pass`
-    or at call time.
+    Uses an LLM to judge whether ``eval_output`` correctly answers the
+    question in ``eval_input`` compared to ``expected_output``.  Optionally
+    forwards ``eval_metadata["criteria"]`` for custom grading criteria.
+
+    **When to use**: QA scenarios where the answer should match a reference —
+    e.g. customer support answers, knowledge-base queries.
+
+    **Requires ``expected_output``**: Yes — do NOT use on items without
+    ``expected_output``; produces meaningless scores.
 
     Args:
         model: LLM model name.
@@ -434,11 +511,15 @@ def Battle(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Head-to-head comparison evaluator.
+    """Head-to-head comparison evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Battle`.  The evaluable's ``eval_input``
-    is forwarded as the ``instructions`` kwarg.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Uses an LLM to compare ``eval_output`` against ``expected_output``
+    and determine which is better given the instructions in ``eval_input``.
+
+    **When to use**: A/B testing scenarios, comparing model outputs,
+    or ranking alternative responses.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         model: LLM model name.
@@ -460,9 +541,15 @@ def Humor(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Humor detection evaluator.
+    """Humor quality evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Humor`.
+    Uses an LLM to judge the humor quality of ``eval_output`` against
+    ``expected_output``.
+
+    **When to use**: Evaluating humor in creative writing, chatbot
+    personality, or entertainment applications.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         model: LLM model name.
@@ -484,10 +571,15 @@ def Security(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Security vulnerability evaluator.
+    """Security vulnerability evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Security`.  The evaluable's ``eval_input``
-    is forwarded as the ``instructions`` kwarg.
+    Uses an LLM to check ``eval_output`` for security vulnerabilities
+    based on the instructions in ``eval_input``.
+
+    **When to use**: Code generation, SQL output, or any scenario
+    where output must be checked for injection or vulnerability risks.
+
+    **Requires ``expected_output``**: No.
 
     Args:
         model: LLM model name.
@@ -509,10 +601,15 @@ def Sql(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """SQL equivalence evaluator.
+    """SQL equivalence evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Sql`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Uses an LLM to judge whether ``eval_output`` SQL is semantically
+    equivalent to ``expected_output`` SQL.
+
+    **When to use**: Text-to-SQL applications where the generated SQL
+    should be functionally equivalent to a reference query.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         model: LLM model name.
@@ -534,10 +631,15 @@ def Summary(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Summarisation quality evaluator.
+    """Summarisation quality evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Summary`.  Pass ``expected_output``
-    via :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Uses an LLM to judge the quality of ``eval_output`` as a summary
+    compared to the reference summary in ``expected_output``.
+
+    **When to use**: Summarisation tasks where the output must capture
+    key information from the source material.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         model: LLM model name.
@@ -560,11 +662,14 @@ def Translation(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Translation quality evaluator.
+    """Translation quality evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Translation`.  The ``language`` kwarg is
-    forwarded to every scorer call.  Pass ``expected_output`` via
-    :func:`~pixie.evals.eval_utils.assert_pass` or at call time.
+    Uses an LLM to judge the translation quality of ``eval_output``
+    compared to ``expected_output`` in the target language.
+
+    **When to use**: Machine translation or multilingual output scenarios.
+
+    **Requires ``expected_output``**: Yes.
 
     Args:
         language: Target language (e.g. ``"Spanish"``).
@@ -591,9 +696,15 @@ def Possible(  # noqa: N802
     model: str | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Feasibility evaluator.
+    """Feasibility / plausibility evaluator (LLM-as-judge).
 
-    Wraps :class:`autoevals.llm.Possible`.
+    Uses an LLM to judge whether ``eval_output`` is a plausible or
+    feasible response.
+
+    **When to use**: General-purpose quality check when you want to
+    verify outputs are reasonable without a specific reference answer.
+
+    **Requires ``expected_output``**: No.
 
     Args:
         model: LLM model name.
@@ -620,9 +731,15 @@ def Moderation(  # noqa: N802
     threshold: float | None = None,
     client: Any = None,
 ) -> AutoevalsAdapter:
-    """Content-moderation evaluator.
+    """Content moderation evaluator.
 
-    Wraps :class:`autoevals.moderation.Moderation`.
+    Uses the OpenAI moderation API to check ``eval_output`` for unsafe
+    content (hate speech, violence, self-harm, etc.).
+
+    **When to use**: Any application where output safety is a concern —
+    chatbots, content generation, user-facing AI.
+
+    **Requires ``expected_output``**: No.
 
     Args:
         threshold: Custom flagging threshold.
@@ -650,9 +767,13 @@ def ContextRelevancy(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Context relevancy evaluator (RAGAS).
 
-    Wraps :class:`autoevals.ragas.ContextRelevancy`.  Pass
-    ``expected_output`` via :func:`~pixie.evals.eval_utils.assert_pass`
-    or at call time.
+    Judges whether the retrieved context is relevant to the query.
+    Forwards ``eval_metadata["context"]`` to the underlying scorer.
+
+    **When to use**: RAG pipelines — evaluating retrieval quality.
+
+    **Requires ``expected_output``**: Yes.
+    **Requires ``eval_metadata["context"]``**: Yes (RAG pipelines only).
 
     Args:
         client: OpenAI client instance.
@@ -673,7 +794,14 @@ def Faithfulness(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Faithfulness evaluator (RAGAS).
 
-    Wraps :class:`autoevals.ragas.Faithfulness`.
+    Judges whether ``eval_output`` is faithful to (i.e. supported by)
+    the provided context.  Forwards ``eval_metadata["context"]``.
+
+    **When to use**: RAG pipelines — ensuring the answer doesn't
+    hallucinate beyond what the retrieved context supports.
+
+    **Requires ``expected_output``**: No.
+    **Requires ``eval_metadata["context"]``**: Yes (RAG pipelines only).
 
     Args:
         client: OpenAI client instance.
@@ -694,7 +822,15 @@ def AnswerRelevancy(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Answer relevancy evaluator (RAGAS).
 
-    Wraps :class:`autoevals.ragas.AnswerRelevancy`.
+    Judges whether ``eval_output`` directly addresses the question in
+    ``eval_input``.
+
+    **When to use**: RAG pipelines only — requires ``context`` in the
+    trace.  Returns 0.0 without it.  For general (non-RAG) response
+    relevance, use ``create_llm_evaluator`` with a custom prompt instead.
+
+    **Requires ``expected_output``**: No.
+    **Requires ``eval_metadata["context"]``**: Yes — **RAG pipelines only**.
 
     Args:
         client: OpenAI client instance.
@@ -715,9 +851,15 @@ def AnswerCorrectness(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Answer correctness evaluator (RAGAS).
 
-    Wraps :class:`autoevals.ragas.AnswerCorrectness`.  Pass
-    ``expected_output`` via :func:`~pixie.evals.eval_utils.assert_pass`
-    or at call time.
+    Judges whether ``eval_output`` is correct compared to
+    ``expected_output``, combining factual similarity and semantic
+    similarity.
+
+    **When to use**: QA scenarios in RAG pipelines where you have a
+    reference answer and want a comprehensive correctness score.
+
+    **Requires ``expected_output``**: Yes.
+    **Requires ``eval_metadata["context"]``**: Optional (improves accuracy).
 
     Args:
         client: OpenAI client instance.

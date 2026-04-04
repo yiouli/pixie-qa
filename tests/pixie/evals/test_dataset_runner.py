@@ -9,7 +9,6 @@ from typing import Any
 import pytest
 
 from pixie.evals.dataset_runner import (
-    BUILTIN_EVALUATOR_NAMES,
     _expand_evaluator_names,
     _load_callable,
     _noop_runnable,
@@ -17,7 +16,6 @@ from pixie.evals.dataset_runner import (
     _resolve_runnable,
     _short_name,
     discover_dataset_files,
-    list_available_evaluators,
     load_dataset_entries,
     resolve_evaluator_name,
     validate_dataset_file,
@@ -368,19 +366,3 @@ class TestLoadDatasetEntries:
         )
         with pytest.raises(ValueError, match="Dataset validation failed"):
             load_dataset_entries(fpath)
-
-
-# ---------------------------------------------------------------------------
-# list_available_evaluators
-# ---------------------------------------------------------------------------
-
-
-class TestListAvailableEvaluators:
-    def test_returns_sorted_list(self) -> None:
-        result = list_available_evaluators()
-        assert result == sorted(result)
-
-    def test_all_builtins_included(self) -> None:
-        result = list_available_evaluators()
-        for name in BUILTIN_EVALUATOR_NAMES:
-            assert name in result

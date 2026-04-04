@@ -219,16 +219,6 @@ def _build_parser() -> argparse.ArgumentParser:
     dag_parser = subparsers.add_parser(
         "dag", help="Data-flow DAG validation and trace checking"
     )
-
-    # -- pixie evaluators ----------------------------------------------------
-    eval_parser = subparsers.add_parser(
-        "evaluators", help="Evaluator management commands"
-    )
-    eval_sub = eval_parser.add_subparsers(
-        dest="evaluators_action", help="Evaluator actions"
-    )
-    eval_sub.add_parser("list", help="List all available built-in evaluator names")
-
     dag_sub = dag_parser.add_subparsers(dest="dag_action", help="DAG actions")
 
     # pixie dag validate <json_file> [--project-root PATH]
@@ -441,17 +431,6 @@ def main(argv: list[str] | None = None) -> int:
         from pixie.cli.start_command import start
 
         return start(root=args.root)
-
-    elif args.command == "evaluators":
-        if args.evaluators_action is None:
-            parser.parse_args(["evaluators", "--help"])
-            return 1
-
-        if args.evaluators_action == "list":
-            from pixie.evals.dataset_runner import list_available_evaluators
-
-            for name in list_available_evaluators():
-                print(name)  # noqa: T201
 
     elif args.command == "dag":
         if args.dag_action is None:

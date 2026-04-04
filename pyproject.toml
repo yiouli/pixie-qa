@@ -111,5 +111,9 @@ line-length = 99
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["UP017"]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/generate_skill_docs.py" = ["E501"]
+"pixie/evals/scorers.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/pixie"]

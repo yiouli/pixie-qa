@@ -260,11 +260,6 @@ def _expand_evaluator_names(
     return result
 
 
-def list_available_evaluators() -> list[str]:
-    """Return sorted list of all built-in evaluator names."""
-    return sorted(BUILTIN_EVALUATOR_NAMES)
-
-
 @dataclass(frozen=True)
 class LoadedDataset:
     """Parsed dataset ready for evaluation.
