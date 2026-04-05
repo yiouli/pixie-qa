@@ -1,19 +1,10 @@
 ---
 name: eval-driven-dev
 description: >
-  Set up automated QA and evals for Python AI/LLM applications — chatbots, agents,
-  RAG pipelines, AI assistants, voice agents, or any app calling OpenAI, Anthropic,
-  or other LLM providers. Instruments the app, captures traces, builds golden datasets,
-  writes eval tests with LLM-as-judge scoring, and runs them via pixie test.
-  USE THIS SKILL whenever the user wants to: add evals or evaluation tests, benchmark
-  or measure LLM/AI output quality, set up quality assurance or automated quality checks,
-  catch prompt regressions or detect when AI responses degrade, build test suites or
-  golden datasets for AI apps, do eval-driven development, instrument an LLM app for
-  observability and testing, or improve/fix the quality of AI-generated responses.
-  Triggers on intent to test, evaluate, or assure quality of any AI/LLM application —
-  even if the user doesn't say 'eval' explicitly.
-  DO NOT use for: regular unit/integration tests without LLM quality concerns, bug fixes,
-  CI/CD, logging/monitoring, or non-AI testing.
+  Set up eval-based QA for Python LLM applications: instrument the app, build golden datasets,
+  write and run eval tests, and iterate on failures.
+  ALWAYS USE THIS SKILL when the user asks to set up QA, add tests, add evals,
+  evaluate, benchmark, fix wrong behaviors, improve quality, or do quality assurance for any Python project that calls an LLM model.
 license: MIT
 compatibility: Python 3.11+
 metadata:
