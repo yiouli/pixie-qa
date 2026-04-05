@@ -1,15 +1,24 @@
 ---
 name: eval-driven-dev
 description: >
-  Set up eval-based QA for Python LLM applications: instrument the app, build golden datasets,
-  write and run eval tests, and iterate on failures.
-  ALWAYS USE THIS SKILL when the user asks to set up QA, add tests, add evals,
-  evaluate, benchmark, fix wrong behaviors, improve quality, or do quality assurance for any Python project that calls an LLM model.
+  Set up automated QA and evals for Python AI/LLM applications — chatbots, agents,
+  RAG pipelines, AI assistants, voice agents, or any app calling OpenAI, Anthropic,
+  or other LLM providers. Instruments the app, captures traces, builds golden datasets,
+  writes eval tests with LLM-as-judge scoring, and runs them via pixie test.
+  USE THIS SKILL whenever the user wants to: add evals or evaluation tests, benchmark
+  or measure LLM/AI output quality, set up quality assurance or automated quality checks,
+  catch prompt regressions or detect when AI responses degrade, build test suites or
+  golden datasets for AI apps, do eval-driven development, instrument an LLM app for
+  observability and testing, or improve/fix the quality of AI-generated responses.
+  Triggers on intent to test, evaluate, or assure quality of any AI/LLM application —
+  even if the user doesn't say 'eval' explicitly.
+  DO NOT use for: regular unit/integration tests without LLM quality concerns, bug fixes,
+  CI/CD, logging/monitoring, or non-AI testing.
 license: MIT
 compatibility: Python 3.11+
 metadata:
-  version: 0.3.0
-  pixie-qa-version: ">=0.3.0,<0.4.0"
+  version: 0.4.0
+  pixie-qa-version: ">=0.4.0,<0.5.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -29,26 +38,28 @@ This skill is about doing the work, not describing it. Read code, edit files, ru
 
 ## Before you start
 
-Run the setup script to update the skill, install `pixie-qa` with all optional provider packages, and initialize the pixie working directory. If any step fails or is blocked by the environment, continue — do not let failures here block the rest of the workflow.
+**First, activate the virtual environment**. Identify the correct virtual environment for the project and activate it. After the virtual environment is active, run setup:
 
 ```bash
 bash resources/setup.sh
 ```
 
+The script updates the `eval-driven-dev` skill and `pixie-qa` python package to latest version, and initialize the pixie working directory if it's not already initialized. If the skill or package update fails, continue — do not let these failures block the rest of the workflow.
+
 ---
 
 ## The workflow
 
-Follow Steps 1–5 straight through without stopping. Do not ask the user for confirmation at intermediate steps — verify each step yourself and continue.
+Follow Steps 1–6 straight through without stopping. Do not ask the user for confirmation at intermediate steps — verify each step yourself and continue.
 
 **How to work — read this before doing anything else:**
 
-- **One step at a time.** Read only the current step's instructions. Do NOT read Steps 2–5 while working on Step 1.
+- **One step at a time.** Read only the current step's instructions. Do NOT read Steps 2–6 while working on Step 1.
 - **Read references only when a step tells you to.** Each step names a specific reference file. Read it when you reach that step — not before.
 - **Create artifacts immediately.** After reading code for a sub-step, write the output file for that sub-step before moving on. Don't accumulate understanding across multiple sub-steps before writing anything.
 - **Verify, then move on.** Each step has a checkpoint. Verify it, then proceed to the next step. Don't plan future steps while verifying the current one.
 
-**Run Steps 1–6 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
+**Run Steps 1–7 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
 
 ---
 
@@ -94,9 +105,9 @@ This checks the DAG structure, verifies code pointers exist, and generates a Mer
 
 > **Reference**: Read `references/1-c-eval-criteria.md` now.
 
-Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 5). Verify each criterion is observable based on the data flow. Write your findings to `pixie_qa/03-eval-criteria.md` before moving on.
+Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 5); eval criteria drive evaluator selection (Step 4). For each criterion, determine whether it applies to all scenarios or only a subset — this drives whether it becomes a dataset-level default evaluator or an item-level evaluator. Write your findings to `pixie_qa/03-eval-criteria.md` before moving on.
 
-> **Checkpoint**: `pixie_qa/03-eval-criteria.md` written with use cases, eval criteria, and observability check. Do NOT read Step 2 instructions yet.
+> **Checkpoint**: `pixie_qa/03-eval-criteria.md` written with use cases (each with a one-liner conveying input + expected behavior), eval criteria with applicability scope, and observability check. Do NOT read Step 2 instructions yet.
 
 ---
 
@@ -120,36 +131,46 @@ Write a `run_app(eval_input) → eval_output` function that patches external dep
 
 ---
 
-### Step 4: Build the dataset
+### Step 4: Define evaluators
 
-> **Reference**: Read `references/4-build-dataset.md` now — it has the sub-steps for determining expectations, generating eval_input items, validating the dataset, the dataset creation API, and the validation checklist.
+> **Reference**: Read `references/4-define-evaluators.md` now — it has the sub-steps for mapping criteria to evaluators, implementing custom evaluators, verifying discoverability, and producing the evaluator mapping artifact.
 
-Create a dataset of made-up eval_input items that match the data shape from the reference trace. Add case-specific `expected_output` where needed. Run the build script and validate diversity and structural correctness.
+Map each eval criterion from Step 1c to a concrete evaluator — implement custom ones where needed. Then produce the evaluator mapping artifact.
 
-> **Checkpoint**: Dataset created with diverse eval_inputs matching the reference trace's data shape. Do NOT read Step 5 instructions yet.
+> **Checkpoint**: All evaluators implemented. `pixie_qa/05-evaluator-mapping.md` written with criterion-to-evaluator mapping using exact evaluator names (built-in names from `evaluators.md`, custom names in `filepath:callable_name` format). Do NOT read Step 5 instructions yet.
 
 ---
 
-### Step 5: Write and run eval tests
+### Step 5: Build the dataset
 
-> **Reference**: Read `references/5-write-and-run-tests.md` now — it has the sub-steps for mapping criteria to evaluators, writing the test file, verifying the scorecard, the evaluator catalog, and test file boilerplate. **Re-read the API reference immediately before writing test code.**
+> **Reference**: Read `references/5-build-dataset.md` now — it has the sub-steps for determining expectations, generating eval_input items, building the dataset JSON with the new format (runnable, evaluators, descriptions), and validating with `pixie dataset validate`.
 
-Map each eval criterion to an evaluator, write a test file that wires the utility function + dataset + evaluators together, and run with `pixie test`.
+Create a dataset JSON file with made-up eval_input items that match the data shape from the reference trace. Set the `runnable` to the `filepath:callable_name` reference for the run function from Step 3 (e.g., `"pixie_qa/scripts/run_app.py:run_app"` — file path relative to project root). Assign evaluators based on the eval criteria (Step 1c) and the evaluator mapping (Step 4) — universal criteria become dataset-level defaults, case-specific criteria become item-level evaluators. Add a `description` for each item. Validate with `pixie dataset validate`.
 
-> **Checkpoint**: Tests run and produce real scores.
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse eval_inputs, runnable, evaluators, and descriptions. `pixie dataset validate` passes. Do NOT read Step 6 instructions yet.
+
+---
+
+### Step 6: Run evaluation-based tests
+
+> **Reference**: Read `references/6-run-tests.md` now — it has the sub-steps for running tests, verifying output, and running analysis.
+
+Run `pixie test` (without a path argument) to execute the full evaluation pipeline. Verify that real scores are produced. Once tests complete without setup errors, run `pixie analyze` to generate analysis.
+
+> **Checkpoint**: Tests run and produce real scores. Analysis generated.
 >
-> If the test errors out (import failures, missing keys), that's a setup bug — fix and re-run. But if tests produce real pass/fail scores, that's the deliverable.
+> If the test errors out (import failures, missing keys, runnable resolution errors), that's a setup bug — fix and re-run. But if tests produce real pass/fail scores, that's the deliverable.
 >
 > **STOP GATE — read this before doing anything else after tests produce scores:**
 >
-> - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 6.
-> - If the user's original prompt explicitly asks for iteration ("fix", "improve", "debug", "iterate", "investigate failures", "make tests pass"), proceed to Step 6.
+> - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 7.
+> - If the user's original prompt explicitly asks for iteration ("fix", "improve", "debug", "iterate", "investigate failures", "make tests pass"), proceed to Step 7.
 
 ---
 
-### Step 6: Investigate and iterate
+### Step 7: Investigate and iterate
 
-> **Reference**: Read `references/6-investigation.md` now — it has the stop/continue decision, root-cause patterns, and investigation procedures. **Follow its instructions before doing any investigation work.**
+> **Reference**: Read `references/7-investigation.md` now — it has the stop/continue decision, analysis review, root-cause patterns, and investigation procedures. **Follow its instructions before doing any investigation work.**
 
 ---
 

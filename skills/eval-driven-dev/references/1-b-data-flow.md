@@ -145,6 +145,14 @@ The symbol can be:
 ]
 ```
 
+### Conditional / optional branches
+
+Some apps have conditional code paths where only one branch executes per request — e.g., `transfer_call` vs `end_call` depending on the outcome. `pixie dag check-trace` (Step 2) validates against a **single** trace, so every DAG node must appear in that trace.
+
+**Rule**: If two or more functions are mutually exclusive (only one runs per request), model them as a **single dispatcher node** that covers the branching logic, not as separate DAG nodes. For example, instead of `end_call_tool` + `transfer_call_tool` as separate nodes, use `execute_tool` pointing at the dispatch function.
+
+If a function only runs under certain conditions but is the sole branch (not mutually exclusive), include it in the DAG — just ensure your reference trace (Step 2) exercises that code path.
+
 ### Validation checkpoint
 
 After writing `pixie_qa/02-data-flow.json`, validate the DAG:

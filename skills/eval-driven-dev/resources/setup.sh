@@ -12,11 +12,11 @@ npx skills update || echo "(skill update skipped)"
 echo ""
 echo "=== Installing / upgrading pixie-qa[all] ==="
 if [ -f uv.lock ]; then
-  uv add "pixie-qa[all]>=0.3.0,<0.4.0" --upgrade
+  uv add "pixie-qa[all]>=0.4.0,<0.5.0" --upgrade
 elif [ -f poetry.lock ]; then
-  poetry add "pixie-qa[all]>=0.3.0,<0.4.0"
+  poetry add "pixie-qa[all]>=0.4.0,<0.5.0"
 else
-  pip install --upgrade "pixie-qa[all]>=0.3.0,<0.4.0"
+  pip install --upgrade "pixie-qa[all]>=0.4.0,<0.5.0"
 fi
 
 echo ""

@@ -55,7 +55,7 @@ Base on how the application runs, read the corresponding example file for implem
 
 Read **only** the example file that matches your app type — do not read the others.
 
-For `enable_storage()` and `observe` API details, see `pixie-api.md` (Instrumentation API section).
+For `enable_storage()` and `observe` API details, see `instrumentation-api.md`.
 
 **Do NOT call an inner function** like `agent.respond()` directly just because it's simpler. Between the entry point and that inner function, the app does request handling, state management, prompt assembly, routing — all of which is under test. When you call an inner function, you skip all of that and end up reimplementing it in your test. Now your test is testing test code, not app code.
 

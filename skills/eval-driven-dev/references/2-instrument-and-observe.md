@@ -151,6 +151,13 @@ If it reports issues, fix them according to the error messages and re-run.
 uv run pixie dag check-trace pixie_qa/02-data-flow.json
 ```
 
+This checks that every DAG node has a matching span in the trace. **Every non-LLM node must appear in this single trace.** If a node is missing, either:
+
+1. The function at `code_pointer` is not decorated with `@observe(name="<node_name>")`
+2. The function was not called during the trace run
+
+If you have conditional branches (e.g., `end_call` vs `transfer_call`), go back to Step 1b and simplify: merge mutually exclusive branches into a single dispatcher node so all nodes are exercisable in one trace.
+
 If it reports errors, fix them according to the error messages and re-run.
 
 ## 2d. Document the reference trace

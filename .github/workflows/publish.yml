@@ -58,6 +58,19 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up Node.js
+        if: steps.release_check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend assets
+        if: steps.release_check.outputs.skip != 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Build package
         if: steps.release_check.outputs.skip != 'true'
         run: uv build
