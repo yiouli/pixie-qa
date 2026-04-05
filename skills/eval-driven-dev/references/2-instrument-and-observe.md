@@ -1,6 +1,6 @@
 # Step 2: Instrument and observe a real run
 
-> For a quick lookup of imports, CLI commands, and key concepts, see `quick-reference.md`.
+> For a quick lookup of imports, CLI commands, and key concepts, see `instrumentation-api.md`.
 
 **Why this step**: You need to see the actual data flowing through the app before you can build anything. This step produces a reference trace that shows the exact data shapes you'll use for datasets and evaluators.
 

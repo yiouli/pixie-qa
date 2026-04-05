@@ -167,7 +167,7 @@ Run `pixie test` (without a path argument) to execute the full evaluation pipeli
 
 ## Web Server Management
 
-pixie-qa runs a web server in the background for displaying context, traces, and eval results to the user. It's automatically started by the setup script, and need to be explicitly cleaned up when display is no longer needed.
+pixie-qa runs a web server in the background for displaying context, traces, and eval results to the user. It's automatically started by the setup script, and needs to be explicitly cleaned up when display is no longer needed.
 
 When the user is done with the eval-driven-dev workflow, inform them the web server is still running and you can clean it up with the following command:
 
