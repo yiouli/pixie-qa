@@ -148,6 +148,9 @@ def wrap(
     # ── Tracing mode ─────────────────────────────────────────────────────────
     config = get_config()
     if config.tracing_enabled:
+        # Lazy import to avoid circular dependency
+        from pixie.instrumentation.handlers import get_trace_writer
+
         if is_callable:
             original_fn: Callable[..., Any] = data  # type: ignore[assignment]
 
@@ -156,12 +159,18 @@ def wrap(
                 result = original_fn(*args, **kwargs)
                 serialized = serialize_wrap_data(result)
                 _emit_wrap_event(name, purpose, serialized, description)
+                writer = get_trace_writer()
+                if writer is not None:
+                    writer.write_wrap_event(name, purpose, serialized, description)
                 return result
 
             return _tracing_callable  # type: ignore[return-value]
         else:
             serialized = serialize_wrap_data(data)
             _emit_wrap_event(name, purpose, serialized, description)
+            writer = get_trace_writer()
+            if writer is not None:
+                writer.write_wrap_event(name, purpose, serialized, description)
             return data
 
     # ── No-op mode ───────────────────────────────────────────────────────────

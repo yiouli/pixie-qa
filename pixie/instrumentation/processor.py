@@ -45,6 +45,18 @@ class LLMSpanProcessor(SpanProcessor):
 
             llm_span = self._build_llm_span(span, attrs, str(span_kind))
             self._delivery_queue.submit(llm_span)
+
+            # Write to trace file if a writer is active
+            try:
+                from dataclasses import asdict
+
+                from pixie.instrumentation.handlers import get_trace_writer
+
+                writer = get_trace_writer()
+                if writer is not None:
+                    writer.write_llm_span(asdict(llm_span))
+            except Exception:
+                pass
         except Exception:
             pass  # Never raise from on_end
 

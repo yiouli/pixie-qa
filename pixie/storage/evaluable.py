@@ -46,6 +46,10 @@ class Evaluable(BaseModel):
         expected_output: The expected/reference output for evaluation.
             Defaults to ``UNSET`` (not provided). May be explicitly
             set to ``None`` to indicate "there is no expected output".
+        captured_output: Captured output data from ``wrap(purpose="output")``,
+            keyed by wrap name.
+        captured_state: Captured state data from ``wrap(purpose="state")``,
+            keyed by wrap name.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -56,6 +60,8 @@ class Evaluable(BaseModel):
     expected_output: JsonValue | _Unset = Field(default=UNSET)
     evaluators: list[str] | None = None
     description: str | None = None
+    captured_output: dict[str, JsonValue] | None = None
+    captured_state: dict[str, JsonValue] | None = None
 
     @model_validator(mode="before")
     @classmethod

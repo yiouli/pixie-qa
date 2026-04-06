@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import inspect
+import os
 import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -41,7 +42,115 @@ from pixie.evals.test_result import (
     generate_test_id,
     save_test_result,
 )
+from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError
+from pixie.instrumentation.wrap_registry import (
+    clear_capture_registry,
+    clear_input_registry,
+    get_capture_registry,
+    init_capture_registry,
+    set_input_registry,
+)
 from pixie.storage.evaluable import Evaluable, _Unset
+
+
+def _get_dependency_input(evaluable: Evaluable) -> dict[str, str] | None:
+    """Extract dependency_input from evaluable metadata, if present."""
+    if evaluable.eval_metadata is None:
+        return None
+    raw = evaluable.eval_metadata.get("dependency_input")
+    if isinstance(raw, dict):
+        return {k: v for k, v in raw.items() if isinstance(v, str)}
+    return None
+
+
+async def _run_entry_new_mode(
+    evaluable: Evaluable,
+    evaluator_names: list[str],
+    runnable: Callable[..., Any],
+    semaphore: asyncio.Semaphore,
+    dependency_input: dict[str, str],
+) -> EntryResult:
+    """Process a single dataset entry in new (wrap-registry) mode.
+
+    Sets up the input/capture registries, clears PIXIE_TRACING, calls
+    the runnable with entry_input only, then collects captured output
+    and state for evaluation.
+    """
+    async with semaphore:
+        # Ensure tracing is off during eval runs (wrap() must not emit OTel events)
+        old_tracing = os.environ.pop("PIXIE_TRACING", None)
+        try:
+            init_capture_registry()
+            set_input_registry(dependency_input)
+
+            entry_input = evaluable.eval_input
+            try:
+                if inspect.iscoroutinefunction(runnable):
+                    await runnable(entry_input)
+                else:
+                    runnable(entry_input)
+            except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
+                # Report per-entry errors without aborting the whole run
+                return EntryResult(
+                    input=entry_input,
+                    output=None,
+                    expected_output=None,
+                    description=evaluable.description,
+                    evaluations=[
+                        EvaluationResult(
+                            evaluator="WrapError",
+                            score=0.0,
+                            reasoning=str(exc),
+                        )
+                    ],
+                )
+
+            captures = dict(get_capture_registry() or {})
+        finally:
+            clear_input_registry()
+            clear_capture_registry()
+            if old_tracing is not None:
+                os.environ["PIXIE_TRACING"] = old_tracing
+
+    # Build evaluable from captures
+    captured_output = {k: v for k, v in captures.items()} if captures else {}
+    primary_output: Any = next(iter(captured_output.values()), None) if captured_output else None
+
+    updated = evaluable.model_copy(
+        update={
+            "eval_output": primary_output,
+            "captured_output": captured_output or None,
+        }
+    )
+
+    evaluators = [_resolve_evaluator(name) for name in evaluator_names]
+    short_names = [_short_name(n) for n in evaluator_names]
+
+    evals: list[Evaluation] = list(
+        await asyncio.gather(*(evaluate(ev, updated) for ev in evaluators))
+    )
+
+    exp_out = updated.expected_output
+    expected_output = (
+        None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
+    )
+
+    eval_results = [
+        EvaluationResult(
+            evaluator=name,
+            score=ev.score,
+            reasoning=ev.reasoning,
+        )
+        for name, ev in zip(short_names, evals, strict=True)
+    ]
+
+    return EntryResult(
+        input=updated.eval_input,
+        output=updated.eval_output,
+        expected_output=expected_output,
+        description=updated.description,
+        evaluations=eval_results,
+    )
 
 
 async def _run_entry(
@@ -50,7 +159,19 @@ async def _run_entry(
     runnable: Callable[..., Any],
     semaphore: asyncio.Semaphore,
 ) -> EntryResult:
-    """Process a single dataset entry: call runnable, then evaluate concurrently."""
+    """Process a single dataset entry: call runnable, then evaluate concurrently.
+
+    Dispatches to new-mode (registry-based) or legacy-mode handling based
+    on whether the evaluable has ``dependency_input`` in its metadata.
+    """
+    dependency_input = _get_dependency_input(evaluable)
+    if dependency_input is not None:
+        # New mode: use wrap registry for input injection / output capture
+        return await _run_entry_new_mode(
+            evaluable, evaluator_names, runnable, semaphore, dependency_input
+        )
+
+    # Legacy mode: pass eval_input to runnable, use return value as eval_output
     async with semaphore:
         if inspect.iscoroutinefunction(runnable):
             output = await runnable(evaluable.eval_input)

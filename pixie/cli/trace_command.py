@@ -292,3 +292,47 @@ def trace_verify() -> int:
     exit_code, output = asyncio.run(_trace_verify())
     print(output)  # noqa: T201
     return exit_code
+
+
+# ── trace filter ──────────────────────────────────────────────────────────
+
+
+def trace_filter(trace_file: str, purposes: list[str]) -> int:
+    """Entry point for ``pixie trace filter``.
+
+    Reads a JSONL trace file and outputs only lines whose ``purpose`` field
+    matches one of the specified values.
+
+    Args:
+        trace_file: Path to the JSONL trace file.
+        purposes: List of purpose values to include (e.g. ``["entry", "input"]``).
+
+    Returns:
+        Exit code: 0 on success, 1 on error.
+    """
+    import sys
+    from pathlib import Path
+
+    path = Path(trace_file)
+    if not path.exists():
+        print(f"Error: File not found: {trace_file}", file=sys.stderr)  # noqa: T201
+        return 1
+
+    purpose_set = {p.strip() for p in purposes}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("purpose") in purpose_set:
+                    print(line)  # noqa: T201
+    except OSError as exc:
+        print(f"Error reading {trace_file}: {exc}", file=sys.stderr)  # noqa: T201
+        return 1
+
+    return 0

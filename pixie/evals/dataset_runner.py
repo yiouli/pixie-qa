@@ -431,6 +431,39 @@ def validate_dataset_file(dataset_path: Path) -> list[str]:
     return errors
 
 
+def _is_new_format_item(item_data: dict[str, Any]) -> bool:
+    """Return True if the item uses the new entry_input/dependency_input format."""
+    return "entry_input" in item_data or "dependency_input" in item_data
+
+
+def _build_evaluable_new_format(item_data: dict[str, Any]) -> Evaluable:
+    """Build an :class:`Evaluable` from a new-format dataset item.
+
+    New format items have ``entry_input`` and optional ``dependency_input``.
+    ``dependency_input`` values are jsonpickle-serialized strings keyed by
+    wrap name.
+    """
+    entry_input: Any = item_data.get("entry_input")
+    dependency_input: dict[str, str] = {
+        k: v
+        for k, v in (item_data.get("dependency_input") or {}).items()
+        if isinstance(v, str)
+    }
+    # Build metadata that includes dependency_input for evaluator context.
+    meta: dict[str, Any] = {}
+    if dependency_input:
+        meta["dependency_input"] = dependency_input
+
+    evaluable_data = {
+        k: v
+        for k, v in item_data.items()
+        if k not in ("entry_input", "dependency_input", "eval_input", "eval_metadata")
+    }
+    evaluable_data["eval_input"] = entry_input
+    evaluable_data["eval_metadata"] = meta or None
+    return Evaluable.model_validate(evaluable_data)
+
+
 def load_dataset_entries(
     dataset_path: Path,
 ) -> LoadedDataset:
@@ -444,6 +477,15 @@ def load_dataset_entries(
         - per-item ``description`` (str).
         - at least one evaluator per item, via row-level ``evaluators`` or
             dataset-level default ``evaluators``.
+
+        Each item may use either:
+
+        - **New format**: ``entry_input`` (dict) + optional ``dependency_input``
+          (dict[str, str] of jsonpickle-serialized values).  The runnable is
+          called with ``entry_input`` only; dependency data is injected via
+          ``wrap()``.
+        - **Legacy format**: ``eval_input`` is passed directly to the runnable,
+          and the runnable's return value becomes ``eval_output``.
 
     Args:
         dataset_path: Path to a dataset JSON file.
@@ -485,7 +527,11 @@ def load_dataset_entries(
         evaluator_names = _expand_evaluator_names(row_evaluators, default_evaluators)
         evaluator_names = [n.strip() for n in evaluator_names if n.strip()]
 
-        evaluable = Evaluable.model_validate(item_data)
+        if _is_new_format_item(item_data):
+            evaluable = _build_evaluable_new_format(item_data)
+        else:
+            evaluable = Evaluable.model_validate(item_data)
+
         entries.append((evaluable, evaluator_names))
 
     return LoadedDataset(

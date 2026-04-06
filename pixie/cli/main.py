@@ -31,7 +31,7 @@ from pixie.cli.dataset_command import (
     dataset_save,
     format_dataset_table,
 )
-from pixie.cli.trace_command import trace_last, trace_list, trace_show, trace_verify
+from pixie.cli.trace_command import trace_filter, trace_last, trace_list, trace_show, trace_verify
 from pixie.config import get_config
 from pixie.dataset.store import DatasetStore
 from pixie.evals.dataset_runner import discover_dataset_files, validate_dataset_file
@@ -159,6 +159,18 @@ def _build_parser() -> argparse.ArgumentParser:
     trace_sub.add_parser(
         "verify",
         help="Verify the most recent trace for common instrumentation issues",
+    )
+
+    # pixie trace filter <trace.jsonl> --purpose entry,input
+    trace_filter_parser = trace_sub.add_parser(
+        "filter",
+        help="Filter a JSONL trace file by purpose",
+    )
+    trace_filter_parser.add_argument("trace_file", help="Path to the JSONL trace file")
+    trace_filter_parser.add_argument(
+        "--purpose",
+        required=True,
+        help="Comma-separated list of purposes to include (e.g. entry,input)",
     )
 
     # -- pixie test ----------------------------------------------------------
@@ -399,6 +411,9 @@ def main(argv: list[str] | None = None) -> int:
                 return trace_last(as_json=args.as_json)
             elif args.trace_action == "verify":
                 return trace_verify()
+            elif args.trace_action == "filter":
+                purposes = [p.strip() for p in args.purpose.split(",") if p.strip()]
+                return trace_filter(args.trace_file, purposes)
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             return 1
