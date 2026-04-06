@@ -4,10 +4,6 @@ Re-exports the full public API so users can ``from pixie import ...``
 for every commonly used symbol without needing submodule paths.
 """
 
-# -- Dataset / Storage --------------------------------------------------------
-from pixie.dataset.store import DatasetStore
-
-# -- Evals --------------------------------------------------------------------
 from pixie.evals.criteria import ScoreThreshold
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
 from pixie.evals.llm_evaluator import create_llm_evaluator
@@ -121,7 +117,6 @@ __all__ = [
     "create_llm_evaluator",
     "evaluate",
     # Dataset / Storage
-    "DatasetStore",
     "Evaluable",
     "UNSET",
 ]

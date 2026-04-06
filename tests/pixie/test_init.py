@@ -84,11 +84,6 @@ class TestRootPackageExports:
 
     # -- Dataset / Storage --
 
-    def test_dataset_store(self) -> None:
-        from pixie import DatasetStore
-
-        assert DatasetStore is not None
-
     def test_evaluable(self) -> None:
         from pixie import Evaluable
 
