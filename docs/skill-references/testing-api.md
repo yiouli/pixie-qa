@@ -112,7 +112,7 @@ CLI Commands
 ### `Evaluable`
 
 ```python
-Evaluable(*, eval_input: JsonValue = None, eval_output: JsonValue = None, eval_metadata: dict[str, JsonValue] | None = None, expected_output: Union[JsonValue, pixie.storage.evaluable._Unset] = <_Unset.UNSET: 'UNSET'>, evaluators: list[str] | None = None, description: str | None = None) -> None
+Evaluable(*, eval_input: JsonValue = None, eval_output: JsonValue = None, eval_metadata: dict[str, JsonValue] | None = None, expected_output: Union[JsonValue, pixie.storage.evaluable._Unset] = <_Unset.UNSET: 'UNSET'>, evaluators: list[str] | None = None, description: str | None = None, captured_output: dict[str, JsonValue] | None = None, captured_state: dict[str, JsonValue] | None = None) -> None
 ```
 
 Uniform data carrier for evaluators.
@@ -129,6 +129,10 @@ Attributes:
     expected_output: The expected/reference output for evaluation.
         Defaults to ``UNSET`` (not provided). May be explicitly
         set to ``None`` to indicate "there is no expected output".
+    captured_output: Captured output data from ``wrap(purpose="output")``,
+        keyed by wrap name.
+    captured_state: Captured state data from ``wrap(purpose="state")``,
+        keyed by wrap name.
 
 ### `Evaluation`
 
@@ -160,7 +164,7 @@ Attributes:
 ### `pixie.run_and_evaluate`
 
 ```python
-pixie.run_and_evaluate(evaluator: 'Callable[..., Any]', runnable: 'Callable[..., Any]', eval_input: 'Any', *, expected_output: 'Any' = <object object at 0x7f2420d85d60>, from_trace: 'Callable[[list[ObservationNode]], Evaluable] | None' = None) -> 'Evaluation'
+pixie.run_and_evaluate(evaluator: 'Callable[..., Any]', runnable: 'Callable[..., Any]', eval_input: 'Any', *, expected_output: 'Any' = <object object at 0x7788c2ad5c80>, from_trace: 'Callable[[list[ObservationNode]], Evaluable] | None' = None) -> 'Evaluation'
 ```
 
 Run *runnable(eval_input)* while capturing traces, then evaluate.

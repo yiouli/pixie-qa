@@ -7,9 +7,9 @@ code docstrings, extracted via ``pdoc.doc.Module``.
 
 Output files:
 
-- ``evaluators.md``          — from ``pixie.evals.scorers`` + ``pixie.evals.llm_evaluator``
-- ``instrumentation-api.md`` — from ``pixie.instrumentation``
-- ``testing-api.md``         — from ``pixie.evals`` (module docstring + key members)
+- ``evaluators.md``  — from ``pixie.evals.scorers`` + ``pixie.evals.llm_evaluator``
+- ``wrap-api.md``    — from ``pixie.instrumentation.wrap`` + related modules
+- ``testing-api.md`` — from ``pixie.evals`` (module docstring + key members)
 
 Usage::
 
@@ -106,26 +106,25 @@ def _generate_evaluators_md() -> str:
 
 
 # ---------------------------------------------------------------------------
-# instrumentation-api.md — from pixie.instrumentation
+# wrap-api.md — from pixie.instrumentation.wrap + related modules
 # ---------------------------------------------------------------------------
 
-# Public functions to extract from pixie.instrumentation
-_INSTRUMENTATION_MEMBERS = [
-    "init",
-    "observe",
-    "start_observation",
-    "flush",
-    "add_handler",
-    "remove_handler",
-]
+# Error types to extract from the wrap module
+_WRAP_ERROR_TYPES = ["WrapRegistryMissError", "WrapTypeMismatchError"]
+
+# Trace file utility types and functions
+_WRAP_TRACE_UTILS = ["WrapLogEntry", "load_wrap_log_entries", "filter_by_purpose"]
 
 
-def _generate_instrumentation_api_md() -> str:
-    """Generate instrumentation-api.md from the instrumentation package docstrings."""
-    mod = Module.from_name("pixie.instrumentation")
+def _generate_wrap_api_md() -> str:
+    """Generate wrap-api.md from wrap, wrap_log, and related module docstrings."""
+    import pixie
+
+    wrap_mod = Module.from_name("pixie.instrumentation.wrap")
+    wrap_log_mod = Module.from_name("pixie.instrumentation.wrap_log")
 
     lines: list[str] = []
-    lines.append("# Instrumentation API Reference")
+    lines.append("# Wrap API Reference")
     lines.append("")
     lines.append("> Auto-generated from pixie source code docstrings.")
     lines.append(
@@ -133,27 +132,79 @@ def _generate_instrumentation_api_md() -> str:
     )
     lines.append("")
 
-    # Module-level docstring (includes config table and CLI commands)
-    lines.append(_render_module_doc(mod))
+    # Module-level docstring (includes mode descriptions)
+    lines.append(_render_module_doc(wrap_mod))
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Public functions
+    # Environment variables and CLI commands from config
+    lines.append("## Environment Variables")
+    lines.append("")
+    lines.append("| Variable | Default | Description |")
+    lines.append("| --- | --- | --- |")
+    lines.append(
+        "| `PIXIE_TRACING` | unset | Set to `1` to enable tracing mode for "
+        "`wrap()`.  When unset, `wrap()` is a no-op at runtime (eval mode is "
+        "controlled by the test runner via the wrap registry, independent of "
+        "this flag). |"
+    )
+    lines.append(
+        "| `PIXIE_TRACE_OUTPUT` | unset | Path to a JSONL file where `wrap()` "
+        "events and LLM spans are written during a tracing run.  Requires "
+        "`PIXIE_TRACING=1`. |"
+    )
+    lines.append("")
+
+    lines.append("## CLI Commands")
+    lines.append("")
+    lines.append("| Command | Description |")
+    lines.append("| --- | --- |")
+    lines.append(
+        "| `pixie trace filter <file.jsonl> --purpose entry,input` | Print only "
+        "wrap events matching the given purposes.  Outputs one JSON line per "
+        "matching event. |"
+    )
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    # wrap() function
     lines.append("## Functions")
     lines.append("")
-    for name in _INSTRUMENTATION_MEMBERS:
-        member = mod.get(name)
-        if member is not None:
-            lines.append(_render_member(name, member.obj, prefix="pixie."))
+    wrap_member = wrap_mod.get("wrap")
+    if wrap_member is not None:
+        lines.append(_render_member("wrap", wrap_member.obj, prefix="pixie."))
 
-    # enable_storage from handlers
-    import pixie
-
+    # enable_storage
     if hasattr(pixie, "enable_storage"):
         lines.append(
             _render_member("enable_storage", pixie.enable_storage, prefix="pixie.")
         )
+
+    lines.append("---")
+    lines.append("")
+
+    # Error types
+    lines.append("## Error Types")
+    lines.append("")
+    for name in _WRAP_ERROR_TYPES:
+        obj = getattr(pixie, name, None)
+        if obj is not None:
+            lines.append(_render_member(name, obj))
+
+    lines.append("---")
+    lines.append("")
+
+    # Trace file utilities
+    lines.append("## Trace File Utilities")
+    lines.append("")
+    lines.append(_render_module_doc(wrap_log_mod))
+    lines.append("")
+    for name in _WRAP_TRACE_UTILS:
+        obj = getattr(pixie, name, None)
+        if obj is not None:
+            lines.append(_render_member(name, obj, prefix="pixie."))
 
     return "\n".join(lines)
 
@@ -239,7 +290,7 @@ def main() -> None:
 
     files = {
         "evaluators.md": _generate_evaluators_md,
-        "instrumentation-api.md": _generate_instrumentation_api_md,
+        "wrap-api.md": _generate_wrap_api_md,
         "testing-api.md": _generate_testing_api_md,
     }
 

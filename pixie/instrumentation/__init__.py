@@ -57,7 +57,13 @@ from .spans import (
     UserMessage,
 )
 from .wrap import WrapRegistryMissError, WrapTypeMismatchError, wrap
-from .wrap_log import WrapLogEntry, filter_by_purpose, load_wrap_log_entries
+from .wrap_log import (
+    WrapLogEntry,
+    WrappedData,
+    filter_by_purpose,
+    load_wrap_log_entries,
+    parse_wrapped_data_list,
+)
 from .wrap_registry import (
     clear_capture_registry,
     clear_input_registry,
@@ -86,6 +92,7 @@ __all__ = [
     "WrapRegistryMissError",
     "WrapTypeMismatchError",
     "WrapLogEntry",
+    "WrappedData",
     "add_handler",
     "clear_capture_registry",
     "clear_input_registry",
@@ -99,6 +106,7 @@ __all__ = [
     "init_capture_registry",
     "load_wrap_log_entries",
     "observe",
+    "parse_wrapped_data_list",
     "set_input_registry",
     "start_observation",
     "remove_handler",

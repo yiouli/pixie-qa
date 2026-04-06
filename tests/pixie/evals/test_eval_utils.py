@@ -17,7 +17,7 @@ from pixie.evals.eval_utils import (
     run_and_evaluate,
 )
 from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import UNSET, Evaluable, as_evaluable
+from pixie.storage.evaluable import Evaluable, NamedData, TestCase, as_evaluable
 from pixie.storage.tree import ObservationNode
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ class TestRunAndEvaluate:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_output == "echo:hello"
+            assert evaluable.eval_output[0].value == "echo:hello"
             return Evaluation(score=1.0, reasoning="ok")
 
         result = await run_and_evaluate(
@@ -136,7 +136,7 @@ class TestRunAndEvaluate:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_output == "final"
+            assert evaluable.eval_output[0].value == "final"
             return Evaluation(score=1.0, reasoning="ok")
 
         result = await run_and_evaluate(
@@ -153,7 +153,7 @@ class TestRunAndEvaluate:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_output == "generated"
+            assert evaluable.eval_output[0].value == "generated"
             return Evaluation(score=1.0, reasoning="ok")
 
         result = await run_and_evaluate(
@@ -193,8 +193,8 @@ class TestRunAndEvaluate:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_input == "world"
-            assert evaluable.eval_output == "echo:world"
+            assert evaluable.eval_input[0].value == "world"
+            assert evaluable.eval_output[0].value == "echo:world"
             return Evaluation(score=1.0, reasoning="ok")
 
         result = await run_and_evaluate(
@@ -221,14 +221,14 @@ class TestRunAndEvaluateExpectedOutput:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         await run_and_evaluate(
             evaluator=capture_eval,
             runnable=_sync_app,
             eval_input="hello",
-            expected_output="expected_val",
+            expectation="expected_val",
         )
         assert received == ["expected_val"]
 
@@ -242,7 +242,7 @@ class TestRunAndEvaluateExpectedOutput:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         await run_and_evaluate(
@@ -250,11 +250,11 @@ class TestRunAndEvaluateExpectedOutput:
             runnable=_sync_app,
             eval_input="hello",
         )
-        assert received[0] is UNSET
+        assert received[0] is None
 
     @pytest.mark.asyncio
     async def test_expected_output_none_is_explicit(self) -> None:
-        """Passing expected_output=None sets it explicitly (not UNSET)."""
+        """Passing expectation=None sets it explicitly (not UNSET)."""
         received: list[Any] = []
 
         async def capture_eval(
@@ -262,14 +262,14 @@ class TestRunAndEvaluateExpectedOutput:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         await run_and_evaluate(
             evaluator=capture_eval,
             runnable=_sync_app,
             eval_input="hello",
-            expected_output=None,
+            expectation=None,
         )
         assert received == [None]
 
@@ -282,16 +282,16 @@ class TestRunAndEvaluateExpectedOutput:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_input == "test"
-            assert evaluable.eval_output == "echo:test"
-            assert evaluable.expected_output == "ref"
+            assert evaluable.eval_input[0].value == "test"
+            assert evaluable.eval_output[0].value == "echo:test"
+            assert evaluable.expectation == "ref"
             return Evaluation(score=1.0, reasoning="ok")
 
         result = await run_and_evaluate(
             evaluator=check_all,
             runnable=_sync_app,
             eval_input="test",
-            expected_output="ref",
+            expectation="ref",
         )
         assert result.score == 1.0
 
@@ -362,7 +362,7 @@ class TestAssertPass:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_output == "generated"
+            assert evaluable.eval_output[0].value == "generated"
             return Evaluation(score=1.0, reasoning="ok")
 
         await assert_pass(
@@ -410,30 +410,30 @@ class TestAssertPassEvaluables:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         items = [
-            Evaluable(eval_input="q1", expected_output="e1"),
-            Evaluable(eval_input="q2", expected_output="e2"),
+            TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1"),
+            TestCase(eval_input=(NamedData(name="input", value="q2"),), expectation="e2"),
         ]
         await assert_pass(
             runnable=_sync_app,
             eval_inputs=["q1", "q2"],
             evaluators=[capture_eval],
-            evaluables=items,
+            test_cases=items,
         )
         assert sorted(received) == ["e1", "e2"]
 
     @pytest.mark.asyncio
     async def test_evaluables_length_mismatch_raises(self) -> None:
-        """ValueError when len(evaluables) != len(eval_inputs)."""
-        with pytest.raises(ValueError, match="evaluables.*length"):
+        """ValueError when len(test_cases) != len(eval_inputs)."""
+        with pytest.raises(ValueError, match="test_cases.*length"):
             await assert_pass(
                 runnable=_sync_app,
                 eval_inputs=["q1", "q2"],
                 evaluators=[_always_pass],
-                evaluables=[Evaluable(eval_input="q1")],
+                test_cases=[TestCase(eval_input=(NamedData(name="input", value="q1"),))],
             )
 
     @pytest.mark.asyncio
@@ -446,7 +446,7 @@ class TestAssertPassEvaluables:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received_outputs.append(evaluable.eval_output)
+            received_outputs.append(evaluable.eval_output[0].value if evaluable.eval_output else None)
             return Evaluation(score=1.0, reasoning="ok")
 
         await assert_pass(
@@ -468,14 +468,14 @@ class TestAssertPassEvaluables:
                 obs.set_output(f"ran:{input}")
 
         items = [
-            Evaluable(eval_input="q1", expected_output="e1"),
-            Evaluable(eval_input="q2", expected_output="e2"),
+            TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1"),
+            TestCase(eval_input=(NamedData(name="input", value="q2"),), expectation="e2"),
         ]
         await assert_pass(
             runnable=counting_app,
             eval_inputs=["q1", "q2"],
             evaluators=[_always_pass],
-            evaluables=items,
+            test_cases=items,
         )
         assert call_count == 2, "runnable should be called for each input"
 
@@ -493,14 +493,14 @@ class TestAssertPassEvaluables:
                 obs.set_output(f"ran:{input}")
 
         items = [
-            Evaluable(eval_input="q1", expected_output="e1"),
-            Evaluable(eval_input="q2", expected_output="e2"),
+            TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1"),
+            TestCase(eval_input=(NamedData(name="input", value="q2"),), expectation="e2"),
         ]
         await assert_pass(
             runnable=counting_app,
             eval_inputs=["q1", "q2"],
             evaluators=[_always_pass, _score_half, _always_pass],
-            evaluables=items,
+            test_cases=items,
         )
         assert call_count == 2, (
             "runnable should be called exactly once per input, "
@@ -543,20 +543,20 @@ class TestAssertPassEvaluables:
 
         items = [
             Evaluable(
-                eval_input="hello",
-                eval_output="precomputed_output",
-                expected_output="ref",
+                eval_input=(NamedData(name="input", value="hello"),),
+                eval_output=(NamedData(name="output", value="precomputed_output"),),
+                expectation="ref",
             ),
         ]
         await assert_pass(
             runnable=_sync_app,
             eval_inputs=["hello"],
             evaluators=[capture_eval],
-            evaluables=items,
+            test_cases=items,
         )
         # eval_output should be the pre-computed value (runnable not called)
-        assert received[0].eval_output == "precomputed_output"
-        assert received[0].expected_output == "ref"
+        assert received[0].eval_output[0].value == "precomputed_output"
+        assert received[0].expectation == "ref"
 
     @pytest.mark.asyncio
     async def test_all_evaluators_see_same_output(self) -> None:
@@ -578,8 +578,8 @@ class TestAssertPassEvaluables:
         )
         # All 3 evaluators should get the same evaluable object
         assert len(received) == 3
-        assert all(e.eval_output == "echo:hello" for e in received)
-        assert all(e.eval_input == "hello" for e in received)
+        assert all(e.eval_output[0].value == "echo:hello" for e in received)
+        assert all(e.eval_input[0].value == "hello" for e in received)
 
     @pytest.mark.asyncio
     async def test_evaluables_none_output_runs_runnable(self) -> None:
@@ -595,18 +595,18 @@ class TestAssertPassEvaluables:
             return Evaluation(score=1.0, reasoning="ok")
 
         items = [
-            Evaluable(eval_input="hello", expected_output="ref"),
+            TestCase(eval_input=(NamedData(name="input", value="hello"),), expectation="ref"),
         ]
         await assert_pass(
             runnable=_sync_app,
             eval_inputs=["hello"],
             evaluators=[capture_eval],
-            evaluables=items,
+            test_cases=items,
         )
         # eval_output should come from the trace (runnable execution)
-        assert received[0].eval_output == "echo:hello"
+        assert received[0].eval_output[0].value == "echo:hello"
         # expected_output should come from the evaluable
-        assert received[0].expected_output == "ref"
+        assert received[0].expectation == "ref"
 
     @pytest.mark.asyncio
     async def test_evaluables_from_trace_respected(self) -> None:
@@ -617,16 +617,16 @@ class TestAssertPassEvaluables:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            assert evaluable.eval_output == "generated"
-            assert evaluable.expected_output == "ref"
+            assert evaluable.eval_output[0].value == "generated"
+            assert evaluable.expectation == "ref"
             return Evaluation(score=1.0, reasoning="ok")
 
-        items = [Evaluable(eval_input="q1", expected_output="ref")]
+        items = [TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="ref")]
         await assert_pass(
             runnable=_nested_app,
             eval_inputs=["q1"],
             evaluators=[check_child],
-            evaluables=items,
+            test_cases=items,
             from_trace=lambda tree: as_evaluable(tree[0].find("generator")[0].span),
         )
 
@@ -644,8 +644,8 @@ class TestAssertDatasetPass:
         store.create(
             "test-ds",
             items=[
-                Evaluable(eval_input="q1", expected_output="e1"),
-                Evaluable(eval_input="q2", expected_output="e2"),
+                TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1"),
+                TestCase(eval_input=(NamedData(name="input", value="q2"),), expectation="e2"),
             ],
         )
         received: list[Any] = []
@@ -655,7 +655,7 @@ class TestAssertDatasetPass:
             *,
             trace: list[ObservationNode] | None = None,
         ) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         await assert_dataset_pass(
@@ -683,7 +683,7 @@ class TestAssertDatasetPass:
         store = DatasetStore(dataset_dir=tmp_path)
         store.create(
             "fail-ds",
-            items=[Evaluable(eval_input="q1", expected_output="e1")],
+            items=[TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1")],
         )
         with pytest.raises(EvalAssertionError):
             await assert_dataset_pass(
@@ -698,7 +698,7 @@ class TestAssertDatasetPass:
         """dataset_dir overrides the default config."""
         custom_dir = tmp_path / "custom"
         store = DatasetStore(dataset_dir=custom_dir)
-        store.create("custom-ds", items=[Evaluable(eval_input="q1")])
+        store.create("custom-ds", items=[TestCase(eval_input=(NamedData(name="input", value="q1"),))])
 
         await assert_dataset_pass(
             runnable=_sync_app,
@@ -716,7 +716,7 @@ class TestAssertDatasetPass:
         store.create(
             "run-ds",
             items=[
-                Evaluable(eval_input="q1", expected_output="e1"),
+                TestCase(eval_input=(NamedData(name="input", value="q1"),), expectation="e1"),
             ],
         )
         received: list[Evaluable] = []
@@ -736,9 +736,9 @@ class TestAssertDatasetPass:
             dataset_dir=str(tmp_path),
         )
         # eval_output should come from the runnable (trace), not the dataset
-        assert received[0].eval_output == "echo:q1"
+        assert received[0].eval_output[0].value == "echo:q1"
         # expected_output should still come from the dataset
-        assert received[0].expected_output == "e1"
+        assert received[0].expectation == "e1"
 
 
 class TestRunnableConcurrency:

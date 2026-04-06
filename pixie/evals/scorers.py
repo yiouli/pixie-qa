@@ -52,7 +52,7 @@ Critical rules:
 - ``AnswerRelevancy`` is **RAG-only** — requires ``context`` in the trace.
   Returns 0.0 without it. For general relevance, use ``create_llm_evaluator``.
 - Do NOT use comparison evaluators (``Factuality``, ``ClosedQA``,
-  ``ExactMatch``) on items without ``expected_output`` — they produce
+  ``ExactMatch``) on items without ``expectation`` — they produce
   meaningless scores.
 """
 
@@ -112,7 +112,7 @@ from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
 
 from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable, _Unset
+from pixie.storage.evaluable import Evaluable
 from pixie.storage.tree import ObservationNode
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
@@ -213,16 +213,16 @@ class AutoevalsAdapter:
         """Run the wrapped scorer and return a pixie ``Evaluation``.
 
         Expected-value resolution priority (highest to lowest):
-            1. ``evaluable.expected_output`` (if not ``UNSET``).
+            1. ``evaluable.expectation`` (if not ``None``).
             2. Constructor-provided ``expected``.
             3. ``evaluable.eval_metadata[expected_key]`` (if metadata is not ``None``).
         """
         try:
-            output = evaluable.eval_output
+            output = evaluable.eval_output[0].value if evaluable.eval_output else None
 
             # Resolve expected — evaluable > constructor > metadata
-            if not isinstance(evaluable.expected_output, _Unset):
-                expected = evaluable.expected_output
+            if evaluable.expectation is not None:
+                expected = evaluable.expectation
             elif self._expected is not _UNSET:
                 expected = self._expected
             elif evaluable.eval_metadata is not None:
@@ -233,7 +233,9 @@ class AutoevalsAdapter:
             # Build kwargs
             kwargs: dict[str, Any] = {}
             if self._input_key is not None:
-                kwargs[self._input_key] = evaluable.eval_input
+                kwargs[self._input_key] = (
+                    evaluable.eval_input[0].value if evaluable.eval_input else None
+                )
             if evaluable.eval_metadata is not None:
                 for key in self._extra_metadata_keys:
                     if key in evaluable.eval_metadata:
@@ -262,7 +264,7 @@ def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
     """Edit-distance string similarity evaluator.
 
     Computes a normalised Levenshtein distance between ``eval_output`` and
-    ``expected_output``.  Returns 1.0 for identical strings and decreasing
+    ``expectation``.  Returns 1.0 for identical strings and decreasing
     scores as edit distance grows.
 
     **When to use**: Deterministic or near-deterministic outputs where small
@@ -270,7 +272,7 @@ def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
     spelling).  Not suitable for open-ended LLM text — use an LLM-as-judge
     evaluator instead.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
     """
     return AutoevalsAdapter(
         _Levenshtein(),
@@ -281,7 +283,7 @@ def LevenshteinMatch() -> AutoevalsAdapter:  # noqa: N802
 def ExactMatch() -> AutoevalsAdapter:  # noqa: N802
     """Exact value comparison evaluator.
 
-    Returns 1.0 if ``eval_output`` exactly equals ``expected_output``,
+    Returns 1.0 if ``eval_output`` exactly equals ``expectation``,
     0.0 otherwise.
 
     **When to use**: Deterministic, structured outputs (classification labels,
@@ -289,7 +291,7 @@ def ExactMatch() -> AutoevalsAdapter:  # noqa: N802
     text — LLM outputs are non-deterministic, so exact match will almost always
     fail.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
     """
     return AutoevalsAdapter(
         _ExactMatch(),
@@ -301,13 +303,13 @@ def NumericDiff() -> AutoevalsAdapter:  # noqa: N802
     """Normalised numeric difference evaluator.
 
     Computes a normalised numeric distance between ``eval_output`` and
-    ``expected_output``.  Returns 1.0 for identical numbers and decreasing
+    ``expectation``.  Returns 1.0 for identical numbers and decreasing
     scores as the difference grows.
 
     **When to use**: Numeric outputs where approximate equality is acceptable
     (e.g. price calculations, scores, measurements).
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
     """
     return AutoevalsAdapter(
         _NumericDiff(),
@@ -327,7 +329,7 @@ def JSONDiff(  # noqa: N802
     **When to use**: Structured JSON outputs where field-level comparison
     is needed (e.g. extracted data, API response schemas, tool call arguments).
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         string_scorer: Optional pairwise scorer for string fields.
@@ -353,7 +355,7 @@ def ValidJSON(  # noqa: N802
     **When to use**: Outputs that must be valid JSON — optionally conforming
     to a specific schema (e.g. tool call responses, structured extraction).
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
 
     Args:
         schema: Optional JSON Schema to validate against.
@@ -375,12 +377,12 @@ def ListContains(  # noqa: N802
     """List overlap evaluator.
 
     Checks whether ``eval_output`` contains all items from
-    ``expected_output``.  Scores based on overlap ratio.
+    ``expectation``.  Scores based on overlap ratio.
 
     **When to use**: Outputs that produce a list of items where completeness
     matters (e.g. extracted entities, search results, recommendations).
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         pairwise_scorer: Optional scorer for pairwise element comparison.
@@ -410,13 +412,13 @@ def EmbeddingSimilarity(  # noqa: N802
     """Embedding-based semantic similarity evaluator.
 
     Computes cosine similarity between embedding vectors of ``eval_output``
-    and ``expected_output``.
+    and ``expectation``.
 
     **When to use**: Comparing semantic meaning of two texts when exact
     wording doesn't matter.  More robust than Levenshtein for paraphrased
     content but less nuanced than LLM-as-judge evaluators.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         prefix: Optional text to prepend for domain context.
@@ -449,14 +451,14 @@ def Factuality(  # noqa: N802
     """Factual accuracy evaluator (LLM-as-judge).
 
     Uses an LLM to judge whether ``eval_output`` is factually consistent
-    with ``expected_output`` given the ``eval_input`` context.
+    with ``expectation`` given the ``eval_input`` context.
 
     **When to use**: Open-ended text where factual correctness matters
     (chatbot responses, QA answers, summaries).  Preferred over
     ``ExactMatch`` for LLM-generated text.
 
-    **Requires ``expected_output``**: Yes — do NOT use on items without
-    ``expected_output``; produces meaningless scores.
+    **Requires ``expectation``**: Yes — do NOT use on items without
+    ``expectation``; produces meaningless scores.
 
     Args:
         model: LLM model name.
@@ -481,14 +483,14 @@ def ClosedQA(  # noqa: N802
     """Closed-book question-answering evaluator (LLM-as-judge).
 
     Uses an LLM to judge whether ``eval_output`` correctly answers the
-    question in ``eval_input`` compared to ``expected_output``.  Optionally
+    question in ``eval_input`` compared to ``expectation``.  Optionally
     forwards ``eval_metadata["criteria"]`` for custom grading criteria.
 
     **When to use**: QA scenarios where the answer should match a reference —
     e.g. customer support answers, knowledge-base queries.
 
-    **Requires ``expected_output``**: Yes — do NOT use on items without
-    ``expected_output``; produces meaningless scores.
+    **Requires ``expectation``**: Yes — do NOT use on items without
+    ``expectation``; produces meaningless scores.
 
     Args:
         model: LLM model name.
@@ -513,13 +515,13 @@ def Battle(  # noqa: N802
 ) -> AutoevalsAdapter:
     """Head-to-head comparison evaluator (LLM-as-judge).
 
-    Uses an LLM to compare ``eval_output`` against ``expected_output``
+    Uses an LLM to compare ``eval_output`` against ``expectation``
     and determine which is better given the instructions in ``eval_input``.
 
     **When to use**: A/B testing scenarios, comparing model outputs,
     or ranking alternative responses.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         model: LLM model name.
@@ -544,12 +546,12 @@ def Humor(  # noqa: N802
     """Humor quality evaluator (LLM-as-judge).
 
     Uses an LLM to judge the humor quality of ``eval_output`` against
-    ``expected_output``.
+    ``expectation``.
 
     **When to use**: Evaluating humor in creative writing, chatbot
     personality, or entertainment applications.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         model: LLM model name.
@@ -579,7 +581,7 @@ def Security(  # noqa: N802
     **When to use**: Code generation, SQL output, or any scenario
     where output must be checked for injection or vulnerability risks.
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
 
     Args:
         model: LLM model name.
@@ -604,12 +606,12 @@ def Sql(  # noqa: N802
     """SQL equivalence evaluator (LLM-as-judge).
 
     Uses an LLM to judge whether ``eval_output`` SQL is semantically
-    equivalent to ``expected_output`` SQL.
+    equivalent to ``expectation`` SQL.
 
     **When to use**: Text-to-SQL applications where the generated SQL
     should be functionally equivalent to a reference query.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         model: LLM model name.
@@ -634,12 +636,12 @@ def Summary(  # noqa: N802
     """Summarisation quality evaluator (LLM-as-judge).
 
     Uses an LLM to judge the quality of ``eval_output`` as a summary
-    compared to the reference summary in ``expected_output``.
+    compared to the reference summary in ``expectation``.
 
     **When to use**: Summarisation tasks where the output must capture
     key information from the source material.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         model: LLM model name.
@@ -665,11 +667,11 @@ def Translation(  # noqa: N802
     """Translation quality evaluator (LLM-as-judge).
 
     Uses an LLM to judge the translation quality of ``eval_output``
-    compared to ``expected_output`` in the target language.
+    compared to ``expectation`` in the target language.
 
     **When to use**: Machine translation or multilingual output scenarios.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
 
     Args:
         language: Target language (e.g. ``"Spanish"``).
@@ -704,7 +706,7 @@ def Possible(  # noqa: N802
     **When to use**: General-purpose quality check when you want to
     verify outputs are reasonable without a specific reference answer.
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
 
     Args:
         model: LLM model name.
@@ -739,7 +741,7 @@ def Moderation(  # noqa: N802
     **When to use**: Any application where output safety is a concern —
     chatbots, content generation, user-facing AI.
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
 
     Args:
         threshold: Custom flagging threshold.
@@ -772,7 +774,7 @@ def ContextRelevancy(  # noqa: N802
 
     **When to use**: RAG pipelines — evaluating retrieval quality.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
     **Requires ``eval_metadata["context"]``**: Yes (RAG pipelines only).
 
     Args:
@@ -800,7 +802,7 @@ def Faithfulness(  # noqa: N802
     **When to use**: RAG pipelines — ensuring the answer doesn't
     hallucinate beyond what the retrieved context supports.
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
     **Requires ``eval_metadata["context"]``**: Yes (RAG pipelines only).
 
     Args:
@@ -829,7 +831,7 @@ def AnswerRelevancy(  # noqa: N802
     trace.  Returns 0.0 without it.  For general (non-RAG) response
     relevance, use ``create_llm_evaluator`` with a custom prompt instead.
 
-    **Requires ``expected_output``**: No.
+    **Requires ``expectation``**: No.
     **Requires ``eval_metadata["context"]``**: Yes — **RAG pipelines only**.
 
     Args:
@@ -852,13 +854,13 @@ def AnswerCorrectness(  # noqa: N802
     """Answer correctness evaluator (RAGAS).
 
     Judges whether ``eval_output`` is correct compared to
-    ``expected_output``, combining factual similarity and semantic
+    ``expectation``, combining factual similarity and semantic
     similarity.
 
     **When to use**: QA scenarios in RAG pipelines where you have a
     reference answer and want a comprehensive correctness score.
 
-    **Requires ``expected_output``**: Yes.
+    **Requires ``expectation``**: Yes.
     **Requires ``eval_metadata["context"]``**: Optional (improves accuracy).
 
     Args:

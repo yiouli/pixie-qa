@@ -123,5 +123,10 @@ don't exist.  Truly idempotent — calling twice returns the same
 handler without duplicating registrations, even from different threads
 or from within an async context.
 
+When ``PIXIE_TRACING=1`` and ``PIXIE_TRACE_OUTPUT`` is set, a
+:class:`~pixie.instrumentation.trace_writer.TraceFileWriter` is also
+created and stored at the module level for ``wrap()`` and
+``LLMSpanProcessor`` to use.
+
 Returns:
     The :class:`StorageHandler` for optional manual control.

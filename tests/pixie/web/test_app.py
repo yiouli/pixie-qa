@@ -519,6 +519,7 @@ class TestPixieTestOpensWebUI:
                     "items": [
                         {
                             "eval_input": "What is 1+1?",
+                            "eval_output": "2",
                             "expected_output": "2",
                             "description": "Simple arithmetic",
                             "evaluators": ["ExactMatch"],
@@ -560,6 +561,7 @@ class TestPixieTestOpensWebUI:
                     "items": [
                         {
                             "eval_input": "What is 1+1?",
+                            "eval_output": "2",
                             "expected_output": "2",
                             "description": "Simple arithmetic",
                             "evaluators": ["ExactMatch"],

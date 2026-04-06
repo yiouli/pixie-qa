@@ -445,11 +445,10 @@ def load_dataset_entries(
         - at least one evaluator per item, via row-level ``evaluators`` or
             dataset-level default ``evaluators``.
 
-        In the new dataset format, ``eval_input`` is an array of
-        :class:`~pixie.instrumentation.wrap_log.WrapLogEntry` objects
-        (purpose=entry/input) matching the trace file format exactly.
-        ``expected_output`` is derived from trace entries with
-        purpose=output.
+        ``eval_input`` is a list of
+        :class:`~pixie.instrumentation.wrap_log.WrappedData` objects
+        matching the trace file format — use ``pixie trace filter``
+        output as the template.
 
     Args:
         dataset_path: Path to a dataset JSON file.
