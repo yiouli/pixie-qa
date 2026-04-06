@@ -301,7 +301,8 @@ def trace_filter(trace_file: str, purposes: list[str]) -> int:
     """Entry point for ``pixie trace filter``.
 
     Reads a JSONL trace file and outputs only lines whose ``purpose`` field
-    matches one of the specified values.
+    matches one of the specified values.  Uses :mod:`pixie.instrumentation.wrap_log`
+    for typed parsing.
 
     Args:
         trace_file: Path to the JSONL trace file.
@@ -313,33 +314,20 @@ def trace_filter(trace_file: str, purposes: list[str]) -> int:
     import sys
     from pathlib import Path
 
+    from pixie.instrumentation.wrap_log import filter_by_purpose, load_wrap_log_entries
+
     path = Path(trace_file)
     if not path.exists():
         print(f"Error: File not found: {trace_file}", file=sys.stderr)  # noqa: T201
         return 1
 
-    purpose_set = {p.strip() for p in purposes}
-    skipped = 0
     try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    skipped += 1
-                    continue
-                if record.get("purpose") in purpose_set:
-                    print(line)  # noqa: T201
+        entries = load_wrap_log_entries(path)
     except OSError as exc:
         print(f"Error reading {trace_file}: {exc}", file=sys.stderr)  # noqa: T201
         return 1
 
-    if skipped:
-        print(  # noqa: T201
-            f"Warning: skipped {skipped} malformed JSON line(s) in {trace_file}",
-            file=sys.stderr,
-        )
+    filtered = filter_by_purpose(entries, set(purposes))
+    for entry in filtered:
+        print(entry.model_dump_json())  # noqa: T201
     return 0

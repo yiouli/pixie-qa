@@ -45,54 +45,79 @@ from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchEr
 from pixie.instrumentation.wrap_registry import (
     clear_capture_registry,
     clear_input_registry,
-    get_capture_registry,
+    get_output_capture_registry,
+    get_state_capture_registry,
     init_capture_registry,
     set_input_registry,
 )
+from pixie.instrumentation.wrap_serialization import serialize_wrap_data
 from pixie.storage.evaluable import Evaluable, _Unset
 
 
-def _get_dependency_input(evaluable: Evaluable) -> dict[str, str] | None:
-    """Extract dependency_input from evaluable metadata, if present."""
-    if evaluable.eval_metadata is None:
-        return None
-    raw = evaluable.eval_metadata.get("dependency_input")
-    if isinstance(raw, dict):
-        return {k: v for k, v in raw.items() if isinstance(v, str)}
-    return None
+def _parse_wrap_inputs(
+    evaluable: Evaluable,
+) -> tuple[dict[str, Any] | None, dict[str, str]]:
+    """Parse wrap log entries from eval_input.
+
+    The new dataset format stores ``eval_input`` as a list of wrap log entry
+    dicts with ``purpose``, ``name``, and ``data`` fields.  This function
+    separates entry-point inputs from dependency inputs.
+
+    Returns:
+        A tuple of ``(entry_data, dependency_registry)`` where:
+        - ``entry_data`` is the first purpose="entry" item's data, or None
+        - ``dependency_registry`` maps name → jsonpickle-serialized string
+          for all purpose="input" items
+    """
+    wrap_inputs = evaluable.get_wrap_inputs()
+    if wrap_inputs is None:
+        return None, {}
+
+    entry_data: dict[str, Any] | None = None
+    dependency_registry: dict[str, str] = {}
+
+    for item in wrap_inputs:
+        purpose = item.get("purpose")
+        name = item.get("name", "")
+        data = item.get("data")
+
+        if purpose == "entry":
+            entry_data = data if isinstance(data, dict) else {"value": data}
+        elif purpose == "input":
+            # data is already the jsonpickle-encoded JSON object;
+            # re-serialize it to a string for the input registry
+            dependency_registry[name] = serialize_wrap_data(data)
+
+    return entry_data, dependency_registry
 
 
-async def _run_entry_new_mode(
+async def _run_entry_wrap_mode(
     evaluable: Evaluable,
     evaluator_names: list[str],
     runnable: Callable[..., Any],
     semaphore: asyncio.Semaphore,
-    dependency_input: dict[str, str],
+    entry_data: dict[str, Any] | None,
+    dependency_registry: dict[str, str],
 ) -> EntryResult:
-    """Process a single dataset entry in new (wrap-registry) mode.
+    """Process a single dataset entry using the wrap-registry eval flow.
 
-    Sets up the input/capture registries and calls the runnable with
-    entry_input only.  ``wrap()`` handles input injection and output/state
-    capture through the registries.  ``PIXIE_TRACING`` is effectively
-    disabled for eval runs because the registry takes precedence — the
-    tracing path in ``wrap()`` is only reached when no registry is active.
+    Sets up input/capture registries, calls the runnable with entry-point
+    data, and collects captured output/state for evaluation.
     """
     async with semaphore:
         init_capture_registry()
-        set_input_registry(dependency_input)
+        set_input_registry(dependency_registry)
 
-        entry_input = evaluable.eval_input
         try:
             if inspect.iscoroutinefunction(runnable):
-                await runnable(entry_input)
+                await runnable(entry_data)
             else:
-                runnable(entry_input)
+                runnable(entry_data)
         except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
             clear_input_registry()
             clear_capture_registry()
-            # Report per-entry errors without aborting the whole run
             return EntryResult(
-                input=entry_input,
+                input=evaluable.eval_input,
                 output=None,
                 expected_output=None,
                 description=evaluable.description,
@@ -105,18 +130,21 @@ async def _run_entry_new_mode(
                 ],
             )
 
-        captures = dict(get_capture_registry() or {})
+        output_captures = dict(get_output_capture_registry() or {})
+        state_captures = dict(get_state_capture_registry() or {})
         clear_input_registry()
         clear_capture_registry()
 
     # Build evaluable from captures
-    captured_output = captures if captures else {}
-    primary_output: Any = next(iter(captured_output.values()), None) if captured_output else None
+    primary_output: Any = (
+        next(iter(output_captures.values()), None) if output_captures else None
+    )
 
     updated = evaluable.model_copy(
         update={
             "eval_output": primary_output,
-            "captured_output": captured_output or None,
+            "captured_output": output_captures or None,
+            "captured_state": state_captures or None,
         }
     )
 
@@ -158,14 +186,19 @@ async def _run_entry(
 ) -> EntryResult:
     """Process a single dataset entry: call runnable, then evaluate concurrently.
 
-    Dispatches to new-mode (registry-based) or legacy-mode handling based
-    on whether the evaluable has ``dependency_input`` in its metadata.
+    Dispatches to wrap-mode (registry-based) or legacy-mode handling based
+    on whether eval_input is a list of wrap log entries.
     """
-    dependency_input = _get_dependency_input(evaluable)
-    if dependency_input is not None:
-        # New mode: use wrap registry for input injection / output capture
-        return await _run_entry_new_mode(
-            evaluable, evaluator_names, runnable, semaphore, dependency_input
+    entry_data, dependency_registry = _parse_wrap_inputs(evaluable)
+    if evaluable.get_wrap_inputs() is not None:
+        # New mode: eval_input is an array of wrap log entries
+        return await _run_entry_wrap_mode(
+            evaluable,
+            evaluator_names,
+            runnable,
+            semaphore,
+            entry_data,
+            dependency_registry,
         )
 
     # Legacy mode: pass eval_input to runnable, use return value as eval_output

@@ -1,7 +1,7 @@
 """Context-variable registries for wrap() input injection and output capture.
 
 The input registry is populated by the test runner before each eval run with
-dependency data keyed by wrap name.  The capture registry collects output and
+dependency data keyed by wrap name.  The capture registries collect output and
 state values produced by wrap() during eval runs, for evaluator assessment.
 """
 
@@ -16,7 +16,17 @@ _input_registry: ContextVar[dict[str, str] | None] = ContextVar(
     "_input_registry", default=None
 )
 
-# Capture registry: populated by wrap() during eval runs for output/state
+# Output capture registry: populated by wrap(purpose="output") during eval
+_output_capture_registry: ContextVar[dict[str, Any] | None] = ContextVar(
+    "_output_capture_registry", default=None
+)
+
+# State capture registry: populated by wrap(purpose="state") during eval
+_state_capture_registry: ContextVar[dict[str, Any] | None] = ContextVar(
+    "_state_capture_registry", default=None
+)
+
+# Legacy combined capture registry for backward compatibility
 _capture_registry: ContextVar[dict[str, Any] | None] = ContextVar(
     "_capture_registry", default=None
 )
@@ -38,17 +48,34 @@ def clear_input_registry() -> None:
 
 
 def get_capture_registry() -> dict[str, Any] | None:
-    """Get the capture registry for output/state values."""
+    """Get the combined capture registry for output/state values."""
     return _capture_registry.get()
 
 
+def get_output_capture_registry() -> dict[str, Any] | None:
+    """Get the output capture registry (purpose='output' only)."""
+    return _output_capture_registry.get()
+
+
+def get_state_capture_registry() -> dict[str, Any] | None:
+    """Get the state capture registry (purpose='state' only)."""
+    return _state_capture_registry.get()
+
+
 def init_capture_registry() -> dict[str, Any]:
-    """Initialize and return a fresh capture registry."""
-    reg: dict[str, Any] = {}
-    _capture_registry.set(reg)
-    return reg
+    """Initialize and return fresh capture registries.
+
+    Returns the combined legacy registry for backward compatibility.
+    """
+    combined: dict[str, Any] = {}
+    _capture_registry.set(combined)
+    _output_capture_registry.set({})
+    _state_capture_registry.set({})
+    return combined
 
 
 def clear_capture_registry() -> None:
-    """Clear the capture registry."""
+    """Clear all capture registries."""
     _capture_registry.set(None)
+    _output_capture_registry.set(None)
+    _state_capture_registry.set(None)

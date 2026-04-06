@@ -63,6 +63,21 @@ class Evaluable(BaseModel):
     captured_output: dict[str, JsonValue] | None = None
     captured_state: dict[str, JsonValue] | None = None
 
+    def get_wrap_inputs(self) -> list[dict[str, Any]] | None:
+        """Return eval_input as a list of wrap log entry dicts, or None.
+
+        In the new dataset format, ``eval_input`` is an array of wrap log
+        entry objects (purpose=entry/input).  This helper validates the
+        shape and returns the typed list, or ``None`` if ``eval_input``
+        is not in that format.
+        """
+        if not isinstance(self.eval_input, list):
+            return None
+        for item in self.eval_input:
+            if not isinstance(item, dict) or "purpose" not in item or "name" not in item:
+                return None
+        return self.eval_input  # type: ignore[return-value]
+
     @model_validator(mode="before")
     @classmethod
     def _coerce_unset_sentinel(cls, data: Any) -> Any:

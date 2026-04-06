@@ -4,8 +4,10 @@
 processing pipeline.  Its behavior depends on the active mode:
 
 - **No-op** (tracing disabled, no eval registry): returns ``data`` unchanged.
-- **Tracing** (``PIXIE_TRACING=1``): emits an OTel span event and returns
-  ``data`` unchanged (or wraps a callable so the event fires on call).
+- **Tracing** (``PIXIE_TRACING=1``): writes to the trace file and emits an
+  OTel event (via span event if a span is active, or via OTel logger
+  otherwise) and returns ``data`` unchanged (or wraps a callable so the
+  event fires on call).
 - **Eval** (eval registry active): injects dependency data for
   ``purpose="input"``, captures output/state for ``purpose="output"``/
   ``purpose="state"``.
@@ -14,6 +16,7 @@ processing pipeline.  Its behavior depends on the active mode:
 from __future__ import annotations
 
 import functools
+import logging
 from collections.abc import Callable
 from typing import Any, Literal, TypeVar
 
@@ -21,10 +24,17 @@ from opentelemetry import trace
 
 from pixie.config import get_config
 
-from .wrap_registry import get_capture_registry, get_input_registry
+from .wrap_registry import (
+    get_capture_registry,
+    get_input_registry,
+    get_output_capture_registry,
+    get_state_capture_registry,
+)
 from .wrap_serialization import deserialize_wrap_data, serialize_wrap_data
 
 T = TypeVar("T")
+
+_logger = logging.getLogger("pixie.wrap")
 
 
 class WrapRegistryMissError(KeyError):
@@ -55,17 +65,28 @@ def _emit_wrap_event(
     data_serialized: str,
     description: str | None,
 ) -> None:
-    """Emit an OTel event for a wrap observation."""
+    """Emit an OTel event for a wrap observation.
+
+    If a recording span is active, adds the event to that span.
+    Otherwise, emits via the Python logger (which can be picked up
+    by OpenTelemetry log exporters if configured).
+    """
     span = trace.get_current_span()
+    attrs = {
+        "wrap.name": name,
+        "wrap.purpose": purpose,
+        "wrap.data": data_serialized,
+        **({"wrap.description": description} if description else {}),
+    }
     if span.is_recording():
-        span.add_event(
-            "pixie.wrap",
-            attributes={
-                "wrap.name": name,
-                "wrap.purpose": purpose,
-                "wrap.data": data_serialized,
-                **({"wrap.description": description} if description else {}),
-            },
+        span.add_event("pixie.wrap", attributes=attrs)
+    else:
+        # No active span — use Python logger so the event is still observable
+        _logger.info(
+            "pixie.wrap: %s (purpose=%s)",
+            name,
+            purpose,
+            extra={"wrap_attributes": attrs},
         )
 
 
@@ -126,8 +147,13 @@ def wrap(
             return deserialized  # type: ignore[no-any-return]
 
         elif purpose in ("output", "state"):
-            # Capture to capture registry
+            # Capture to the appropriate registry
             capture_reg = get_capture_registry()
+            purpose_reg = (
+                get_output_capture_registry()
+                if purpose == "output"
+                else get_state_capture_registry()
+            )
             if is_callable:
                 original_callable: Callable[..., Any] = data  # type: ignore[assignment]
 
@@ -136,12 +162,16 @@ def wrap(
                     result = original_callable(*args, **kwargs)
                     if capture_reg is not None:
                         capture_reg[name] = result
+                    if purpose_reg is not None:
+                        purpose_reg[name] = result
                     return result
 
                 return _capturing_callable  # type: ignore[return-value]
             else:
                 if capture_reg is not None:
                     capture_reg[name] = data
+                if purpose_reg is not None:
+                    purpose_reg[name] = data
                 return data
 
         else:

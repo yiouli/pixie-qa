@@ -431,45 +431,6 @@ def validate_dataset_file(dataset_path: Path) -> list[str]:
     return errors
 
 
-def _is_new_format_item(item_data: dict[str, Any]) -> bool:
-    """Return True if the item uses the new entry_input/dependency_input format."""
-    return "entry_input" in item_data or "dependency_input" in item_data
-
-
-def _build_evaluable_new_format(item_data: dict[str, Any]) -> Evaluable:
-    """Build an :class:`Evaluable` from a new-format dataset item.
-
-    New format items have ``entry_input`` and optional ``dependency_input``.
-    ``dependency_input`` values are jsonpickle-serialized strings keyed by
-    wrap name.
-    """
-    entry_input: Any = item_data.get("entry_input")
-    dependency_input_raw = item_data.get("dependency_input") or {}
-    dependency_input: dict[str, str] = {}
-    for k, v in dependency_input_raw.items():
-        if not isinstance(v, str):
-            raise ValueError(
-                f"dependency_input[{k!r}] must be a jsonpickle-serialized string, "
-                f"got {type(v).__name__}. Encode the value with "
-                f"pixie.instrumentation.wrap_serialization.serialize_wrap_data() "
-                f"before storing it in the dataset."
-            )
-        dependency_input[k] = v
-    # Build metadata that includes dependency_input for evaluator context.
-    meta: dict[str, Any] = {}
-    if dependency_input:
-        meta["dependency_input"] = dependency_input
-
-    evaluable_data = {
-        k: v
-        for k, v in item_data.items()
-        if k not in ("entry_input", "dependency_input", "eval_input", "eval_metadata")
-    }
-    evaluable_data["eval_input"] = entry_input
-    evaluable_data["eval_metadata"] = meta or None
-    return Evaluable.model_validate(evaluable_data)
-
-
 def load_dataset_entries(
     dataset_path: Path,
 ) -> LoadedDataset:
@@ -484,14 +445,11 @@ def load_dataset_entries(
         - at least one evaluator per item, via row-level ``evaluators`` or
             dataset-level default ``evaluators``.
 
-        Each item may use either:
-
-        - **New format**: ``entry_input`` (dict) + optional ``dependency_input``
-          (dict[str, str] of jsonpickle-serialized values).  The runnable is
-          called with ``entry_input`` only; dependency data is injected via
-          ``wrap()``.
-        - **Legacy format**: ``eval_input`` is passed directly to the runnable,
-          and the runnable's return value becomes ``eval_output``.
+        In the new dataset format, ``eval_input`` is an array of
+        :class:`~pixie.instrumentation.wrap_log.WrapLogEntry` objects
+        (purpose=entry/input) matching the trace file format exactly.
+        ``expected_output`` is derived from trace entries with
+        purpose=output.
 
     Args:
         dataset_path: Path to a dataset JSON file.
@@ -533,11 +491,7 @@ def load_dataset_entries(
         evaluator_names = _expand_evaluator_names(row_evaluators, default_evaluators)
         evaluator_names = [n.strip() for n in evaluator_names if n.strip()]
 
-        if _is_new_format_item(item_data):
-            evaluable = _build_evaluable_new_format(item_data)
-        else:
-            evaluable = Evaluable.model_validate(item_data)
-
+        evaluable = Evaluable.model_validate(item_data)
         entries.append((evaluable, evaluator_names))
 
     return LoadedDataset(

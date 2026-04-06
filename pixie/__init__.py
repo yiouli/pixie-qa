@@ -55,11 +55,18 @@ from pixie.instrumentation.observation import (
     start_observation,
 )
 from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError, wrap
+from pixie.instrumentation.wrap_log import (
+    WrapLogEntry,
+    filter_by_purpose,
+    load_wrap_log_entries,
+)
 from pixie.instrumentation.wrap_registry import (
     clear_capture_registry,
     clear_input_registry,
     get_capture_registry,
     get_input_registry,
+    get_output_capture_registry,
+    get_state_capture_registry,
     init_capture_registry,
     set_input_registry,
 )
@@ -71,15 +78,20 @@ __all__ = [
     "StorageHandler",
     "WrapRegistryMissError",
     "WrapTypeMismatchError",
+    "WrapLogEntry",
     "add_handler",
     "clear_capture_registry",
     "clear_input_registry",
     "enable_storage",
     "flush",
+    "filter_by_purpose",
     "get_capture_registry",
     "get_input_registry",
+    "get_output_capture_registry",
+    "get_state_capture_registry",
     "init",
     "init_capture_registry",
+    "load_wrap_log_entries",
     "observe",
     "remove_handler",
     "set_input_registry",

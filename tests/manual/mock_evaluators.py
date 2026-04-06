@@ -27,9 +27,7 @@ def sample_qa_runnable(eval_input: object) -> str:
         "what is the boiling point of water?": (
             "Water boils at 100 degrees Celsius at sea level."
         ),
-        "what is the largest planet?": (
-            "Jupiter is the largest planet in the solar system."
-        ),
+        "what is the largest planet?": ("Jupiter is the largest planet in the solar system."),
     }
     return answers.get(question, "")
 
