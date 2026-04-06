@@ -62,6 +62,8 @@ class PixieConfig:
     db_engine: str = "sqlite"
     dataset_dir: str = os.path.join(DEFAULT_ROOT, "datasets")
     rate_limits: RateLimitConfig | None = None
+    trace_output: str | None = None  # path for JSONL trace file
+    tracing_enabled: bool = False    # whether tracing is active
 
 
 def _is_truthy_env(value: str) -> bool:
@@ -117,6 +119,10 @@ def get_config() -> PixieConfig:
         - ``PIXIE_RATE_LIMIT_RPM`` — overrides :attr:`RateLimitConfig.rpm`
         - ``PIXIE_RATE_LIMIT_TPS`` — overrides :attr:`RateLimitConfig.tps`
         - ``PIXIE_RATE_LIMIT_TPM`` — overrides :attr:`RateLimitConfig.tpm`
+        - ``PIXIE_TRACE_OUTPUT`` — path for JSONL trace output file;
+          overrides :attr:`PixieConfig.trace_output`
+        - ``PIXIE_TRACING`` — set to ``1``/``true``/``yes``/``on`` to enable
+          tracing mode; overrides :attr:`PixieConfig.tracing_enabled`
     """
     load_dotenv(find_dotenv(usecwd=True), override=False)
 
@@ -127,4 +133,6 @@ def get_config() -> PixieConfig:
         db_engine=os.environ.get("PIXIE_DB_ENGINE", PixieConfig.db_engine),
         dataset_dir=os.environ.get("PIXIE_DATASET_DIR", os.path.join(root, "datasets")),
         rate_limits=_get_rate_limit_config(),
+        trace_output=os.environ.get("PIXIE_TRACE_OUTPUT"),
+        tracing_enabled=_is_truthy_env(os.environ.get("PIXIE_TRACING", "")),
     )

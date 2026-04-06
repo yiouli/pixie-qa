@@ -56,6 +56,18 @@ from .spans import (
     ToolResultMessage,
     UserMessage,
 )
+from .wrap import WrapRegistryMissError, WrapTypeMismatchError, wrap
+from .wrap_log import WrapLogEntry, filter_by_purpose, load_wrap_log_entries
+from .wrap_registry import (
+    clear_capture_registry,
+    clear_input_registry,
+    get_capture_registry,
+    get_input_registry,
+    get_output_capture_registry,
+    get_state_capture_registry,
+    init_capture_registry,
+    set_input_registry,
+)
 
 __all__ = [
     "AssistantMessage",
@@ -71,10 +83,24 @@ __all__ = [
     "ToolDefinition",
     "ToolResultMessage",
     "UserMessage",
+    "WrapRegistryMissError",
+    "WrapTypeMismatchError",
+    "WrapLogEntry",
     "add_handler",
+    "clear_capture_registry",
+    "clear_input_registry",
     "flush",
+    "filter_by_purpose",
+    "get_capture_registry",
+    "get_input_registry",
+    "get_output_capture_registry",
+    "get_state_capture_registry",
     "init",
+    "init_capture_registry",
+    "load_wrap_log_entries",
     "observe",
+    "set_input_registry",
     "start_observation",
     "remove_handler",
+    "wrap",
 ]

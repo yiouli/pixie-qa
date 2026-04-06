@@ -292,3 +292,42 @@ def trace_verify() -> int:
     exit_code, output = asyncio.run(_trace_verify())
     print(output)  # noqa: T201
     return exit_code
+
+
+# ── trace filter ──────────────────────────────────────────────────────────
+
+
+def trace_filter(trace_file: str, purposes: list[str]) -> int:
+    """Entry point for ``pixie trace filter``.
+
+    Reads a JSONL trace file and outputs only lines whose ``purpose`` field
+    matches one of the specified values.  Uses :mod:`pixie.instrumentation.wrap_log`
+    for typed parsing.
+
+    Args:
+        trace_file: Path to the JSONL trace file.
+        purposes: List of purpose values to include (e.g. ``["entry", "input"]``).
+
+    Returns:
+        Exit code: 0 on success, 1 on error.
+    """
+    import sys
+    from pathlib import Path
+
+    from pixie.instrumentation.wrap_log import filter_by_purpose, load_wrap_log_entries
+
+    path = Path(trace_file)
+    if not path.exists():
+        print(f"Error: File not found: {trace_file}", file=sys.stderr)  # noqa: T201
+        return 1
+
+    try:
+        entries = load_wrap_log_entries(path)
+    except OSError as exc:
+        print(f"Error reading {trace_file}: {exc}", file=sys.stderr)  # noqa: T201
+        return 1
+
+    filtered = filter_by_purpose(entries, set(purposes))
+    for entry in filtered:
+        print(entry.model_dump_json())  # noqa: T201
+    return 0

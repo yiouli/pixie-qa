@@ -8,12 +8,30 @@ convenience function for zero-config setup.
 from __future__ import annotations
 
 import contextlib
+from typing import TYPE_CHECKING
 
 from pixie.config import get_config
 from pixie.instrumentation.handler import InstrumentationHandler
 from pixie.instrumentation.observation import add_handler, init
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 from pixie.storage.store import ObservationStore
+
+if TYPE_CHECKING:
+    from pixie.instrumentation.trace_writer import TraceFileWriter
+
+# Module-level trace file writer, set when trace_output is configured.
+_trace_writer: TraceFileWriter | None = None
+
+
+def get_trace_writer() -> TraceFileWriter | None:
+    """Return the active TraceFileWriter, or None."""
+    return _trace_writer
+
+
+def _reset_trace_writer() -> None:
+    """Reset the trace writer. **Test-only**."""
+    global _trace_writer  # noqa: PLW0603
+    _trace_writer = None
 
 
 class StorageHandler(InstrumentationHandler):
@@ -68,14 +86,27 @@ def enable_storage() -> StorageHandler:
     handler without duplicating registrations, even from different threads
     or from within an async context.
 
+    When ``PIXIE_TRACING=1`` and ``PIXIE_TRACE_OUTPUT`` is set, a
+    :class:`~pixie.instrumentation.trace_writer.TraceFileWriter` is also
+    created and stored at the module level for ``wrap()`` and
+    ``LLMSpanProcessor`` to use.
+
     Returns:
         The :class:`StorageHandler` for optional manual control.
     """
-    global _storage_handler  # noqa: PLW0603
+    global _storage_handler, _trace_writer  # noqa: PLW0603
     if _storage_handler is not None:
         return _storage_handler
 
     import asyncio
+
+    config = get_config()
+
+    # Set up trace file writer when tracing is enabled and an output path is configured.
+    if config.tracing_enabled and config.trace_output:
+        from pixie.instrumentation.trace_writer import TraceFileWriter
+
+        _trace_writer = TraceFileWriter(config.trace_output)
 
     init()
 
@@ -101,5 +132,6 @@ def enable_storage() -> StorageHandler:
 
 def _reset_storage_handler() -> None:
     """Reset the module-level handler. **Test-only** — not part of the public API."""
-    global _storage_handler  # noqa: PLW0603
+    global _storage_handler, _trace_writer  # noqa: PLW0603
     _storage_handler = None
+    _trace_writer = None

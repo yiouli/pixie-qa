@@ -41,7 +41,147 @@ from pixie.evals.test_result import (
     generate_test_id,
     save_test_result,
 )
+from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError
+from pixie.instrumentation.wrap_registry import (
+    clear_capture_registry,
+    clear_input_registry,
+    get_output_capture_registry,
+    get_state_capture_registry,
+    init_capture_registry,
+    set_input_registry,
+)
+from pixie.instrumentation.wrap_serialization import serialize_wrap_data
 from pixie.storage.evaluable import Evaluable, _Unset
+
+
+def _parse_wrap_inputs(
+    evaluable: Evaluable,
+) -> tuple[dict[str, Any] | None, dict[str, str]]:
+    """Parse wrap log entries from eval_input.
+
+    The new dataset format stores ``eval_input`` as a list of wrap log entry
+    dicts with ``purpose``, ``name``, and ``data`` fields.  This function
+    separates entry-point inputs from dependency inputs.
+
+    All purpose="entry" items are merged into a single dict (keyed by
+    wrap name).  For purpose="input" items, the data value is re-serialized
+    via jsonpickle for the input registry.
+
+    Returns:
+        A tuple of ``(entry_data, dependency_registry)`` where:
+        - ``entry_data`` is a dict aggregating all purpose="entry" items, or None
+        - ``dependency_registry`` maps name → jsonpickle-serialized string
+          for all purpose="input" items
+    """
+    wrap_inputs = evaluable.get_wrap_inputs()
+    if wrap_inputs is None:
+        return None, {}
+
+    entry_data: dict[str, Any] = {}
+    dependency_registry: dict[str, str] = {}
+
+    for item in wrap_inputs:
+        purpose = item.get("purpose")
+        name = item.get("name", "")
+        data = item.get("data")
+
+        if purpose == "entry":
+            # Merge all entry items by wrap name
+            entry_data[name] = data
+        elif purpose == "input":
+            # Re-serialize the data value for the input registry.
+            # The trace file stores data as a parsed JSON object; the
+            # input registry expects jsonpickle-encoded strings.
+            dependency_registry[name] = serialize_wrap_data(data)
+
+    return entry_data if entry_data else None, dependency_registry
+
+
+async def _run_entry_wrap_mode(
+    evaluable: Evaluable,
+    evaluator_names: list[str],
+    runnable: Callable[..., Any],
+    semaphore: asyncio.Semaphore,
+    entry_data: dict[str, Any] | None,
+    dependency_registry: dict[str, str],
+) -> EntryResult:
+    """Process a single dataset entry using the wrap-registry eval flow.
+
+    Sets up input/capture registries, calls the runnable with entry-point
+    data, and collects captured output/state for evaluation.
+    """
+    async with semaphore:
+        init_capture_registry()
+        set_input_registry(dependency_registry)
+
+        try:
+            if inspect.iscoroutinefunction(runnable):
+                await runnable(entry_data)
+            else:
+                runnable(entry_data)
+        except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
+            clear_input_registry()
+            clear_capture_registry()
+            return EntryResult(
+                input=evaluable.eval_input,
+                output=None,
+                expected_output=None,
+                description=evaluable.description,
+                evaluations=[
+                    EvaluationResult(
+                        evaluator="WrapError",
+                        score=0.0,
+                        reasoning=str(exc),
+                    )
+                ],
+            )
+
+        output_captures = dict(get_output_capture_registry() or {})
+        state_captures = dict(get_state_capture_registry() or {})
+        clear_input_registry()
+        clear_capture_registry()
+
+    # Build evaluable from captures
+    primary_output: Any = (
+        next(iter(output_captures.values()), None) if output_captures else None
+    )
+
+    updated = evaluable.model_copy(
+        update={
+            "eval_output": primary_output,
+            "captured_output": output_captures or None,
+            "captured_state": state_captures or None,
+        }
+    )
+
+    evaluators = [_resolve_evaluator(name) for name in evaluator_names]
+    short_names = [_short_name(n) for n in evaluator_names]
+
+    evals: list[Evaluation] = list(
+        await asyncio.gather(*(evaluate(ev, updated) for ev in evaluators))
+    )
+
+    exp_out = updated.expected_output
+    expected_output = (
+        None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
+    )
+
+    eval_results = [
+        EvaluationResult(
+            evaluator=name,
+            score=ev.score,
+            reasoning=ev.reasoning,
+        )
+        for name, ev in zip(short_names, evals, strict=True)
+    ]
+
+    return EntryResult(
+        input=updated.eval_input,
+        output=updated.eval_output,
+        expected_output=expected_output,
+        description=updated.description,
+        evaluations=eval_results,
+    )
 
 
 async def _run_entry(
@@ -50,7 +190,24 @@ async def _run_entry(
     runnable: Callable[..., Any],
     semaphore: asyncio.Semaphore,
 ) -> EntryResult:
-    """Process a single dataset entry: call runnable, then evaluate concurrently."""
+    """Process a single dataset entry: call runnable, then evaluate concurrently.
+
+    Dispatches to wrap-mode (registry-based) or legacy-mode handling based
+    on whether eval_input is a list of wrap log entries.
+    """
+    entry_data, dependency_registry = _parse_wrap_inputs(evaluable)
+    if evaluable.get_wrap_inputs() is not None:
+        # New mode: eval_input is an array of wrap log entries
+        return await _run_entry_wrap_mode(
+            evaluable,
+            evaluator_names,
+            runnable,
+            semaphore,
+            entry_data,
+            dependency_registry,
+        )
+
+    # Legacy mode: pass eval_input to runnable, use return value as eval_output
     async with semaphore:
         if inspect.iscoroutinefunction(runnable):
             output = await runnable(evaluable.eval_input)
