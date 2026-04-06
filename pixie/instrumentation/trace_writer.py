@@ -31,11 +31,17 @@ class TraceFileWriter:
         span_id: str | None = None,
     ) -> None:
         """Write a wrap event as a JSONL line."""
+        try:
+            data_obj: Any = json.loads(data_serialized)
+        except (json.JSONDecodeError, ValueError):
+            # Fall back to the raw string if jsonpickle output can't be parsed
+            data_obj = data_serialized
+
         record: dict[str, Any] = {
             "type": "wrap",
             "name": name,
             "purpose": purpose,
-            "data": json.loads(data_serialized),  # embed as JSON object, not string
+            "data": data_obj,
             "description": description,
             "trace_id": trace_id,
             "span_id": span_id,

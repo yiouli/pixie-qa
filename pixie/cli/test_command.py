@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import inspect
-import os
 import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -72,48 +71,46 @@ async def _run_entry_new_mode(
 ) -> EntryResult:
     """Process a single dataset entry in new (wrap-registry) mode.
 
-    Sets up the input/capture registries, clears PIXIE_TRACING, calls
-    the runnable with entry_input only, then collects captured output
-    and state for evaluation.
+    Sets up the input/capture registries and calls the runnable with
+    entry_input only.  ``wrap()`` handles input injection and output/state
+    capture through the registries.  ``PIXIE_TRACING`` is effectively
+    disabled for eval runs because the registry takes precedence — the
+    tracing path in ``wrap()`` is only reached when no registry is active.
     """
     async with semaphore:
-        # Ensure tracing is off during eval runs (wrap() must not emit OTel events)
-        old_tracing = os.environ.pop("PIXIE_TRACING", None)
+        init_capture_registry()
+        set_input_registry(dependency_input)
+
+        entry_input = evaluable.eval_input
         try:
-            init_capture_registry()
-            set_input_registry(dependency_input)
-
-            entry_input = evaluable.eval_input
-            try:
-                if inspect.iscoroutinefunction(runnable):
-                    await runnable(entry_input)
-                else:
-                    runnable(entry_input)
-            except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
-                # Report per-entry errors without aborting the whole run
-                return EntryResult(
-                    input=entry_input,
-                    output=None,
-                    expected_output=None,
-                    description=evaluable.description,
-                    evaluations=[
-                        EvaluationResult(
-                            evaluator="WrapError",
-                            score=0.0,
-                            reasoning=str(exc),
-                        )
-                    ],
-                )
-
-            captures = dict(get_capture_registry() or {})
-        finally:
+            if inspect.iscoroutinefunction(runnable):
+                await runnable(entry_input)
+            else:
+                runnable(entry_input)
+        except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
             clear_input_registry()
             clear_capture_registry()
-            if old_tracing is not None:
-                os.environ["PIXIE_TRACING"] = old_tracing
+            # Report per-entry errors without aborting the whole run
+            return EntryResult(
+                input=entry_input,
+                output=None,
+                expected_output=None,
+                description=evaluable.description,
+                evaluations=[
+                    EvaluationResult(
+                        evaluator="WrapError",
+                        score=0.0,
+                        reasoning=str(exc),
+                    )
+                ],
+            )
+
+        captures = dict(get_capture_registry() or {})
+        clear_input_registry()
+        clear_capture_registry()
 
     # Build evaluable from captures
-    captured_output = {k: v for k, v in captures.items()} if captures else {}
+    captured_output = captures if captures else {}
     primary_output: Any = next(iter(captured_output.values()), None) if captured_output else None
 
     updated = evaluable.model_copy(

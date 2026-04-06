@@ -80,11 +80,13 @@ def wrap(
 
     ``data`` can be either a plain value or a callable that produces a value.
     In both cases the return type is ``T`` — the caller gets back exactly the
-    same type it passed in.  The implementation distinguishes the two cases
-    internally: for a callable, the actual observation (OTel event / trace
-    write) happens when the returned wrapper is called, not at ``wrap()``
-    time; and in eval mode the returned wrapper yields the registry value
-    instead of invoking the original function.
+    same type it passed in when in no-op or tracing modes.
+
+    In eval mode with ``purpose="input"``, the returned value (or callable) is
+    replaced with the deserialized registry value.  When ``data`` is callable
+    the returned wrapper ignores the original function and returns the injected
+    value on every call; in all other modes the returned callable wraps the
+    original and adds tracing or capture behaviour.
 
     Args:
         data: A data value or a data-provider callable.
@@ -100,8 +102,7 @@ def wrap(
     Returns:
         The original data unchanged (tracing / no-op modes), or the
         registry value (eval mode with purpose="input").  When ``data``
-        is callable the return value is also callable with the same
-        signature.
+        is callable the return value is also callable.
     """
     is_callable = callable(data)
     input_registry = get_input_registry()

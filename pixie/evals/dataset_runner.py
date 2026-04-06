@@ -444,11 +444,16 @@ def _build_evaluable_new_format(item_data: dict[str, Any]) -> Evaluable:
     wrap name.
     """
     entry_input: Any = item_data.get("entry_input")
-    dependency_input: dict[str, str] = {
-        k: v
-        for k, v in (item_data.get("dependency_input") or {}).items()
-        if isinstance(v, str)
-    }
+    dependency_input_raw = item_data.get("dependency_input") or {}
+    dependency_input: dict[str, str] = {}
+    for k, v in dependency_input_raw.items():
+        if not isinstance(v, str):
+            raise ValueError(
+                f"dependency_input[{k!r}] must be a jsonpickle-serialized string, "
+                f"got {type(v).__name__}. Encode the value with jsonpickle.encode() "
+                f"before storing it in the dataset."
+            )
+        dependency_input[k] = v
     # Build metadata that includes dependency_input for evaluator context.
     meta: dict[str, Any] = {}
     if dependency_input:

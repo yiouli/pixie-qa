@@ -8,7 +8,7 @@ convenience function for zero-config setup.
 from __future__ import annotations
 
 import contextlib
-from typing import Any
+from typing import TYPE_CHECKING
 
 from pixie.config import get_config
 from pixie.instrumentation.handler import InstrumentationHandler
@@ -16,11 +16,14 @@ from pixie.instrumentation.observation import add_handler, init
 from pixie.instrumentation.spans import LLMSpan, ObserveSpan
 from pixie.storage.store import ObservationStore
 
+if TYPE_CHECKING:
+    from pixie.instrumentation.trace_writer import TraceFileWriter
+
 # Module-level trace file writer, set when trace_output is configured.
-_trace_writer: Any = None  # TraceFileWriter | None
+_trace_writer: TraceFileWriter | None = None
 
 
-def get_trace_writer() -> Any:
+def get_trace_writer() -> TraceFileWriter | None:
     """Return the active TraceFileWriter, or None."""
     return _trace_writer
 

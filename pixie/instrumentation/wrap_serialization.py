@@ -14,10 +14,12 @@ import jsonpickle
 
 
 def serialize_wrap_data(data: Any) -> str:
-    """Serialize a Python object to a JSON-readable string via jsonpickle.
+    """Serialize a Python object to a jsonpickle JSON string.
 
-    The output is human-readable JSON that preserves type information
-    for deserialization back to the original Python object.
+    The output is valid JSON but uses jsonpickle's type-metadata format
+    (e.g. ``py/object`` keys) rather than plain JSON. This preserves type
+    information so that :func:`deserialize_wrap_data` can reconstruct the
+    original Python object.
     """
     return jsonpickle.encode(data, unpicklable=True, indent=2)  # type: ignore[no-any-return]
 
