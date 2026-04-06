@@ -84,14 +84,13 @@ def step1_run_with_tracing(trace_file: str) -> None:
 
 def _run_chatbot_with_trace_capture(
     chat_fn: Any,
-    entry_input: dict[str, Any],
+    chat_input: dict[str, Any],
     writer: Any,
 ) -> None:
-    """Run the chatbot, manually capturing wrap events to the trace file.
+    """Run the chatbot, capturing wrap events to the trace file.
 
-    We simulate the trace by intercepting wrap() calls via the registries,
-    but since we want tracing mode, we set PIXIE_TRACING and let wrap()
-    do its thing naturally, with the trace writer available.
+    Temporarily sets the trace writer on the handlers module so that
+    ``wrap()`` in tracing mode writes events to the JSONL file.
     """
     from pixie.instrumentation import handlers
 
@@ -100,7 +99,7 @@ def _run_chatbot_with_trace_capture(
     handlers._trace_writer = writer
 
     try:
-        chat_fn(entry_input)
+        chat_fn(chat_input)
     finally:
         handlers._trace_writer = old_writer
 

@@ -68,8 +68,9 @@ def _emit_wrap_event(
     """Emit an OTel event for a wrap observation.
 
     If a recording span is active, adds the event to that span.
-    Otherwise, emits via the Python logger (which can be picked up
-    by OpenTelemetry log exporters if configured).
+    Otherwise, emits via the Python logger.  When OpenTelemetry log
+    exporters are configured, the logger output is captured as OTel log
+    records; without exporters it falls through to standard Python logging.
     """
     span = trace.get_current_span()
     attrs = {
@@ -81,7 +82,9 @@ def _emit_wrap_event(
     if span.is_recording():
         span.add_event("pixie.wrap", attributes=attrs)
     else:
-        # No active span — use Python logger so the event is still observable
+        # No active span — use Python logger so the event is still observable.
+        # OTel log exporters will capture this if configured; otherwise it
+        # goes to the standard logging output.
         _logger.info(
             "pixie.wrap: %s (purpose=%s)",
             name,

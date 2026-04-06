@@ -63,9 +63,13 @@ def _parse_wrap_inputs(
     dicts with ``purpose``, ``name``, and ``data`` fields.  This function
     separates entry-point inputs from dependency inputs.
 
+    All purpose="entry" items are merged into a single dict (keyed by
+    wrap name).  For purpose="input" items, the data value is re-serialized
+    via jsonpickle for the input registry.
+
     Returns:
         A tuple of ``(entry_data, dependency_registry)`` where:
-        - ``entry_data`` is the first purpose="entry" item's data, or None
+        - ``entry_data`` is a dict aggregating all purpose="entry" items, or None
         - ``dependency_registry`` maps name → jsonpickle-serialized string
           for all purpose="input" items
     """
@@ -73,7 +77,7 @@ def _parse_wrap_inputs(
     if wrap_inputs is None:
         return None, {}
 
-    entry_data: dict[str, Any] | None = None
+    entry_data: dict[str, Any] = {}
     dependency_registry: dict[str, str] = {}
 
     for item in wrap_inputs:
@@ -82,13 +86,15 @@ def _parse_wrap_inputs(
         data = item.get("data")
 
         if purpose == "entry":
-            entry_data = data if isinstance(data, dict) else {"value": data}
+            # Merge all entry items by wrap name
+            entry_data[name] = data
         elif purpose == "input":
-            # data is already the jsonpickle-encoded JSON object;
-            # re-serialize it to a string for the input registry
+            # Re-serialize the data value for the input registry.
+            # The trace file stores data as a parsed JSON object; the
+            # input registry expects jsonpickle-encoded strings.
             dependency_registry[name] = serialize_wrap_data(data)
 
-    return entry_data, dependency_registry
+    return entry_data if entry_data else None, dependency_registry
 
 
 async def _run_entry_wrap_mode(

@@ -147,11 +147,9 @@ def chat(entry_input: dict[str, Any] | None) -> None:
             "response_length": len(response),
         }
 
-    summary: dict[str, Any] = pixie.wrap(
+    pixie.wrap(
         _build_summary,
         purpose="output",
         name="interaction_summary",
         description="Summary of the chat interaction",
     )()
-    # summary is used here to avoid unused variable
-    _ = summary
