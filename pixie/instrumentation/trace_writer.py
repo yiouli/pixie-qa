@@ -7,6 +7,26 @@ import threading
 from pathlib import Path
 from typing import Any
 
+# Module-level trace file writer, set when trace_output is configured.
+_trace_writer: TraceFileWriter | None = None
+
+
+def get_trace_writer() -> TraceFileWriter | None:
+    """Return the active TraceFileWriter, or None."""
+    return _trace_writer
+
+
+def set_trace_writer(writer: TraceFileWriter | None) -> None:
+    """Set the active TraceFileWriter."""
+    global _trace_writer  # noqa: PLW0603
+    _trace_writer = writer
+
+
+def _reset_trace_writer() -> None:
+    """Reset the trace writer. **Test-only**."""
+    global _trace_writer  # noqa: PLW0603
+    _trace_writer = None
+
 
 class TraceFileWriter:
     """Writes wrap events and LLM spans to a JSONL file.

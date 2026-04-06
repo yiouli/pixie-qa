@@ -15,7 +15,6 @@ from difflib import SequenceMatcher
 
 from pixie.evals.evaluation import Evaluation
 from pixie.storage.evaluable import Evaluable, _Unset
-from pixie.storage.tree import ObservationNode
 
 
 def customer_faq_runnable(eval_input: object) -> str:
@@ -63,8 +62,6 @@ class MockFactualityEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         output = str(evaluable.eval_output or "")
         expected = (
@@ -104,8 +101,6 @@ class MockClosedQAEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         output = str(evaluable.eval_output or "").lower()
         expected = (
@@ -154,8 +149,6 @@ class MockHallucinationEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         output = str(evaluable.eval_output or "")
         if not output.strip():
@@ -179,8 +172,6 @@ class MockFailingEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         return Evaluation(
             score=0.2,

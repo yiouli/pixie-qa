@@ -51,15 +51,11 @@ class PixieConfig:
 
     Attributes:
         root: Root directory for all pixie artefacts.
-        db_path: Path to the SQLite database file.
-        db_engine: Database engine type (currently only ``"sqlite"``).
         dataset_dir: Directory for dataset JSON files.
         rate_limits: Optional evaluator rate limits loaded from ``PIXIE_RATE_LIMIT_*``.
     """
 
     root: str = DEFAULT_ROOT
-    db_path: str = os.path.join(DEFAULT_ROOT, "observations.db")
-    db_engine: str = "sqlite"
     dataset_dir: str = os.path.join(DEFAULT_ROOT, "datasets")
     rate_limits: RateLimitConfig | None = None
     trace_output: str | None = None  # path for JSONL trace file
@@ -111,8 +107,6 @@ def get_config() -> PixieConfig:
     Supported variables:
         - ``PIXIE_ROOT`` — overrides :attr:`PixieConfig.root` (the base
           directory for all artefacts)
-        - ``PIXIE_DB_PATH`` — overrides :attr:`PixieConfig.db_path`
-        - ``PIXIE_DB_ENGINE`` — overrides :attr:`PixieConfig.db_engine`
         - ``PIXIE_DATASET_DIR`` — overrides :attr:`PixieConfig.dataset_dir`
         - ``PIXIE_RATE_LIMIT_ENABLED`` — enables evaluator rate limiting
         - ``PIXIE_RATE_LIMIT_RPS`` — overrides :attr:`RateLimitConfig.rps`
@@ -129,8 +123,6 @@ def get_config() -> PixieConfig:
     root = os.environ.get("PIXIE_ROOT", PixieConfig.root)
     return PixieConfig(
         root=root,
-        db_path=os.environ.get("PIXIE_DB_PATH", os.path.join(root, "observations.db")),
-        db_engine=os.environ.get("PIXIE_DB_ENGINE", PixieConfig.db_engine),
         dataset_dir=os.environ.get("PIXIE_DATASET_DIR", os.path.join(root, "datasets")),
         rate_limits=_get_rate_limit_config(),
         trace_output=os.environ.get("PIXIE_TRACE_OUTPUT"),

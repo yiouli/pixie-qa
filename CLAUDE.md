@@ -25,13 +25,11 @@ pixie/
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
     dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
-    eval_utils.py        # assert_pass / assert_dataset_pass
   instrumentation/
-    __init__.py          # public API: init(), start_observation(), observe(), flush()
+    __init__.py          # public API: init(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
     handler.py           # InstrumentationHandler ABC
-    context.py           # ObservationContext (mutable object yielded by start_observation())
-    observe.py           # @observe decorator for automatic input/output capture
+    wrap.py              # wrap() API for data-object-based tracing
     processor.py         # LLMSpanProcessor (OTel SpanProcessor)
     queue.py             # _DeliveryQueue (background worker thread)
     instrumentors.py     # auto-discovers and activates OpenInference instrumentors
@@ -109,7 +107,6 @@ Run manual e2e verification whenever changing:
 - `pixie/cli/main.py`
 - `pixie/evals/dataset_runner.py`
 - `pixie/evals/scorecard.py`
-- `pixie/evals/eval_utils.py`
 - `pixie/evals/criteria.py`
 
 **Agent verification protocol:**
@@ -225,7 +222,6 @@ A task is **not complete** until all of the following are updated in the same ch
 3. **Never raise from `submit()`** — drop silently on full queue
 4. **Handler method exceptions are silently swallowed** — must not crash delivery thread
 5. **Malformed JSON in span attributes** — fall back to `{}` or `None`, never raise
-6. **`start_observation()` block exceptions** — re-raise normally after snapshotting `error` field
 
 ---
 

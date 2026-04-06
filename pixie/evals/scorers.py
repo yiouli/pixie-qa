@@ -113,7 +113,6 @@ from autoevals.value import ExactMatch as _ExactMatch
 
 from pixie.evals.evaluation import Evaluation
 from pixie.storage.evaluable import Evaluable
-from pixie.storage.tree import ObservationNode
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
 _UNSET: Any = object()
@@ -207,8 +206,6 @@ class AutoevalsAdapter:
     async def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         """Run the wrapped scorer and return a pixie ``Evaluation``.
 

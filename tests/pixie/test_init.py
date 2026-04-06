@@ -13,21 +13,6 @@ class TestRootPackageExports:
 
     # -- Instrumentation API --
 
-    def test_enable_storage(self) -> None:
-        from pixie import enable_storage
-
-        assert callable(enable_storage)
-
-    def test_observe(self) -> None:
-        from pixie import observe
-
-        assert callable(observe)
-
-    def test_start_observation(self) -> None:
-        from pixie import start_observation
-
-        assert callable(start_observation)
-
     def test_flush(self) -> None:
         from pixie import flush
 
@@ -45,21 +30,6 @@ class TestRootPackageExports:
 
     # -- Evals API --
 
-    def test_assert_dataset_pass(self) -> None:
-        from pixie import assert_dataset_pass
-
-        assert callable(assert_dataset_pass)
-
-    def test_assert_pass(self) -> None:
-        from pixie import assert_pass
-
-        assert callable(assert_pass)
-
-    def test_run_and_evaluate(self) -> None:
-        from pixie import run_and_evaluate
-
-        assert callable(run_and_evaluate)
-
     def test_evaluate(self) -> None:
         from pixie import evaluate
 
@@ -74,26 +44,6 @@ class TestRootPackageExports:
         from pixie import ScoreThreshold
 
         assert ScoreThreshold is not None
-
-    def test_eval_assertion_error(self) -> None:
-        from pixie import EvalAssertionError
-
-        assert issubclass(EvalAssertionError, Exception)
-
-    def test_capture_traces(self) -> None:
-        from pixie import capture_traces
-
-        assert callable(capture_traces)
-
-    def test_last_llm_call(self) -> None:
-        from pixie import last_llm_call
-
-        assert callable(last_llm_call)
-
-    def test_root(self) -> None:
-        from pixie import root
-
-        assert callable(root)
 
     # -- Evaluators --
 
@@ -149,9 +99,9 @@ class TestRootPackageExports:
 
         assert UNSET is not None
 
-    # -- Span types (helpful for custom evaluators) --
+    # -- Wrap API --
 
-    def test_observation_store(self) -> None:
-        from pixie import ObservationStore
+    def test_wrap(self) -> None:
+        from pixie import wrap
 
-        assert ObservationStore is not None
+        assert callable(wrap)

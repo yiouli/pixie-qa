@@ -185,7 +185,7 @@ def wrap(
     config = get_config()
     if config.tracing_enabled:
         # Lazy import to avoid circular dependency
-        from pixie.instrumentation.handlers import get_trace_writer
+        from pixie.instrumentation.trace_writer import get_trace_writer
 
         if is_callable:
             original_fn: Callable[..., Any] = data  # type: ignore[assignment]

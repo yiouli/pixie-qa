@@ -10,7 +10,6 @@ from difflib import SequenceMatcher
 
 from pixie.evals.evaluation import Evaluation
 from pixie.storage.evaluable import Evaluable, _Unset
-from pixie.storage.tree import ObservationNode
 
 
 def sample_qa_runnable(eval_input: object) -> str:
@@ -40,8 +39,6 @@ class SimpleFactualityEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         output = str(evaluable.eval_output or "")
         expected = (
@@ -67,8 +64,6 @@ class StrictKeywordEval:
     def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         output = str(evaluable.eval_output or "").lower()
         expected = (

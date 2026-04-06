@@ -25,13 +25,11 @@ pixie/
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
     dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
-    eval_utils.py        # assert_pass / assert_dataset_pass
   instrumentation/
-    __init__.py          # public API: init(), start_observation(), observe(), flush()
+    __init__.py          # public API: init(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
     handler.py           # InstrumentationHandler ABC
-    context.py           # ObservationContext (mutable object yielded by start_observation())
-    observe.py           # @observe decorator for automatic input/output capture
+    wrap.py              # wrap() API for data-object-based tracing
     processor.py         # LLMSpanProcessor (OTel SpanProcessor)
     queue.py             # _DeliveryQueue (background worker thread)
     instrumentors.py     # auto-discovers and activates OpenInference instrumentors
@@ -126,7 +124,7 @@ pixie/
   instrumentation/
     spans.py
     handler.py
-    context.py
+    wrap.py
     processor.py
     queue.py
     instrumentors.py
@@ -135,10 +133,8 @@ tests/
   pixie/
     instrumentation/
       test_spans.py
-      test_context.py
       test_queue.py
       test_processor.py
-      test_integration.py
 ```
 
 ### 3. Test Coverage Requirements
@@ -205,7 +201,6 @@ Run manual e2e verification whenever you change anything in:
 - `pixie/cli/main.py` — CLI argument parsing and forwarding
 - `pixie/evals/dataset_runner.py` — dataset loading and evaluator resolution
 - `pixie/evals/scorecard.py` — scorecard models, HTML generation
-- `pixie/evals/eval_utils.py` — `assert_pass` / `assert_dataset_pass`
 - `pixie/evals/criteria.py` — pass criteria
 
 **Agent verification protocol:**
@@ -644,7 +639,6 @@ This project has strict error-handling conventions due to operating inside OTel 
 3. **Never raise from `submit()`** — drop silently on full queue, increment counter
 4. **Handler method exceptions are silently swallowed** — the handler must not crash the delivery thread
 5. **Malformed JSON in span attributes** — fall back to `{}` or `None`, never raise
-6. **`start_observation()` block exceptions re-raised normally** after snapshotting the `error` field
 
 ---
 

@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from pixie.storage.evaluable import Evaluable
-from pixie.storage.tree import ObservationNode
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +41,7 @@ class Evaluator(Protocol):
     async def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
+        **kwargs: Any,
     ) -> Evaluation: ...
 
 
@@ -61,14 +59,12 @@ def _is_async_callable(obj: object) -> bool:
 async def evaluate(
     evaluator: Callable[..., Any],
     evaluable: Evaluable,
-    *,
-    trace: list[ObservationNode] | None = None,
 ) -> Evaluation:
     """Run a single evaluator against a single evaluable.
 
     Behavior:
         1. If *evaluator* is sync, wrap via ``asyncio.to_thread``.
-        2. Call evaluator with *evaluable* and *trace*.
+        2. Call evaluator with *evaluable*.
         3. Clamp returned ``score`` to [0.0, 1.0].
         4. If evaluator raises, the exception propagates to the caller.
            Evaluator errors (missing API keys, network failures, etc.)
@@ -77,14 +73,11 @@ async def evaluate(
     Args:
         evaluator: An evaluator callable (sync or async).
         evaluable: The data to evaluate.
-        trace: Optional trace tree forwarded to the evaluator.
 
     Raises:
         Exception: Any exception raised by the evaluator propagates
             unchanged so callers see clear, actionable errors.
     """
-    extra_kwargs: dict[str, Any] = {"trace": trace}
-
     # Rate-limit LLM evaluator calls when a limiter is configured
     from pixie.evals.rate_limiter import get_rate_limiter
 
@@ -96,9 +89,9 @@ async def evaluate(
         await limiter.acquire(estimated_tokens)
 
     if _is_async_callable(evaluator):
-        result: Evaluation = await evaluator(evaluable, **extra_kwargs)
+        result: Evaluation = await evaluator(evaluable)
     else:
-        result = await asyncio.to_thread(evaluator, evaluable, **extra_kwargs)
+        result = await asyncio.to_thread(evaluator, evaluable)
 
     # Clamp score to [0.0, 1.0]
     clamped_score = result.score

@@ -4,14 +4,7 @@ Public API:
     - ``Evaluation`` — result dataclass for a single evaluator run
     - ``Evaluator`` — protocol for evaluation callables
     - ``evaluate`` — run one evaluator against one evaluable
-    - ``run_and_evaluate`` — evaluate spans from a MemoryTraceHandler
-    - ``assert_pass`` — batch evaluation with pass/fail criteria
-    - ``assert_dataset_pass`` — load a dataset and run assert_pass
-    - ``EvalAssertionError`` — raised when assert_pass fails
-    - ``capture_traces`` — context manager for in-memory trace capture
-    - ``MemoryTraceHandler`` — InstrumentationHandler that collects spans
     - ``ScoreThreshold`` — configurable pass criteria
-    - ``last_llm_call`` / ``root`` — trace-to-evaluable helpers
     - ``DatasetEntryResult`` — evaluation results for a single dataset entry
     - ``DatasetScorecard`` — per-dataset scorecard with non-uniform evaluators
     - ``generate_dataset_scorecard_html`` — render a scorecard as HTML
@@ -94,20 +87,10 @@ CLI Commands
 | Command | Description |
 | --- | --- |
 | ``pixie test [path] [-v] [--no-open]`` | Run eval tests on dataset files |
-| ``pixie dataset create <name>`` | Create a new empty dataset |
-| ``pixie dataset list`` | List all datasets |
-| ``pixie dataset save <name> [--select MODE]`` | Save a span to a dataset |
-| ``pixie dataset validate [path]`` | Validate dataset JSON files |
 | ``pixie analyze <test_run_id>`` | Generate analysis and recommendations |
 """
 
 from pixie.evals.criteria import ScoreThreshold
-from pixie.evals.eval_utils import (
-    EvalAssertionError,
-    assert_dataset_pass,
-    assert_pass,
-    run_and_evaluate,
-)
 from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
 from pixie.evals.scorecard import (
     DatasetEntryResult,
@@ -139,8 +122,6 @@ from pixie.evals.scorers import (
     Translation,
     ValidJSON,
 )
-from pixie.evals.trace_capture import MemoryTraceHandler, capture_traces
-from pixie.evals.trace_helpers import last_llm_call, root
 
 __all__ = [
     "AnswerCorrectness",
@@ -152,7 +133,6 @@ __all__ = [
     "DatasetEntryResult",
     "DatasetScorecard",
     "EmbeddingSimilarity",
-    "EvalAssertionError",
     "Evaluation",
     "Evaluator",
     "ExactMatch",
@@ -162,7 +142,6 @@ __all__ = [
     "JSONDiff",
     "LevenshteinMatch",
     "ListContains",
-    "MemoryTraceHandler",
     "Moderation",
     "NumericDiff",
     "Possible",
@@ -172,13 +151,7 @@ __all__ = [
     "Summary",
     "Translation",
     "ValidJSON",
-    "assert_dataset_pass",
-    "assert_pass",
-    "capture_traces",
     "evaluate",
     "generate_dataset_scorecard_html",
-    "last_llm_call",
-    "root",
-    "run_and_evaluate",
     "save_dataset_scorecard",
 ]

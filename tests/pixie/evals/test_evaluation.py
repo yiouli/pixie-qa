@@ -8,7 +8,7 @@ import pytest
 
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.storage.evaluable import Evaluable
-from pixie.storage.tree import ObservationNode
+
 
 # ── Evaluation dataclass tests ───────────────────────────────────────────
 
@@ -48,11 +48,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_async_evaluator_returns_correctly(self) -> None:
-        async def my_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def my_eval(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=0.9, reasoning="async works")
 
         result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
@@ -61,11 +57,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_sync_evaluator_is_wrapped(self) -> None:
-        def my_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        def my_eval(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=0.7, reasoning="sync works")
 
         result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
@@ -74,11 +66,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_evaluator_exception_propagates(self) -> None:
-        async def failing_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def failing_eval(evaluable: Evaluable) -> Evaluation:
             raise ValueError("boom")
 
         with pytest.raises(ValueError, match="boom"):
@@ -86,11 +74,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_sync_evaluator_exception_propagates(self) -> None:
-        def failing_sync_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        def failing_sync_eval(evaluable: Evaluable) -> Evaluation:
             raise RuntimeError("missing API key")
 
         with pytest.raises(RuntimeError, match="missing API key"):
@@ -98,11 +82,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_clamps_score_above_one(self) -> None:
-        async def over_score(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def over_score(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=1.5, reasoning="too high")
 
         result = await evaluate(over_score, Evaluable())
@@ -110,40 +90,16 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_clamps_score_below_zero(self) -> None:
-        async def under_score(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def under_score(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=-0.3, reasoning="too low")
 
         result = await evaluate(under_score, Evaluable())
         assert result.score == 0.0
 
     @pytest.mark.asyncio
-    async def test_trace_passed_through(self) -> None:
-        received_trace: list[list[ObservationNode] | None] = []
-
-        async def trace_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
-            received_trace.append(trace)
-            return Evaluation(score=1.0, reasoning="ok")
-
-        await evaluate(trace_eval, Evaluable(), trace=[])
-        assert received_trace == [[]]
-
-    @pytest.mark.asyncio
     async def test_class_evaluator(self) -> None:
         class MyEval:
-            async def __call__(
-                self,
-                evaluable: Evaluable,
-                *,
-                trace: list[ObservationNode] | None = None,
-            ) -> Evaluation:
+            async def __call__(self, evaluable: Evaluable) -> Evaluation:
                 return Evaluation(score=0.6, reasoning="class eval")
 
         result = await evaluate(MyEval(), Evaluable())
@@ -152,11 +108,7 @@ class TestEvaluate:
 
     @pytest.mark.asyncio
     async def test_evaluable_data_passed_correctly(self) -> None:
-        async def check_data(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def check_data(evaluable: Evaluable) -> Evaluation:
             assert evaluable.eval_input == "hello"
             assert evaluable.eval_output == "world"
             return Evaluation(score=1.0, reasoning="ok")
@@ -171,11 +123,7 @@ class TestEvaluate:
         """Evaluator can read expected_output from the evaluable directly."""
         received: list[Any] = []
 
-        async def capture_eval(
-            evaluable: Evaluable,
-            *,
-            trace: list[ObservationNode] | None = None,
-        ) -> Evaluation:
+        async def capture_eval(evaluable: Evaluable) -> Evaluation:
             received.append(evaluable.expected_output)
             return Evaluation(score=1.0, reasoning="ok")
 

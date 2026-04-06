@@ -7,13 +7,12 @@ An agent skill that make coding agent the QA engineer for LLM applications.
 The `qa-eval` skill guides your coding agent through the full eval-based QA loop for LLM applications:
 
 1. **Understand the code** — read the codebase, trace the data flow, learn what the code is supposed to do
-2. **Instrument it** — add `enable_storage()` and `@observe` so every run is captured to a local SQLite database
-3. **Build a dataset** — save representative traces as test cases with `pixie dataset save`
-4. **Write eval tests** — generate `test_*.py` files with `assert_dataset_pass` and appropriate evaluators
-5. **Validate datasets** — `pixie dataset validate [dir_or_dataset_path]` to catch schema/config errors early
-6. **Run the tests** — `pixie test` to run all evals and report per-case scores
-7. **Analyse results** — `pixie analyze <test_id>` to get LLM-generated analysis of test results
-8. **Investigate failures** — look up the stored trace for each failure, diagnose, fix, repeat
+2. **Instrument it** — use `wrap()` for data-object tracing and OpenInference auto-instrumentation for LLM span capture
+3. **Build a dataset** — create JSON datasets of representative inputs and expected outputs
+4. **Write eval tests** — generate `test_*.py` files with appropriate evaluators
+5. **Run the tests** — `pixie test` to run all evals and report per-case scores
+6. **Analyse results** — `pixie analyze <test_id>` to get LLM-generated analysis of test results
+7. **Investigate failures** — diagnose failures, fix, repeat
 
 ## Getting Started
 

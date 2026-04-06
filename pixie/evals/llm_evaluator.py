@@ -33,7 +33,6 @@ from openai import OpenAI
 
 from pixie.evals.evaluation import Evaluation
 from pixie.storage.evaluable import Evaluable, _Unset
-from pixie.storage.tree import ObservationNode
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +125,6 @@ class _LLMEvaluator:
     async def __call__(
         self,
         evaluable: Evaluable,
-        *,
-        trace: list[ObservationNode] | None = None,
     ) -> Evaluation:
         """Run the LLM judge and parse the score."""
         import asyncio

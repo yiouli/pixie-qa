@@ -30,7 +30,6 @@ from pixie.evals.dataset_runner import (
     discover_dataset_files,
     load_dataset_entries,
 )
-from pixie.evals.eval_utils import _get_runnable_concurrency
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.rate_limiter import configure_rate_limits_from_config
 from pixie.evals.test_result import (
@@ -195,7 +194,7 @@ async def _run_dataset(dataset_path: Path) -> DatasetResult:
     """
     loaded = load_dataset_entries(dataset_path)
     runnable = _resolve_runnable(loaded.runnable)
-    semaphore = asyncio.Semaphore(_get_runnable_concurrency())
+    semaphore = asyncio.Semaphore(4)
 
     entry_tasks = [
         _run_entry(evaluable, evaluator_names, runnable, semaphore)

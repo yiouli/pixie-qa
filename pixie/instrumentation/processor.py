@@ -50,7 +50,7 @@ class LLMSpanProcessor(SpanProcessor):
             try:
                 from dataclasses import asdict
 
-                from pixie.instrumentation.handlers import get_trace_writer
+                from pixie.instrumentation.trace_writer import get_trace_writer
 
                 writer = get_trace_writer()
                 if writer is not None:

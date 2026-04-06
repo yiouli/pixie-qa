@@ -1,99 +1,17 @@
-"""@observe decorator for automatic function input/output capture."""
+"""Instrumentation initialization and handler management."""
 
 from __future__ import annotations
 
-import asyncio
-import functools
-import inspect
 import os
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, TypeVar
 
-import jsonpickle
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import Tracer, set_tracer_provider
-from pydantic import JsonValue
-from typing_extensions import ParamSpec
 
-from .context import ObservationContext, _NoOpObservationContext
 from .handler import InstrumentationHandler, _HandlerRegistry
 from .instrumentors import _activate_instrumentors
 from .processor import LLMSpanProcessor
 from .queue import _DeliveryQueue
-
-P = ParamSpec("P")
-T = TypeVar("T")
-
-
-def _serialize(value: Any) -> JsonValue:
-    """Serialize a value to a JSON-compatible representation using jsonpickle."""
-    return jsonpickle.encode(value, unpicklable=False)  # type: ignore[no-any-return]
-
-
-def observe(
-    name: str | None = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator that wraps a function in a start_observation() block.
-
-    Automatically captures the function's keyword arguments as input and
-    the return value as output. Uses jsonpickle for serialization.
-
-    If tracing is not initialized, the function executes normally with no
-    overhead beyond the decorator call itself.
-
-    Args:
-        name: Optional span name. Defaults to the function's __name__.
-    """
-
-    def decorator(fn: Callable[P, T]) -> Callable[P, T]:
-        span_name = name or fn.__name__
-
-        if asyncio.iscoroutinefunction(fn):
-
-            @functools.wraps(fn)
-            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-
-                sig = inspect.signature(fn)
-                bound = sig.bind(*args, **kwargs)
-                bound.apply_defaults()
-                arguments = dict(bound.arguments)
-                arguments.pop("self", None)
-                arguments.pop("cls", None)
-                serialized_input = _serialize(arguments)
-
-                with start_observation(
-                    input=serialized_input, name=span_name
-                ) as observation:
-                    result = await fn(*args, **kwargs)
-                    observation.set_output(_serialize(result))
-                    return result  # type: ignore[no-any-return]
-
-            return async_wrapper  # type: ignore[return-value]
-        else:
-
-            @functools.wraps(fn)
-            def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-
-                sig = inspect.signature(fn)
-                bound = sig.bind(*args, **kwargs)
-                bound.apply_defaults()
-                arguments = dict(bound.arguments)
-                arguments.pop("self", None)
-                arguments.pop("cls", None)
-                serialized_input = _serialize(arguments)
-
-                with start_observation(
-                    input=serialized_input, name=span_name
-                ) as observation:
-                    result = fn(*args, **kwargs)
-                    observation.set_output(_serialize(result))
-                    return result
-
-            return sync_wrapper
-
-    return decorator
 
 
 @dataclass
@@ -130,6 +48,10 @@ def init(
     queue, and activates auto-instrumentors.  Truly idempotent — calling
     ``init()`` a second time is a no-op.
 
+    When ``PIXIE_TRACING=1`` and ``PIXIE_TRACE_OUTPUT`` is set, a
+    :class:`~pixie.instrumentation.trace_writer.TraceFileWriter` is also
+    created for ``wrap()`` and ``LLMSpanProcessor`` to use.
+
     Handler registration is done separately via :func:`add_handler`.
     """
     if _state.initialized:
@@ -153,6 +75,15 @@ def init(
     _state.initialized = True
 
     _activate_instrumentors()
+
+    # Set up trace file writer when tracing is enabled
+    from pixie.config import get_config
+
+    config = get_config()
+    if config.tracing_enabled and config.trace_output:
+        from pixie.instrumentation.trace_writer import TraceFileWriter, set_trace_writer
+
+        set_trace_writer(TraceFileWriter(config.trace_output))
 
 
 def add_handler(handler: InstrumentationHandler) -> None:
@@ -178,36 +109,6 @@ def remove_handler(handler: InstrumentationHandler) -> None:
             "pixie.instrumentation.init() must be called before remove_handler()"
         )
     _state.registry.remove(handler)
-
-
-@contextmanager
-def start_observation(
-    *,
-    input: JsonValue,
-    name: str | None = None,
-) -> Generator[ObservationContext, None, None]:
-    """Context manager that creates an OTel span and yields a mutable ObservationContext.
-
-    If init() has not been called, yields a no-op context — the wrapped code
-    executes normally but no span is captured.
-    """
-    if _state.tracer is None:
-        yield _NoOpObservationContext()
-        return
-
-    tracer = _state.tracer
-    span_name = name or "observe"
-    with tracer.start_as_current_span(span_name) as otel_span:
-        ctx = ObservationContext(otel_span=otel_span, input=input)
-        try:
-            yield ctx
-        except Exception as e:
-            ctx._error = type(e).__name__
-            raise
-        finally:
-            observe_span = ctx._snapshot()
-            if _state.delivery_queue is not None:
-                _state.delivery_queue.submit(observe_span)
 
 
 def flush(timeout_seconds: float = 5.0) -> bool:
