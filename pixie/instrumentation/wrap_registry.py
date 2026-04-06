@@ -1,3 +1,10 @@
+"""Context-variable registries for wrap() input injection and output capture.
+
+The input registry is populated by the test runner before each eval run with
+dependency data keyed by wrap name.  The capture registry collects output and
+state values produced by wrap() during eval runs, for evaluator assessment.
+"""
+
 from __future__ import annotations
 
 from contextvars import ContextVar
