@@ -54,19 +54,37 @@ from pixie.instrumentation.observation import (
     remove_handler,
     start_observation,
 )
+from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError, wrap
+from pixie.instrumentation.wrap_registry import (
+    clear_capture_registry,
+    clear_input_registry,
+    get_capture_registry,
+    get_input_registry,
+    init_capture_registry,
+    set_input_registry,
+)
 from pixie.storage.evaluable import UNSET, Evaluable
 from pixie.storage.store import ObservationStore
 
 __all__ = [
     # Instrumentation
     "StorageHandler",
+    "WrapRegistryMissError",
+    "WrapTypeMismatchError",
     "add_handler",
+    "clear_capture_registry",
+    "clear_input_registry",
     "enable_storage",
     "flush",
+    "get_capture_registry",
+    "get_input_registry",
     "init",
+    "init_capture_registry",
     "observe",
     "remove_handler",
+    "set_input_registry",
     "start_observation",
+    "wrap",
     # Evals
     "AnswerCorrectness",
     "AnswerRelevancy",
