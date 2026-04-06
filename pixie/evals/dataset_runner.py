@@ -18,12 +18,13 @@ import importlib.util
 import inspect
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
-from pixie.storage.evaluable import Evaluable
+from pydantic import BaseModel, JsonValue
+
+from pixie.storage.evaluable import TestCase
 
 #: Names of all built-in evaluators exported from ``pixie``.
 #: When a dataset uses a bare name (no dots), it is looked up here.
@@ -260,19 +261,32 @@ def _expand_evaluator_names(
     return result
 
 
-@dataclass(frozen=True)
-class LoadedDataset:
+class DatasetEntry(BaseModel):
+    """A single entry in a dataset.
+
+    Attributes:
+        entry_kwargs: Arguments fed to the runnable.
+        test_case: Scenario definition (input, expectation, metadata).
+        evaluators: Evaluator names for this entry.
+    """
+
+    entry_kwargs: dict[str, JsonValue]
+    test_case: TestCase
+    evaluators: list[str]
+
+
+class Dataset(BaseModel):
     """Parsed dataset ready for evaluation.
 
     Attributes:
         name: Dataset display name.
         runnable: ``filepath:callable_name`` reference for the runnable.
-        entries: List of ``(evaluable, evaluator_names)`` pairs.
+        entries: List of dataset entries.
     """
 
     name: str
     runnable: str
-    entries: list[tuple[Evaluable, list[str]]] = field(default_factory=list)
+    entries: list[DatasetEntry]
 
 
 def discover_dataset_files(path: str) -> list[Path]:
@@ -382,22 +396,38 @@ def validate_dataset_file(dataset_path: Path) -> list[str]:
         errors=errors,
     )
 
-    items_raw = data.get("items", [])
-    if not isinstance(items_raw, list):
-        errors.append(f"{dataset_path}: 'items' must be a list.")
+    entries_raw = data.get("entries", [])
+    if not isinstance(entries_raw, list):
+        errors.append(f"{dataset_path}: 'entries' must be a list.")
         return errors
 
-    for idx, row in enumerate(items_raw, start=1):
-        row_location = f"{dataset_path} item #{idx}"
+    for idx, row in enumerate(entries_raw, start=1):
+        row_location = f"{dataset_path} entry #{idx}"
         if not isinstance(row, dict):
-            errors.append(f"{row_location}: item must be an object.")
+            errors.append(f"{row_location}: entry must be an object.")
             continue
 
-        description = row.get("description")
-        if not isinstance(description, str) or not description.strip():
-            errors.append(
-                f"{row_location}: missing required 'description' (non-empty string)."
-            )
+        # Validate entry_kwargs
+        entry_kwargs = row.get("entry_kwargs")
+        if not isinstance(entry_kwargs, dict):
+            errors.append(f"{row_location}: missing required 'entry_kwargs' (object).")
+
+        # Validate test_case
+        test_case_raw = row.get("test_case")
+        if not isinstance(test_case_raw, dict):
+            errors.append(f"{row_location}: missing required 'test_case' (object).")
+        else:
+            description = test_case_raw.get("description")
+            if not isinstance(description, str) or not description.strip():
+                errors.append(
+                    f"{row_location}: test_case missing required 'description' (non-empty string)."
+                )
+
+            eval_input = test_case_raw.get("eval_input")
+            if not isinstance(eval_input, list) or not eval_input:
+                errors.append(
+                    f"{row_location}: test_case missing required 'eval_input' (non-empty list)."
+                )
 
         row_evaluators: list[str] | None = None
         if "evaluators" in row:
@@ -433,28 +463,24 @@ def validate_dataset_file(dataset_path: Path) -> list[str]:
 
 def load_dataset_entries(
     dataset_path: Path,
-) -> LoadedDataset:
-    """Load a dataset and return a :class:`LoadedDataset`.
+) -> Dataset:
+    """Load a dataset and return a :class:`Dataset`.
 
-        The dataset JSON requires:
+    The dataset JSON requires:
 
-        - top-level ``runnable`` (str) — ``filepath:callable_name`` reference
-            to a function that produces ``eval_output`` from ``eval_input``.
-        - top-level ``items`` (list[dict]) — dataset entries.
-        - per-item ``description`` (str).
-        - at least one evaluator per item, via row-level ``evaluators`` or
-            dataset-level default ``evaluators``.
-
-        ``eval_input`` is a list of
-        :class:`~pixie.instrumentation.wrap_log.WrappedData` objects
-        matching the trace file format — use ``pixie trace filter``
-        output as the template.
+    - top-level ``runnable`` (str) — ``filepath:callable_name`` reference
+        to a function that produces output from entry kwargs.
+    - top-level ``entries`` (list[dict]) — dataset entries, each with
+        ``entry_kwargs``, ``test_case``, and optionally ``evaluators``.
+    - per-entry ``test_case.description`` (str).
+    - at least one evaluator per entry, via entry-level ``evaluators`` or
+        dataset-level default ``evaluators``.
 
     Args:
         dataset_path: Path to a dataset JSON file.
 
     Returns:
-        A :class:`LoadedDataset` with resolved entries.
+        A :class:`Dataset` with resolved entries.
 
     Raises:
         FileNotFoundError: If *dataset_path* does not exist.
@@ -477,11 +503,11 @@ def load_dataset_entries(
     default_evaluators = [
         n.strip() for n in default_evaluators_raw if isinstance(n, str) and n.strip()
     ]
-    raw_items: list[dict[str, Any]] = data.get("items", [])
+    raw_entries: list[dict[str, Any]] = data.get("entries", [])
 
-    entries: list[tuple[Evaluable, list[str]]] = []
-    for item_data in raw_items:
-        row_evaluators_raw = item_data.get("evaluators")
+    entries: list[DatasetEntry] = []
+    for entry_data in raw_entries:
+        row_evaluators_raw = entry_data.get("evaluators")
         if isinstance(row_evaluators_raw, list):
             row_evaluators = [n for n in row_evaluators_raw if isinstance(n, str)]
         else:
@@ -490,10 +516,18 @@ def load_dataset_entries(
         evaluator_names = _expand_evaluator_names(row_evaluators, default_evaluators)
         evaluator_names = [n.strip() for n in evaluator_names if n.strip()]
 
-        evaluable = Evaluable.model_validate(item_data)
-        entries.append((evaluable, evaluator_names))
+        entry_kwargs: dict[str, Any] = entry_data.get("entry_kwargs", {})
+        test_case = TestCase.model_validate(entry_data.get("test_case", {}))
 
-    return LoadedDataset(
+        entries.append(
+            DatasetEntry(
+                entry_kwargs=entry_kwargs,
+                test_case=test_case,
+                evaluators=evaluator_names,
+            )
+        )
+
+    return Dataset(
         name=dataset_name,
         runnable=runnable,
         entries=entries,

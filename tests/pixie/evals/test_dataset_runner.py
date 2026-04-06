@@ -149,10 +149,34 @@ def _write_runnable(tmp_path: Path) -> str:
     return "_test_runnable.py:run"
 
 
+def _make_entry(
+    *,
+    inp: str = "Q1",
+    expectation: str | None = None,
+    description: str = "desc",
+    evaluators: list[str] | None = None,
+    entry_kwargs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a single dataset entry in the new nested format."""
+    test_case: dict[str, Any] = {
+        "eval_input": [{"name": "input", "value": inp}],
+        "description": description,
+    }
+    if expectation is not None:
+        test_case["expectation"] = expectation
+    entry: dict[str, Any] = {
+        "entry_kwargs": entry_kwargs or {"question": inp},
+        "test_case": test_case,
+    }
+    if evaluators is not None:
+        entry["evaluators"] = evaluators
+    return entry
+
+
 def _write_dataset(
     tmp_path: Path,
     name: str,
-    items: list[dict[str, Any]],
+    entries: list[dict[str, Any]],
     *,
     runnable: str | None = None,
     evaluators: list[str] | None = None,
@@ -162,7 +186,7 @@ def _write_dataset(
     dataset: dict[str, Any] = {
         "name": name,
         "runnable": runnable,
-        "items": items,
+        "entries": entries,
     }
     if evaluators is not None:
         dataset["evaluators"] = evaluators
@@ -216,14 +240,7 @@ class TestValidateDatasetFile:
         fpath = _write_dataset(
             tmp_path,
             "valid",
-            [
-                {
-                    "eval_input": "Q1",
-                    "expected_output": "A1",
-                    "description": "desc",
-                    "evaluators": ["ExactMatch"],
-                }
-            ],
+            [_make_entry(expectation="A1", evaluators=["ExactMatch"])],
         )
         errors = validate_dataset_file(fpath)
         assert errors == []
@@ -231,12 +248,8 @@ class TestValidateDatasetFile:
     def test_missing_runnable(self, tmp_path: Path) -> None:
         data = {
             "name": "bad",
-            "items": [
-                {
-                    "eval_input": "Q1",
-                    "description": "desc",
-                    "evaluators": ["ExactMatch"],
-                }
+            "entries": [
+                _make_entry(evaluators=["ExactMatch"]),
             ],
         }
         fpath = tmp_path / "bad.json"
@@ -248,11 +261,9 @@ class TestValidateDatasetFile:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "bad-desc",
-            [{"eval_input": "Q1", "evaluators": ["ExactMatch"]}],
-        )
+        entry = _make_entry(evaluators=["ExactMatch"])
+        del entry["test_case"]["description"]
+        fpath = _write_dataset(tmp_path, "bad-desc", [entry])
         errors = validate_dataset_file(fpath)
         assert any("missing required 'description'" in err for err in errors)
 
@@ -260,11 +271,9 @@ class TestValidateDatasetFile:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "bad-evals",
-            [{"eval_input": "Q1", "description": "desc"}],
-        )
+        entry = _make_entry()
+        # No evaluators at entry or dataset level
+        fpath = _write_dataset(tmp_path, "bad-evals", [entry])
         errors = validate_dataset_file(fpath)
         assert any("no evaluators resolved" in err for err in errors)
 
@@ -275,7 +284,7 @@ class TestValidateDatasetFile:
         fpath = _write_dataset(
             tmp_path,
             "bad-run",
-            [{"eval_input": "Q1", "description": "desc", "evaluators": ["ExactMatch"]}],
+            [_make_entry(evaluators=["ExactMatch"])],
             runnable="not_a_filepath",
         )
         errors = validate_dataset_file(fpath)
@@ -288,7 +297,7 @@ class TestValidateDatasetFile:
         fpath = _write_dataset(
             tmp_path,
             "bad-evaluator",
-            [{"eval_input": "Q1", "description": "desc", "evaluators": ["Nope"]}],
+            [_make_entry(evaluators=["Nope"])],
         )
         errors = validate_dataset_file(fpath)
         assert any("invalid evaluator" in err for err in errors)
@@ -297,10 +306,11 @@ class TestValidateDatasetFile:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
+        entry = _make_entry()  # no evaluators on the entry
         fpath = _write_dataset(
             tmp_path,
             "defaults",
-            [{"eval_input": "Q1", "description": "desc"}],
+            [entry],
             evaluators=["ExactMatch"],
         )
         errors = validate_dataset_file(fpath)
@@ -321,14 +331,7 @@ class TestLoadDatasetEntries:
         fpath = _write_dataset(
             tmp_path,
             "ok",
-            [
-                {
-                    "eval_input": "Q1",
-                    "expected_output": "A1",
-                    "description": "desc",
-                    "evaluators": ["ExactMatch"],
-                }
-            ],
+            [_make_entry(expectation="A1", evaluators=["ExactMatch"])],
             runnable=runnable_ref,
         )
         loaded = load_dataset_entries(fpath)
@@ -343,26 +346,18 @@ class TestLoadDatasetEntries:
         fpath = _write_dataset(
             tmp_path,
             "ellipsis",
-            [
-                {
-                    "eval_input": "Q1",
-                    "description": "desc",
-                    "evaluators": ["...", "LevenshteinMatch"],
-                }
-            ],
+            [_make_entry(evaluators=["...", "LevenshteinMatch"])],
             evaluators=["ExactMatch"],
         )
         loaded = load_dataset_entries(fpath)
-        assert loaded.entries[0][1] == ["ExactMatch", "LevenshteinMatch"]
+        assert loaded.entries[0].evaluators == ["ExactMatch", "LevenshteinMatch"]
 
     def test_invalid_dataset_raises(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "invalid",
-            [{"eval_input": "Q1", "evaluators": ["ExactMatch"]}],
-        )
+        entry = _make_entry(evaluators=["ExactMatch"])
+        del entry["test_case"]["description"]
+        fpath = _write_dataset(tmp_path, "invalid", [entry])
         with pytest.raises(ValueError, match="Dataset validation failed"):
             load_dataset_entries(fpath)

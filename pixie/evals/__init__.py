@@ -43,11 +43,14 @@ Dataset JSON Format
       "name": "customer-faq",
       "runnable": "pixie_qa/scripts/run_app.py:run_app",
       "evaluators": ["Factuality"],
-      "items": [
+      "entries": [
         {
-          "description": "Basic greeting",
-          "eval_input": {"question": "Hello"},
-          "expected_output": "Hi, how can I help?"
+          "entry_kwargs": {"question": "Hello"},
+          "test_case": {
+            "description": "Basic greeting",
+            "eval_input": [{"name": "input", "value": "Hello"}],
+            "expectation": "Hi, how can I help?"
+          }
         }
       ]
     }
@@ -55,17 +58,17 @@ Dataset JSON Format
 Fields:
 
 - ``runnable`` (required): ``filepath:callable_name`` reference to the function
-  that produces ``eval_output`` from ``eval_input``.
+  that produces ``eval_output`` from ``entry_kwargs``.
 - ``evaluators`` (optional): Dataset-level default evaluator names. Applied to
-  items without row-level evaluators.
-- ``items[].evaluators`` (optional): Row-level evaluator names. Use ``"..."`` to
+  entries without row-level evaluators.
+- ``entries[].evaluators`` (optional): Row-level evaluator names. Use ``"..."`` to
   include dataset defaults.
-- ``items[].description`` (required): Human-readable label for the test case.
-- ``items[].eval_input`` (required): Input passed to the runnable.
-- ``items[].expected_output`` (optional): Reference value for comparison-based
+- ``entries[].entry_kwargs`` (required): Dict of arguments passed to the runnable.
+- ``entries[].test_case.description`` (required): Human-readable label for the test case.
+- ``entries[].test_case.eval_input`` (required): List of ``NamedData`` items
+  (each ``{"name": ..., "value": ...}``).
+- ``entries[].test_case.expectation`` (optional): Reference value for comparison-based
   evaluators.
-- ``items[].eval_output`` (optional): Pre-computed output (skips runnable
-  execution).
 
 Evaluator Name Resolution
 --------------------------

@@ -5,9 +5,31 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from pydantic import JsonValue
 
 from pixie.evals.evaluation import Evaluation, evaluate
-from pixie.storage.evaluable import Evaluable
+from pixie.storage.evaluable import Evaluable, NamedData
+
+
+def _nd(name: str, value: JsonValue) -> NamedData:
+    """Shorthand for creating a NamedData instance in tests."""
+    return NamedData(name=name, value=value)
+
+
+def _ev(
+    *,
+    inp: JsonValue = None,
+    out: JsonValue = None,
+    expectation: JsonValue | None = None,
+) -> Evaluable:
+    """Shorthand for creating an Evaluable with single input/output."""
+    kwargs: dict[str, JsonValue | list[NamedData]] = {
+        "eval_input": [_nd("input", inp)],
+        "eval_output": [_nd("output", out)],
+    }
+    if expectation is not None:
+        kwargs["expectation"] = expectation
+    return Evaluable(**kwargs)  # type: ignore[arg-type]
 
 
 # ── Evaluation dataclass tests ───────────────────────────────────────────
@@ -51,7 +73,7 @@ class TestEvaluate:
         async def my_eval(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=0.9, reasoning="async works")
 
-        result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
+        result = await evaluate(my_eval, _ev(inp="in", out="out"))
         assert result.score == 0.9
         assert result.reasoning == "async works"
 
@@ -60,7 +82,7 @@ class TestEvaluate:
         def my_eval(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=0.7, reasoning="sync works")
 
-        result = await evaluate(my_eval, Evaluable(eval_input="in", eval_output="out"))
+        result = await evaluate(my_eval, _ev(inp="in", out="out"))
         assert result.score == 0.7
         assert result.reasoning == "sync works"
 
@@ -70,7 +92,7 @@ class TestEvaluate:
             raise ValueError("boom")
 
         with pytest.raises(ValueError, match="boom"):
-            await evaluate(failing_eval, Evaluable())
+            await evaluate(failing_eval, _ev())
 
     @pytest.mark.asyncio
     async def test_sync_evaluator_exception_propagates(self) -> None:
@@ -78,14 +100,14 @@ class TestEvaluate:
             raise RuntimeError("missing API key")
 
         with pytest.raises(RuntimeError, match="missing API key"):
-            await evaluate(failing_sync_eval, Evaluable())
+            await evaluate(failing_sync_eval, _ev())
 
     @pytest.mark.asyncio
     async def test_clamps_score_above_one(self) -> None:
         async def over_score(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=1.5, reasoning="too high")
 
-        result = await evaluate(over_score, Evaluable())
+        result = await evaluate(over_score, _ev())
         assert result.score == 1.0
 
     @pytest.mark.asyncio
@@ -93,7 +115,7 @@ class TestEvaluate:
         async def under_score(evaluable: Evaluable) -> Evaluation:
             return Evaluation(score=-0.3, reasoning="too low")
 
-        result = await evaluate(under_score, Evaluable())
+        result = await evaluate(under_score, _ev())
         assert result.score == 0.0
 
     @pytest.mark.asyncio
@@ -102,33 +124,33 @@ class TestEvaluate:
             async def __call__(self, evaluable: Evaluable) -> Evaluation:
                 return Evaluation(score=0.6, reasoning="class eval")
 
-        result = await evaluate(MyEval(), Evaluable())
+        result = await evaluate(MyEval(), _ev())
         assert result.score == 0.6
         assert result.reasoning == "class eval"
 
     @pytest.mark.asyncio
     async def test_evaluable_data_passed_correctly(self) -> None:
         async def check_data(evaluable: Evaluable) -> Evaluation:
-            assert evaluable.eval_input == "hello"
-            assert evaluable.eval_output == "world"
+            assert evaluable.eval_input[0].value == "hello"
+            assert evaluable.eval_output[0].value == "world"
             return Evaluation(score=1.0, reasoning="ok")
 
         await evaluate(
             check_data,
-            Evaluable(eval_input="hello", eval_output="world"),
+            _ev(inp="hello", out="world"),
         )
 
     @pytest.mark.asyncio
-    async def test_expected_output_accessible_on_evaluable(self) -> None:
-        """Evaluator can read expected_output from the evaluable directly."""
+    async def test_expectation_accessible_on_evaluable(self) -> None:
+        """Evaluator can read expectation from the evaluable directly."""
         received: list[Any] = []
 
         async def capture_eval(evaluable: Evaluable) -> Evaluation:
-            received.append(evaluable.expected_output)
+            received.append(evaluable.expectation)
             return Evaluation(score=1.0, reasoning="ok")
 
         await evaluate(
             capture_eval,
-            Evaluable(expected_output="ground truth"),
+            _ev(expectation="ground truth"),
         )
         assert received == ["ground truth"]

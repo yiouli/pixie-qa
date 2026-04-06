@@ -63,11 +63,11 @@ class MockFactualityEval:
         self,
         evaluable: Evaluable,
     ) -> Evaluation:
-        output = str(evaluable.eval_output or "")
+        output = str(evaluable.eval_output[0].value or "")
         expected = (
             ""
-            if isinstance(evaluable.expected_output, _Unset)
-            else str(evaluable.expected_output or "")
+            if isinstance(evaluable.expectation, _Unset)
+            else str(evaluable.expectation or "")
         )
 
         if not expected:
@@ -102,11 +102,11 @@ class MockClosedQAEval:
         self,
         evaluable: Evaluable,
     ) -> Evaluation:
-        output = str(evaluable.eval_output or "").lower()
+        output = str(evaluable.eval_output[0].value or "").lower()
         expected = (
             ""
-            if isinstance(evaluable.expected_output, _Unset)
-            else str(evaluable.expected_output or "")
+            if isinstance(evaluable.expectation, _Unset)
+            else str(evaluable.expectation or "")
         )
 
         if not expected:
@@ -150,7 +150,7 @@ class MockHallucinationEval:
         self,
         evaluable: Evaluable,
     ) -> Evaluation:
-        output = str(evaluable.eval_output or "")
+        output = str(evaluable.eval_output[0].value or "")
         if not output.strip():
             return Evaluation(score=0.0, reasoning="Empty output — cannot evaluate.")
 

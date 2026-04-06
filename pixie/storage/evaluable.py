@@ -1,8 +1,11 @@
 """Evaluable model — uniform data carrier for evaluators.
 
-``Evaluable`` is a frozen Pydantic ``BaseModel`` that serves as the uniform
-data carrier for evaluators.  The ``_Unset`` sentinel distinguishes *"expected
-output was never provided"* from *"expected output is explicitly None"*.
+``TestCase`` defines the scenario (input, expectation, metadata) without
+the actual output.  ``Evaluable`` extends it with actual output.
+``NamedData`` provides a name+value pair for structured evaluation data.
+
+The ``_Unset`` sentinel distinguishes *"expectation was never provided"*
+from *"expectation is explicitly None"*.
 """
 
 from __future__ import annotations
@@ -23,44 +26,61 @@ UNSET = _Unset.UNSET
 """Sentinel value: field was never set (as opposed to explicitly ``None``)."""
 
 
-class Evaluable(BaseModel):
-    """Uniform data carrier for evaluators.
-
-    All fields use Pydantic ``JsonValue`` to guarantee JSON
-    round-trip fidelity.  ``expected_output`` uses a union with the
-    ``_Unset`` sentinel so callers can distinguish *"expected output
-    was not provided"* from *"expected output is explicitly None"*.
+class NamedData(BaseModel):
+    """A named data value for evaluation input/output.
 
     Attributes:
-        eval_input: The primary input to the observed operation.
-        eval_output: The primary output of the observed operation.
-        eval_metadata: Supplementary metadata (``None`` when absent).
-        expected_output: The expected/reference output for evaluation.
-            Defaults to ``UNSET`` (not provided). May be explicitly
-            set to ``None`` to indicate "there is no expected output".
-        captured_output: Captured output data from ``wrap(purpose="output")``,
-            keyed by wrap name.
-        captured_state: Captured state data from ``wrap(purpose="state")``,
-            keyed by wrap name.
+        name: Identifier for this data item.
+        value: The JSON-serializable value.
     """
 
     model_config = ConfigDict(frozen=True)
 
-    eval_input: JsonValue = None
-    eval_output: JsonValue = None
+    name: str
+    value: JsonValue
+
+
+class TestCase(BaseModel):
+    """Scenario definition without actual output.
+
+    Defines the input, expectation, and metadata for a test case.
+    Does not include the actual output — use ``Evaluable`` for that.
+
+    Attributes:
+        eval_input: Named input data items (non-empty).
+        expectation: Expected/reference output for evaluation.
+            Defaults to ``UNSET`` (not provided). May be explicitly
+            set to ``None`` to indicate "no expectation".
+        eval_metadata: Supplementary metadata (``None`` when absent).
+        description: Human-readable description.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    eval_input: list[NamedData] = Field(min_length=1)
+    expectation: JsonValue | _Unset = Field(default=UNSET)
     eval_metadata: dict[str, JsonValue] | None = None
-    expected_output: JsonValue | _Unset = Field(default=UNSET)
-    evaluators: list[str] | None = None
     description: str | None = None
-    captured_output: dict[str, JsonValue] | None = None
-    captured_state: dict[str, JsonValue] | None = None
 
     @model_validator(mode="before")
     @classmethod
     def _coerce_unset_sentinel(cls, data: Any) -> Any:
         """Reconstruct ``_Unset`` from the serialised ``"UNSET"`` string."""
         if isinstance(data, dict):
-            val = data.get("expected_output")
+            val = data.get("expectation")
             if val == "UNSET":
-                data = {**data, "expected_output": UNSET}
+                data = {**data, "expectation": UNSET}
         return data
+
+
+class Evaluable(TestCase):
+    """TestCase plus actual output — the full data carrier for evaluators.
+
+    Inherits all ``TestCase`` fields and adds ``eval_output``.
+
+    Attributes:
+        eval_output: Named output data items from the observed operation
+            (non-empty).
+    """
+
+    eval_output: list[NamedData] = Field(min_length=1)

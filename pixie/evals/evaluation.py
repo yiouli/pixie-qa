@@ -84,7 +84,8 @@ async def evaluate(
     limiter = get_rate_limiter()
     if limiter:
         estimated_tokens = limiter.estimate_tokens(
-            str(evaluable.eval_input) + str(evaluable.eval_output or "")
+            str(evaluable.eval_input[0].value)
+            + str(evaluable.eval_output[0].value or "")
         )
         await limiter.acquire(estimated_tokens)
 

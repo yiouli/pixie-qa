@@ -8,7 +8,23 @@ import pytest
 
 from pixie.evals.evaluation import Evaluation
 from pixie.evals.llm_evaluator import _LLMEvaluator, _parse_score, create_llm_evaluator
-from pixie.storage.evaluable import UNSET, Evaluable
+from pixie.storage.evaluable import UNSET, Evaluable, NamedData
+
+
+def _nd(name: str, value: object) -> NamedData:
+    return NamedData(name=name, value=value)
+
+
+def _ev(
+    inp: object = None,
+    out: object = None,
+    **kwargs: object,
+) -> Evaluable:
+    return Evaluable(
+        eval_input=[_nd("input", inp)],
+        eval_output=[_nd("output", out)],
+        **kwargs,  # type: ignore[arg-type]
+    )
 
 
 class TestCreateLLMEvaluator:
@@ -54,15 +70,10 @@ class TestLLMEvaluatorRendering:
         evaluator = create_llm_evaluator(
             name="TestEval",
             prompt_template=(
-                "Input: {eval_input}\nOutput: {eval_output}\n"
-                "Expected: {expected_output}"
+                "Input: {eval_input}\nOutput: {eval_output}\n" "Expected: {expectation}"
             ),
         )
-        evaluable = Evaluable(
-            eval_input="hello",
-            eval_output="world",
-            expected_output="world",
-        )
+        evaluable = _ev(inp="hello", out="world", expectation="world")
         rendered = evaluator._render_prompt(evaluable)
         assert "Input: hello" in rendered
         assert "Output: world" in rendered
@@ -73,9 +84,9 @@ class TestLLMEvaluatorRendering:
             name="TestEval",
             prompt_template="Input: {eval_input}",
         )
-        evaluable = Evaluable(
-            eval_input={"user_message": "hi", "history": []},
-            eval_output="response",
+        evaluable = _ev(
+            inp={"user_message": "hi", "history": []},
+            out="response",
         )
         rendered = evaluator._render_prompt(evaluable)
         assert '"user_message": "hi"' in rendered
@@ -83,12 +94,12 @@ class TestLLMEvaluatorRendering:
     def test_renders_unset_expected_output(self) -> None:
         evaluator = create_llm_evaluator(
             name="TestEval",
-            prompt_template="Expected: {expected_output}",
+            prompt_template="Expected: {expectation}",
         )
-        evaluable = Evaluable(
-            eval_input="hello",
-            eval_output="world",
-            expected_output=UNSET,
+        evaluable = _ev(
+            inp="hello",
+            out="world",
+            expectation=UNSET,
         )
         rendered = evaluator._render_prompt(evaluable)
         assert "(not provided)" in rendered
@@ -98,7 +109,7 @@ class TestLLMEvaluatorRendering:
             name="TestEval",
             prompt_template="Input: {eval_input}",
         )
-        evaluable = Evaluable(eval_input=None, eval_output="out")
+        evaluable = _ev(inp=None, out="out")
         rendered = evaluator._render_prompt(evaluable)
         assert "Input: " in rendered
 
@@ -119,7 +130,7 @@ class TestLLMEvaluatorCall:
             prompt_template="Rate: {eval_output}",
             client=mock_client,
         )
-        evaluable = Evaluable(eval_input="q", eval_output="good answer")
+        evaluable = _ev(inp="q", out="good answer")
 
         result = await evaluator(evaluable)
 
@@ -141,7 +152,7 @@ class TestLLMEvaluatorCall:
             prompt_template="Rate: {eval_output}",
             client=mock_client,
         )
-        evaluable = Evaluable(eval_input="q", eval_output="answer")
+        evaluable = _ev(inp="q", out="answer")
 
         result = await evaluator(evaluable)
         assert result.score == 0.0
@@ -207,11 +218,11 @@ class TestTemplateValidation:
                 prompt_template="Response: {eval_output[response]}",
             )
 
-    def test_rejects_nested_expected_output_access(self) -> None:
+    def test_rejects_nested_expectation_access(self) -> None:
         with pytest.raises(ValueError, match="Nested field access"):
             create_llm_evaluator(
                 name="Bad",
-                prompt_template="Expected: {expected_output[key]}",
+                prompt_template="Expected: {expectation[key]}",
             )
 
     def test_accepts_valid_template(self) -> None:
@@ -230,6 +241,6 @@ class TestScoreFormatReminder:
             name="TestEval",
             prompt_template="Rate: {eval_output}",
         )
-        evaluable = Evaluable(eval_input="q", eval_output="answer")
+        evaluable = _ev(inp="q", out="answer")
         rendered = evaluator._render_prompt(evaluable)
         assert "Respond with 'Score: X.X'" in rendered

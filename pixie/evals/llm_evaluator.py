@@ -12,7 +12,7 @@ Usage::
 
         User said: {eval_input}
         Agent responded: {eval_output}
-        Expected behavior: {expected_output}
+        Expected behavior: {expectation}
 
         Score 1.0 if the response is concise (under 3 sentences), directly
         addresses the question, and uses conversational language suitable for
@@ -40,9 +40,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MODEL = "gpt-4o-mini"
 
 # Regex to detect nested field access like {eval_input[key]} in templates
-_NESTED_ACCESS_RE = re.compile(
-    r"\{(eval_input|eval_output|expected_output)\["
-)
+_NESTED_ACCESS_RE = re.compile(r"\{(eval_input|eval_output|expectation)\[")
 
 
 def _value_to_str(value: Any) -> str:
@@ -114,11 +112,11 @@ class _LLMEvaluator:
 
     def _render_prompt(self, evaluable: Evaluable) -> str:
         """Fill in the template with evaluable fields."""
-        expected = evaluable.expected_output
+        expected = evaluable.expectation
         rendered = self._prompt_template.format(
-            eval_input=_value_to_str(evaluable.eval_input),
-            eval_output=_value_to_str(evaluable.eval_output),
-            expected_output=_value_to_str(expected),
+            eval_input=_value_to_str(evaluable.eval_input[0].value),
+            eval_output=_value_to_str(evaluable.eval_output[0].value),
+            expectation=_value_to_str(expected),
         )
         return rendered + "\n\nRespond with 'Score: X.X' followed by reasoning."
 
@@ -173,12 +171,12 @@ def create_llm_evaluator(
 
     - ``{eval_input}`` — the evaluable's input
     - ``{eval_output}`` — the evaluable's output
-    - ``{expected_output}`` — the evaluable's expected output
+    - ``{expectation}`` — the evaluable's expected output
 
     Args:
         name: Display name for the evaluator (shown in scorecard).
         prompt_template: A string template with ``{eval_input}``,
-            ``{eval_output}``, and/or ``{expected_output}`` placeholders.
+            ``{eval_output}``, and/or ``{expectation}`` placeholders.
         model: OpenAI model name (default: ``gpt-4o-mini``).
         client: Optional pre-configured OpenAI client instance.
 

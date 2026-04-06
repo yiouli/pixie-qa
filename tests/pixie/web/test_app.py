@@ -172,7 +172,7 @@ class TestAppEndpoints:
         (tmp_path / "01-entry.md").write_text("# Entry Point")
         ds = tmp_path / "datasets"
         ds.mkdir()
-        (ds / "faq.json").write_text(json.dumps({"name": "faq", "items": []}))
+        (ds / "faq.json").write_text(json.dumps({"name": "faq", "entries": []}))
         sc = tmp_path / "scorecards"
         sc.mkdir()
         (sc / "20250101-test.html").write_text("<html><body>scorecard</body></html>")
@@ -516,12 +516,16 @@ class TestPixieTestOpensWebUI:
                 {
                     "name": "test-qa",
                     "runnable": "_run.py:run",
-                    "items": [
+                    "entries": [
                         {
-                            "eval_input": "What is 1+1?",
-                            "eval_output": "2",
-                            "expected_output": "2",
-                            "description": "Simple arithmetic",
+                            "entry_kwargs": {"question": "What is 1+1?"},
+                            "test_case": {
+                                "eval_input": [
+                                    {"name": "input", "value": "What is 1+1?"}
+                                ],
+                                "expectation": "2",
+                                "description": "Simple arithmetic",
+                            },
                             "evaluators": ["ExactMatch"],
                         }
                     ],
@@ -558,12 +562,16 @@ class TestPixieTestOpensWebUI:
                 {
                     "name": "test-qa",
                     "runnable": "_run.py:run",
-                    "items": [
+                    "entries": [
                         {
-                            "eval_input": "What is 1+1?",
-                            "eval_output": "2",
-                            "expected_output": "2",
-                            "description": "Simple arithmetic",
+                            "entry_kwargs": {"question": "What is 1+1?"},
+                            "test_case": {
+                                "eval_input": [
+                                    {"name": "input", "value": "What is 1+1?"}
+                                ],
+                                "expectation": "2",
+                                "description": "Simple arithmetic",
+                            },
                             "evaluators": ["ExactMatch"],
                         }
                     ],

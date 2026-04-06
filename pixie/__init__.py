@@ -62,7 +62,7 @@ from pixie.instrumentation.wrap_registry import (
     init_capture_registry,
     set_input_registry,
 )
-from pixie.storage.evaluable import UNSET, Evaluable
+from pixie.storage.evaluable import UNSET, Evaluable, NamedData, TestCase
 
 __all__ = [
     # Instrumentation
@@ -118,5 +118,7 @@ __all__ = [
     "evaluate",
     # Dataset / Storage
     "Evaluable",
+    "NamedData",
+    "TestCase",
     "UNSET",
 ]

@@ -26,7 +26,9 @@ def sample_qa_runnable(eval_input: object) -> str:
         "what is the boiling point of water?": (
             "Water boils at 100 degrees Celsius at sea level."
         ),
-        "what is the largest planet?": ("Jupiter is the largest planet in the solar system."),
+        "what is the largest planet?": (
+            "Jupiter is the largest planet in the solar system."
+        ),
     }
     return answers.get(question, "")
 
@@ -40,11 +42,11 @@ class SimpleFactualityEval:
         self,
         evaluable: Evaluable,
     ) -> Evaluation:
-        output = str(evaluable.eval_output or "")
+        output = str(evaluable.eval_output[0].value or "")
         expected = (
             ""
-            if isinstance(evaluable.expected_output, _Unset)
-            else str(evaluable.expected_output or "")
+            if isinstance(evaluable.expectation, _Unset)
+            else str(evaluable.expectation or "")
         )
         if not expected:
             return Evaluation(score=0.0, reasoning="No expected output provided.")
@@ -65,11 +67,11 @@ class StrictKeywordEval:
         self,
         evaluable: Evaluable,
     ) -> Evaluation:
-        output = str(evaluable.eval_output or "").lower()
+        output = str(evaluable.eval_output[0].value or "").lower()
         expected = (
             ""
-            if isinstance(evaluable.expected_output, _Unset)
-            else str(evaluable.expected_output or "")
+            if isinstance(evaluable.expectation, _Unset)
+            else str(evaluable.expectation or "")
         )
         if not expected:
             return Evaluation(score=0.0, reasoning="No expected output provided.")

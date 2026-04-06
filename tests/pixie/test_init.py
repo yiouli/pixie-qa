@@ -89,6 +89,16 @@ class TestRootPackageExports:
 
         assert Evaluable is not None
 
+    def test_named_data(self) -> None:
+        from pixie import NamedData
+
+        assert NamedData is not None
+
+    def test_test_case(self) -> None:
+        from pixie import TestCase
+
+        assert TestCase is not None
+
     def test_unset_sentinel(self) -> None:
         from pixie import UNSET
 

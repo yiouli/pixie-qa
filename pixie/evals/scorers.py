@@ -110,9 +110,10 @@ from autoevals.score import Scorer as _Scorer
 from autoevals.string import EmbeddingSimilarity as _EmbeddingSimilarity
 from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
+from pydantic import JsonValue
 
 from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable
+from pixie.storage.evaluable import Evaluable, _Unset
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
 _UNSET: Any = object()
@@ -218,7 +219,10 @@ class AutoevalsAdapter:
             output = evaluable.eval_output[0].value if evaluable.eval_output else None
 
             # Resolve expected — evaluable > constructor > metadata
-            if evaluable.expectation is not None:
+            expected: JsonValue | None
+            if evaluable.expectation is not None and not isinstance(
+                evaluable.expectation, _Unset
+            ):
                 expected = evaluable.expectation
             elif self._expected is not _UNSET:
                 expected = self._expected
