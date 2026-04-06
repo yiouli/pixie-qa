@@ -450,7 +450,8 @@ def _build_evaluable_new_format(item_data: dict[str, Any]) -> Evaluable:
         if not isinstance(v, str):
             raise ValueError(
                 f"dependency_input[{k!r}] must be a jsonpickle-serialized string, "
-                f"got {type(v).__name__}. Encode the value with jsonpickle.encode() "
+                f"got {type(v).__name__}. Encode the value with "
+                f"pixie.instrumentation.wrap_serialization.serialize_wrap_data() "
                 f"before storing it in the dataset."
             )
         dependency_input[k] = v

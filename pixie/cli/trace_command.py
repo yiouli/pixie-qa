@@ -319,6 +319,7 @@ def trace_filter(trace_file: str, purposes: list[str]) -> int:
         return 1
 
     purpose_set = {p.strip() for p in purposes}
+    skipped = 0
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:
@@ -328,6 +329,7 @@ def trace_filter(trace_file: str, purposes: list[str]) -> int:
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError:
+                    skipped += 1
                     continue
                 if record.get("purpose") in purpose_set:
                     print(line)  # noqa: T201
@@ -335,4 +337,9 @@ def trace_filter(trace_file: str, purposes: list[str]) -> int:
         print(f"Error reading {trace_file}: {exc}", file=sys.stderr)  # noqa: T201
         return 1
 
+    if skipped:
+        print(  # noqa: T201
+            f"Warning: skipped {skipped} malformed JSON line(s) in {trace_file}",
+            file=sys.stderr,
+        )
     return 0

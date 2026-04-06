@@ -116,7 +116,9 @@ def wrap(
                 raise WrapRegistryMissError(name)
             deserialized = deserialize_wrap_data(input_registry[name])
             if is_callable:
-                # Return a callable that always returns the injected value
+                # Return a callable that always returns the injected value.
+                # Parameters are intentionally ignored — eval mode replaces
+                # the original function's computation with the registry value.
                 def _injected_callable(*args: Any, **kwargs: Any) -> Any:
                     return deserialized
 
