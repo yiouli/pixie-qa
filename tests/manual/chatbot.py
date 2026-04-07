@@ -89,18 +89,8 @@ def chat(entry_input: dict[str, Any] | None) -> None:
         entry_input = {}
 
     # ── 1. Observe entry-point input (purpose="entry", value) ────────────
-    user_message: str = pixie.wrap(
-        entry_input.get("user_message", ""),
-        purpose="entry",
-        name="user_message",
-        description="The customer's chat message",
-    )
-    customer_id: str = pixie.wrap(
-        entry_input.get("customer_id", "C001"),
-        purpose="entry",
-        name="customer_id",
-        description="The customer ID from the session",
-    )
+    user_message: str = entry_input.get("user_message", "")
+    customer_id: str = entry_input.get("customer_id", "C001")
 
     # ── 2. Look up customer profile (purpose="input", callable) ──────────
     profile: dict[str, Any] = pixie.wrap(

@@ -8,13 +8,14 @@ from typing import Any
 
 import pytest
 
-from pixie.instrumentation.wrap import logger_provider, wrap
-from pixie.instrumentation.wrap import TraceLogProcessor
 from pixie.instrumentation.wrap import (
+    TraceLogProcessor,
     clear_eval_input,
     clear_eval_output,
     get_eval_output,
     init_eval_output,
+    logger_provider,
+    wrap,
 )
 
 
@@ -105,13 +106,6 @@ class TestEvalCaptureLogProcessor:
         assert len(out) == 1
         assert out[0]["name"] == "route"
         assert out[0]["purpose"] == "state"
-
-    def test_ignores_entry_purpose(self) -> None:
-        init_eval_output()
-        wrap("user input", purpose="entry", name="msg")
-        out = get_eval_output()
-        assert out is not None
-        assert len(out) == 0
 
     def test_ignores_input_purpose(self) -> None:
         init_eval_output()

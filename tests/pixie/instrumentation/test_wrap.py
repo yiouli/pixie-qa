@@ -6,15 +6,16 @@ from typing import Any
 
 import pytest
 
-from pixie.instrumentation.wrap import WrapRegistryMissError, wrap
 from pixie.instrumentation.wrap import (
+    WrapRegistryMissError,
     clear_eval_input,
     clear_eval_output,
     get_eval_output,
     init_eval_output,
+    serialize_wrap_data,
     set_eval_input,
+    wrap,
 )
-from pixie.instrumentation.wrap import serialize_wrap_data
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +49,7 @@ class TestDefaultMode:
         assert result is data
 
     def test_none_passthrough(self) -> None:
-        assert wrap(None, purpose="entry", name="x") is None
+        assert wrap(None, purpose="input", name="x") is None
 
 
 class TestEvalModeInput:
@@ -125,14 +126,6 @@ class TestCaptureViaProcessor:
         assert len(out) == 1
         assert out[0]["name"] == "route"
         assert out[0]["purpose"] == "state"
-
-    def test_entry_not_captured(self) -> None:
-        init_eval_output()
-        result = wrap("user_message", purpose="entry", name="input")
-        assert result == "user_message"
-        out = get_eval_output()
-        assert out is not None
-        assert len(out) == 0
 
     def test_no_capture_when_not_initialized(self) -> None:
         wrap("val", purpose="output", name="out")
