@@ -104,8 +104,11 @@ Functions
 `async def run_dataset(dataset_path: str) ‑> tuple[str, list[pixie.harness.run_result.EntryResult]]`
 :   Run evaluations for a single dataset and return the dataset name and results.
     
-    Entries run concurrently (gated by a semaphore for runnables).
-    Evaluators within each entry also run concurrently.
+    **Concurrency model**: up to 4 entries run concurrently via
+    ``asyncio.gather`` (gated by a semaphore).  Evaluators within
+    each entry also run concurrently.  The ``Runnable.run()`` method
+    **must be concurrency-safe** — see :class:`Runnable` for details.
+    
     Rate limiting is enforced inside ``evaluate()`` when configured.
     
     When the dataset's runnable resolves to a :class:`Runnable` class,
@@ -165,10 +168,47 @@ Classes
     evaluator resolution, and runnable importability are handled
     by field- and model-validators.
     
+    Evaluator resolution order per entry:
+    
+    1. If the entry has its own ``evaluators`` list, use it
+       (``"..."`` is expanded to the dataset-level defaults).
+    2. If the entry omits ``evaluators``, the dataset-level
+       ``evaluators`` are used as the default.
+    3. If neither the entry nor the dataset defines evaluators,
+       validation fails.
+    
+    Example JSON::
+    
+        {
+          "name": "qa-golden-set",
+          "runnable": "pixie_qa/scripts/run_app.py:AppRunnable",
+          "evaluators": ["Factuality"],
+          "entries": [
+            {
+              "entry_kwargs": {"user_message": "Hello"},
+              "test_case": {
+                "description": "Greeting",
+                "eval_input": [{"name": "profile", "value": {}}],
+                "expectation": "Friendly greeting"
+              }
+            },
+            {
+              "entry_kwargs": {"user_message": "Help"},
+              "test_case": {
+                "description": "Help request",
+                "eval_input": [{"name": "profile", "value": {}}],
+                "expectation": "Offer assistance"
+              },
+              "evaluators": ["...", "ClosedQA"]
+            }
+          ]
+        }
+    
     Attributes:
         name: Dataset display name.
-        runnable: ``filepath:callable_name`` reference for the runnable.
-        evaluators: Dataset-level default evaluator names.
+        runnable: ``filepath:callable_name`` reference to the Runnable.
+        evaluators: Dataset-level default evaluator names.  Applied to
+            every entry that does not declare its own ``evaluators``.
         entries: List of dataset entries.
     
     Create a new model by parsing and validating input data from keyword arguments.
@@ -200,13 +240,44 @@ Classes
     :
 
 `DatasetEntry(**data: Any)`
-:   A single entry in a dataset.
+:   A single entry (row) in a dataset.
+    
+    Each entry represents one test scenario. The evaluator list is resolved
+    during :class:`Dataset` validation — if the entry omits ``evaluators``,
+    it inherits the dataset-level defaults.  Use ``"..."`` in the entry's
+    evaluators list to include the defaults **plus** additional evaluators.
+    
+    .. important::
+    
+       ``evaluators`` is a **top-level field on the entry**, not inside
+       ``test_case``.  This is the most common mistake when building
+       datasets by hand::
+    
+           # WRONG — evaluators inside test_case is ignored
+           {"entry_kwargs": {...}, "test_case": {..., "evaluators": ["Factuality"]}}
+    
+           # CORRECT — evaluators is a sibling of entry_kwargs and test_case
+           {"entry_kwargs": {...}, "test_case": {...}, "evaluators": ["Factuality"]}
+    
+    Example JSON::
+    
+        {
+          "entry_kwargs": {"user_message": "What are your hours?"},
+          "test_case": {
+            "description": "Business hours question",
+            "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
+            "expectation": "Should mention Mon-Fri 9am-5pm"
+          },
+          "evaluators": ["...", "ClosedQA"]
+        }
     
     Attributes:
-        entry_kwargs: Arguments fed to the runnable.
+        entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
+            as a Pydantic model.  Keys must match the model's field names.
         test_case: Scenario definition (input, expectation, metadata).
-        evaluators: Evaluator names for this entry (expanded from
-            dataset defaults by :class:`Dataset` validation).
+        evaluators: Evaluator names for this entry.  Omit to inherit
+            dataset-level defaults.  Use ``"..."`` to include defaults
+            plus additional evaluators.
     
     Create a new model by parsing and validating input data from keyword arguments.
     

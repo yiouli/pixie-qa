@@ -22,6 +22,7 @@ import importlib
 import importlib.util
 import inspect
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -87,10 +88,17 @@ def _load_callable(reference: str, base_dir: Path) -> Any:
     Uses :func:`importlib.util.spec_from_file_location` to load the
     ``.py`` file directly from disk without any module/package resolution.
 
+    The *base_dir* is added to :data:`sys.path` (if not already present)
+    before loading the module so that the loaded code can use regular
+    ``import`` statements to reference other project modules
+    (e.g. ``from app import service``).
+
     Args:
         reference: Reference in ``filepath:callable_name`` format where
             *filepath* is relative to *base_dir*.
         base_dir: Directory to resolve relative file paths against.
+            Also added to ``sys.path`` so the loaded module can import
+            sibling packages.
 
     Returns:
         The resolved Python object (function, class, or instance).
@@ -109,6 +117,8 @@ def _load_callable(reference: str, base_dir: Path) -> Any:
     if not file_path.is_file():
         raise FileNotFoundError(f"Module file not found: {file_path}")
 
+    _ensure_on_sys_path(base_dir)
+
     spec = importlib.util.spec_from_file_location("_pixie_user_mod", file_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot create module spec from {file_path}")
@@ -117,6 +127,17 @@ def _load_callable(reference: str, base_dir: Path) -> Any:
     spec.loader.exec_module(module)
 
     return getattr(module, attr_name)
+
+
+def _ensure_on_sys_path(directory: Path) -> None:
+    """Add *directory* to :data:`sys.path` if not already present.
+
+    Uses the resolved (absolute) directory string for comparison so that
+    equivalent paths (``./src`` vs ``/abs/src``) are not duplicated.
+    """
+    dir_str = str(directory.resolve())
+    if dir_str not in sys.path:
+        sys.path.insert(0, dir_str)
 
 
 def resolve_evaluator_name(name: str) -> str:
@@ -278,13 +299,44 @@ def _clean_evaluator_list(raw: Any, *, allow_ellipsis: bool) -> list[str]:
 
 
 class DatasetEntry(BaseModel):
-    """A single entry in a dataset.
+    """A single entry (row) in a dataset.
+
+    Each entry represents one test scenario. The evaluator list is resolved
+    during :class:`Dataset` validation — if the entry omits ``evaluators``,
+    it inherits the dataset-level defaults.  Use ``"..."`` in the entry's
+    evaluators list to include the defaults **plus** additional evaluators.
+
+    .. important::
+
+       ``evaluators`` is a **top-level field on the entry**, not inside
+       ``test_case``.  This is the most common mistake when building
+       datasets by hand::
+
+           # WRONG — evaluators inside test_case is ignored
+           {"entry_kwargs": {...}, "test_case": {..., "evaluators": ["Factuality"]}}
+
+           # CORRECT — evaluators is a sibling of entry_kwargs and test_case
+           {"entry_kwargs": {...}, "test_case": {...}, "evaluators": ["Factuality"]}
+
+    Example JSON::
+
+        {
+          "entry_kwargs": {"user_message": "What are your hours?"},
+          "test_case": {
+            "description": "Business hours question",
+            "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
+            "expectation": "Should mention Mon-Fri 9am-5pm"
+          },
+          "evaluators": ["...", "ClosedQA"]
+        }
 
     Attributes:
-        entry_kwargs: Arguments fed to the runnable.
+        entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
+            as a Pydantic model.  Keys must match the model's field names.
         test_case: Scenario definition (input, expectation, metadata).
-        evaluators: Evaluator names for this entry (expanded from
-            dataset defaults by :class:`Dataset` validation).
+        evaluators: Evaluator names for this entry.  Omit to inherit
+            dataset-level defaults.  Use ``"..."`` to include defaults
+            plus additional evaluators.
     """
 
     entry_kwargs: dict[str, JsonValue]
@@ -314,10 +366,47 @@ class Dataset(BaseModel):
     evaluator resolution, and runnable importability are handled
     by field- and model-validators.
 
+    Evaluator resolution order per entry:
+
+    1. If the entry has its own ``evaluators`` list, use it
+       (``"..."`` is expanded to the dataset-level defaults).
+    2. If the entry omits ``evaluators``, the dataset-level
+       ``evaluators`` are used as the default.
+    3. If neither the entry nor the dataset defines evaluators,
+       validation fails.
+
+    Example JSON::
+
+        {
+          "name": "qa-golden-set",
+          "runnable": "pixie_qa/scripts/run_app.py:AppRunnable",
+          "evaluators": ["Factuality"],
+          "entries": [
+            {
+              "entry_kwargs": {"user_message": "Hello"},
+              "test_case": {
+                "description": "Greeting",
+                "eval_input": [{"name": "profile", "value": {}}],
+                "expectation": "Friendly greeting"
+              }
+            },
+            {
+              "entry_kwargs": {"user_message": "Help"},
+              "test_case": {
+                "description": "Help request",
+                "eval_input": [{"name": "profile", "value": {}}],
+                "expectation": "Offer assistance"
+              },
+              "evaluators": ["...", "ClosedQA"]
+            }
+          ]
+        }
+
     Attributes:
         name: Dataset display name.
-        runnable: ``filepath:callable_name`` reference for the runnable.
-        evaluators: Dataset-level default evaluator names.
+        runnable: ``filepath:callable_name`` reference to the Runnable.
+        evaluators: Dataset-level default evaluator names.  Applied to
+            every entry that does not declare its own ``evaluators``.
         entries: List of dataset entries.
     """
 
@@ -354,8 +443,7 @@ class Dataset(BaseModel):
             raise
         except Exception as exc:
             raise ValueError(
-                f"Invalid runnable {self.runnable!r}: "
-                f"{type(exc).__name__}: {exc}"
+                f"Invalid runnable {self.runnable!r}: " f"{type(exc).__name__}: {exc}"
             ) from exc
 
         # Expand evaluators for each entry and collect all unique names
@@ -378,8 +466,7 @@ class Dataset(BaseModel):
                 _resolve_evaluator(name)
             except Exception as exc:
                 raise ValueError(
-                    f"Invalid evaluator {name!r}: "
-                    f"{type(exc).__name__}: {exc}"
+                    f"Invalid evaluator {name!r}: " f"{type(exc).__name__}: {exc}"
                 ) from exc
 
         return self
@@ -640,8 +727,12 @@ async def run_entry(
         clear_eval_input()
         clear_eval_output()
 
-    wrapped_output = [WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured]
-    eval_output = [NamedData(name=wrapped.name, value=wrapped.data) for wrapped in wrapped_output]
+    wrapped_output = [
+        WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured
+    ]
+    eval_output = [
+        NamedData(name=wrapped.name, value=wrapped.data) for wrapped in wrapped_output
+    ]
     if not eval_output:
         fallback_value: JsonValue
         try:
@@ -664,8 +755,11 @@ async def run_entry(
 async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
     """Run evaluations for a single dataset and return the dataset name and results.
 
-    Entries run concurrently (gated by a semaphore for runnables).
-    Evaluators within each entry also run concurrently.
+    **Concurrency model**: up to 4 entries run concurrently via
+    ``asyncio.gather`` (gated by a semaphore).  Evaluators within
+    each entry also run concurrently.  The ``Runnable.run()`` method
+    **must be concurrency-safe** — see :class:`Runnable` for details.
+
     Rate limiting is enforced inside ``evaluate()`` when configured.
 
     When the dataset's runnable resolves to a :class:`Runnable` class,
@@ -705,7 +799,9 @@ async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
         finally:
             await runnable_instance.teardown()
     else:
-        entry_tasks = [run_entry(entry, resolved, semaphore) for entry in dataset.entries]
+        entry_tasks = [
+            run_entry(entry, resolved, semaphore) for entry in dataset.entries
+        ]
         entry_results = list(await asyncio.gather(*entry_tasks))
 
     return dataset.name, entry_results

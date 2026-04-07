@@ -17,7 +17,9 @@ class TestTraceLogProcessorWriteLine:
     def test_writes_kwargs_record(self, tmp_path: Path) -> None:
         output = tmp_path / "trace.jsonl"
         processor = TraceLogProcessor(str(output))
-        processor.write_line({"type": "kwargs", "value": {"question": "hello", "count": 42}})
+        processor.write_line(
+            {"type": "kwargs", "value": {"question": "hello", "count": 42}}
+        )
 
         lines = output.read_text().strip().split("\n")
         assert len(lines) == 1
@@ -83,20 +85,11 @@ class TestFormatTraceToEntry:
 
         assert test_case["description"] == "transformed from trace.jsonl"
 
-    def test_no_input_falls_back_to_entry(self, tmp_path: Path) -> None:
-        """When no purpose=input wraps exist, uses purpose=entry wraps."""
+    def test_no_input_raises(self, tmp_path: Path) -> None:
+        """When no purpose=input wraps exist, raises ValueError."""
         trace_file = tmp_path / "trace.jsonl"
         lines = [
             json.dumps({"type": "kwargs", "value": {"a": 1}}),
-            json.dumps(
-                {
-                    "type": "wrap",
-                    "name": "msg",
-                    "purpose": "entry",
-                    "data": "hi",
-                    "description": None,
-                }
-            ),
             json.dumps(
                 {
                     "type": "wrap",
@@ -110,10 +103,8 @@ class TestFormatTraceToEntry:
         trace_file.write_text("\n".join(lines) + "\n")
 
         output_file = tmp_path / "entry.json"
-        format_trace_to_entry(trace_file, output_file)
-
-        entry = json.loads(output_file.read_text())
-        assert entry["test_case"]["eval_input"][0]["name"] == "msg"
+        with pytest.raises(ValueError, match="No input data"):
+            format_trace_to_entry(trace_file, output_file)
 
     def test_no_data_raises(self, tmp_path: Path) -> None:
         """Raises when trace has no usable input data."""

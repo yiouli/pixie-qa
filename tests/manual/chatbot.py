@@ -1,7 +1,6 @@
 """CLI chatbot with tool calling — manual test fixture for wrap() API.
 
 This module implements a simple deterministic chatbot that:
-- Receives a user message (purpose="entry")
 - Looks up customer profile from a fake database (purpose="input", callable)
 - Looks up FAQ answers from a fake knowledge base (purpose="input", value)
 - Decides a routing strategy (purpose="state")
@@ -88,7 +87,7 @@ def chat(entry_input: dict[str, Any] | None) -> None:
     if entry_input is None:
         entry_input = {}
 
-    # ── 1. Observe entry-point input (purpose="entry", value) ────────────
+    # ── 1. Extract entry-point input from kwargs ─────────────────────────
     user_message: str = entry_input.get("user_message", "")
     customer_id: str = entry_input.get("customer_id", "C001")
 

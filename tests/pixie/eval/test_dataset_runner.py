@@ -107,6 +107,28 @@ class TestLoadCallable:
         with pytest.raises(ValueError, match="filepath:name"):
             _load_callable("nocolon", tmp_path)
 
+    def test_adds_base_dir_to_sys_path(self, tmp_path: Path) -> None:
+        """Loaded modules should be able to import sibling packages."""
+        # Create a package that the loaded module imports
+        pkg = tmp_path / "mylib"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("VALUE = 42\n")
+        # Create the module that imports from the sibling package
+        (tmp_path / "consumer.py").write_text(
+            "from mylib import VALUE\n" "def get_value(): return VALUE\n"
+        )
+        import sys
+
+        dir_str = str(tmp_path.resolve())
+        was_present = dir_str in sys.path
+        try:
+            func = _load_callable("consumer.py:get_value", tmp_path)
+            assert func() == 42
+            assert dir_str in sys.path
+        finally:
+            if not was_present and dir_str in sys.path:
+                sys.path.remove(dir_str)
+
 
 class TestResolveRunnable:
     def test_resolves_filepath_reference(

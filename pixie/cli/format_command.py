@@ -119,15 +119,9 @@ def format_trace_to_entry(
             eval_input.append(_wrap_to_named_data(event))
 
     if not eval_input:
-        # Fall back: use all entry-purpose wraps as input
-        for event in wrap_events:
-            if event.get("purpose") == "entry":
-                eval_input.append(_wrap_to_named_data(event))
-
-    if not eval_input:
         raise ValueError(
             "No input data found in trace log. "
-            "Expected wrap events with purpose='input' or 'entry'."
+            "Expected wrap events with purpose='input'."
         )
 
     # Build expectation from output/state wraps and LLM spans, in log order
