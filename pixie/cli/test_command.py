@@ -24,7 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pixie.evals.dataset_runner import (
+from pixie.eval.dataset_runner import (
     DatasetEntry,
     _resolve_evaluator,
     _resolve_runnable,
@@ -32,10 +32,10 @@ from pixie.evals.dataset_runner import (
     discover_dataset_files,
     load_dataset_entries,
 )
-from pixie.evals.evaluation import Evaluation, evaluate
-from pixie.evals.rate_limiter import configure_rate_limits_from_config
-from pixie.evals.runnable import get_runnable_args_type, is_runnable_class
-from pixie.evals.test_result import (
+from pixie.eval.evaluable import Evaluable, NamedData, _Unset
+from pixie.eval.evaluation import Evaluation, evaluate
+from pixie.eval.rate_limiter import configure_rate_limits_from_config
+from pixie.harness.run_result import (
     DatasetResult,
     EntryResult,
     EvaluationResult,
@@ -43,19 +43,18 @@ from pixie.evals.test_result import (
     generate_test_id,
     save_test_result,
 )
-from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError
-from pixie.instrumentation.wrap_log import WrappedData
-from pixie.instrumentation.wrap_registry import (
+from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
+from pixie.instrumentation.wrap import (
+    WrappedData,
+    WrapRegistryMissError,
+    WrapTypeMismatchError,
     clear_eval_input,
     clear_eval_output,
     get_eval_output,
     init_eval_output,
+    serialize_wrap_data,
     set_eval_input,
 )
-from pixie.instrumentation.wrap_serialization import (
-    serialize_wrap_data,
-)
-from pixie.storage.evaluable import Evaluable, NamedData, _Unset
 
 
 async def _evaluate_entry(
@@ -333,7 +332,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Register the eval capture processor so wrap() output/state events
     # are accumulated into eval_output for each entry run.
-    from pixie.instrumentation.wrap_processors import ensure_eval_capture_registered
+    from pixie.instrumentation.wrap import ensure_eval_capture_registered
 
     ensure_eval_capture_registered()
 

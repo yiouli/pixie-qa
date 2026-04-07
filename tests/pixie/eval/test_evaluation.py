@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from pydantic import JsonValue
 
-from pixie.evals.evaluation import Evaluation, evaluate
-from pixie.storage.evaluable import Evaluable, NamedData
+from pixie.eval.evaluation import Evaluation, evaluate
+from pixie.eval.evaluable import Evaluable, NamedData
 
 
 def _nd(name: str, value: JsonValue) -> NamedData:

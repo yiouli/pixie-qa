@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from pixie.instrumentation.spans import (
+from pixie.instrumentation.llm_tracing import (
     AssistantMessage,
     ImageContent,
     LLMSpan,

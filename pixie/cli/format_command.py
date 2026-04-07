@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from pixie.storage.evaluable import NamedData, TestCase
+from pixie.eval.evaluable import NamedData, TestCase
 
 
 def _load_trace_log(

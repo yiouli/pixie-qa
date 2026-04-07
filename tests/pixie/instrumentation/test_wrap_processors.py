@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 
 from pixie.instrumentation.wrap import logger_provider, wrap
-from pixie.instrumentation.wrap_processors import TraceLogProcessor
-from pixie.instrumentation.wrap_registry import (
+from pixie.instrumentation.wrap import TraceLogProcessor
+from pixie.instrumentation.wrap import (
     clear_eval_input,
     clear_eval_output,
     get_eval_output,

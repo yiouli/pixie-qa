@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from pixie.instrumentation.wrap_log import (
+from pixie.instrumentation.wrap import (
     WrapLogEntry,
     WrappedData,
     filter_by_purpose,

@@ -31,8 +31,8 @@ from typing import Any
 
 from openai import OpenAI
 
-from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable, _Unset
+from pixie.eval.evaluation import Evaluation
+from pixie.eval.evaluable import Evaluable, _Unset
 
 logger = logging.getLogger(__name__)
 

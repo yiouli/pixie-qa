@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pixie.evals.dataset_runner import _load_callable
-from pixie.evals.runnable import get_runnable_args_type, is_runnable_class
+from pixie.eval.dataset_runner import _load_callable
+from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
 
 
 def resolve_runnable_reference(reference: str) -> Any:

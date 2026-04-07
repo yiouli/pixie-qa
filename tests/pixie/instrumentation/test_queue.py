@@ -6,9 +6,9 @@ import asyncio
 import threading
 from datetime import datetime, timezone
 
-from pixie.instrumentation.handler import InstrumentationHandler
-from pixie.instrumentation.queue import _DeliveryQueue
-from pixie.instrumentation.spans import LLMSpan, ObserveSpan
+from pixie.instrumentation.llm_tracing import InstrumentationHandler
+from pixie.instrumentation.llm_tracing import _DeliveryQueue
+from pixie.instrumentation.llm_tracing import LLMSpan, ObserveSpan
 
 from .conftest import RecordingHandler
 

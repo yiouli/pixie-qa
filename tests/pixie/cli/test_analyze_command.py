@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from pixie.cli.analyze_command import _build_analysis_prompt, analyze
-from pixie.evals.test_result import (
+from pixie.harness.run_result import (
     DatasetResult,
     EntryResult,
     EvaluationResult,

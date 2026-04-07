@@ -40,11 +40,6 @@ class TestRootPackageExports:
 
         assert Evaluation is not None
 
-    def test_score_threshold(self) -> None:
-        from pixie import ScoreThreshold
-
-        assert ScoreThreshold is not None
-
     # -- Evaluators --
 
     def test_factuality_eval(self) -> None:

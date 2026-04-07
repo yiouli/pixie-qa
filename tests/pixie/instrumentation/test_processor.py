@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 from opentelemetry.trace import SpanContext, StatusCode
 from opentelemetry.trace.status import Status
 
-from pixie.instrumentation.processor import LLMSpanProcessor
-from pixie.instrumentation.queue import _DeliveryQueue
-from pixie.instrumentation.spans import (
+from pixie.instrumentation.llm_tracing import LLMSpanProcessor
+from pixie.instrumentation.llm_tracing import _DeliveryQueue
+from pixie.instrumentation.llm_tracing import (
     AssistantMessage,
     ImageContent,
     SystemMessage,

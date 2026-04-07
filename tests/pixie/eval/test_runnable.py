@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from pixie.evals.runnable import get_runnable_args_type, is_runnable_class
+from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
 
 # ── Test Fixtures ───────────────────────────────────────────────────────────
 

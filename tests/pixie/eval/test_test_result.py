@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pixie.evals.test_result import (
+from pixie.harness.run_result import (
     DatasetResult,
     EntryResult,
     EvaluationResult,

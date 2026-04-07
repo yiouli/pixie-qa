@@ -4,11 +4,11 @@ Re-exports the full public API so users can ``from pixie import ...``
 for every commonly used symbol without needing submodule paths.
 """
 
-from pixie.evals.criteria import ScoreThreshold
-from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
-from pixie.evals.llm_evaluator import create_llm_evaluator
-from pixie.evals.rate_limiter import RateLimitConfig, configure_rate_limits
-from pixie.evals.scorers import (
+from pixie.eval.evaluable import UNSET, Evaluable, NamedData, TestCase
+from pixie.eval.evaluation import Evaluation, Evaluator, evaluate
+from pixie.eval.llm_evaluator import create_llm_evaluator
+from pixie.eval.rate_limiter import RateLimitConfig, configure_rate_limits
+from pixie.eval.scorers import (
     AnswerCorrectness,
     AnswerRelevancy,
     AutoevalsAdapter,
@@ -34,33 +34,28 @@ from pixie.evals.scorers import (
 )
 
 # -- Instrumentation ----------------------------------------------------------
-from pixie.instrumentation.observation import (
+from pixie.instrumentation.llm_tracing import (
     add_handler,
     enable_llm_tracing,
     flush,
     remove_handler,
 )
 from pixie.instrumentation.wrap import (
-    WrapRegistryMissError,
-    WrapTypeMismatchError,
-    wrap,
-)
-from pixie.instrumentation.wrap_log import (
     WrapLogEntry,
     WrappedData,
-    filter_by_purpose,
-    load_wrap_log_entries,
-    parse_wrapped_data_list,
-)
-from pixie.instrumentation.wrap_registry import (
+    WrapRegistryMissError,
+    WrapTypeMismatchError,
     clear_eval_input,
     clear_eval_output,
+    filter_by_purpose,
     get_eval_input,
     get_eval_output,
     init_eval_output,
+    load_wrap_log_entries,
+    parse_wrapped_data_list,
     set_eval_input,
+    wrap,
 )
-from pixie.storage.evaluable import UNSET, Evaluable, NamedData, TestCase
 
 __all__ = [
     # Instrumentation
@@ -103,7 +98,6 @@ __all__ = [
     "NumericDiff",
     "Possible",
     "RateLimitConfig",
-    "ScoreThreshold",
     "Security",
     "Sql",
     "Summary",

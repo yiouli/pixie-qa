@@ -56,6 +56,8 @@ Critical rules:
   meaningless scores.
 """
 
+# flake8: noqa: E501
+
 from __future__ import annotations
 
 import traceback as _tb
@@ -112,8 +114,8 @@ from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
 from pydantic import JsonValue
 
-from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable, _Unset
+from pixie.eval.evaluable import Evaluable, _Unset
+from pixie.eval.evaluation import Evaluation
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
 _UNSET: Any = object()

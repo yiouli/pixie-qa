@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-import pixie.instrumentation.observation as px
-from pixie.instrumentation.handler import InstrumentationHandler
-from pixie.instrumentation.spans import LLMSpan, ObserveSpan
-from pixie.instrumentation.wrap_processors import ensure_eval_capture_registered
+import pixie.instrumentation.llm_tracing as px
+from pixie.instrumentation.llm_tracing import InstrumentationHandler, LLMSpan, ObserveSpan
+from pixie.instrumentation.wrap import ensure_eval_capture_registered
 
 # Register a single EvalCaptureLogProcessor for all instrumentation tests.
 # Uses a centralized guard to prevent duplicate registration across test

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pixie.instrumentation.wrap_serialization import (
+from pixie.instrumentation.wrap import (
     deserialize_wrap_data,
     serialize_wrap_data,
 )

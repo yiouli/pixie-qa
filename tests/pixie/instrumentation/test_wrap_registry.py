@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pixie.instrumentation.wrap_registry import (
+from pixie.instrumentation.wrap import (
     clear_eval_input,
     clear_eval_output,
     get_eval_input,

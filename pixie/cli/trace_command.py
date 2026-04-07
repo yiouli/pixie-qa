@@ -15,10 +15,8 @@ import os
 import sys
 from dataclasses import asdict
 
-from pixie.instrumentation.handler import InstrumentationHandler
-from pixie.instrumentation.observation import add_handler
-from pixie.instrumentation.spans import LLMSpan
-from pixie.instrumentation.wrap_processors import TraceLogProcessor
+from pixie.instrumentation.llm_tracing import InstrumentationHandler, LLMSpan, add_handler
+from pixie.instrumentation.wrap import TraceLogProcessor
 
 
 class LLMTraceLogger(InstrumentationHandler):
@@ -48,8 +46,8 @@ def _run_trace(
     Returns:
         Exit code: 0 on success, 1 on error.
     """
-    from pixie.evals.run_utils import load_input_kwargs, run_runnable
-    from pixie.instrumentation.observation import enable_llm_tracing
+    from pixie.harness.run_utils import load_input_kwargs, run_runnable
+    from pixie.instrumentation.llm_tracing import enable_llm_tracing
     from pixie.instrumentation.wrap import logger_provider
 
     # Enable tracing via env so init() picks it up
@@ -78,7 +76,7 @@ def _run_trace(
         return 1
 
     # Flush pending spans
-    from pixie.instrumentation.observation import flush
+    from pixie.instrumentation.llm_tracing import flush
 
     flush()
 

@@ -18,7 +18,7 @@ import asyncio
 import json
 import os
 
-from pixie.evals.test_result import DatasetResult, load_test_result
+from pixie.harness.run_result import DatasetResult, load_test_result
 
 
 def _build_analysis_prompt(ds: DatasetResult) -> str:
@@ -79,7 +79,7 @@ async def _analyze_dataset(ds: DatasetResult, index: int, result_dir: str) -> st
     from openai import AsyncOpenAI
 
     # Rate-limit if configured
-    from pixie.evals.rate_limiter import get_rate_limiter
+    from pixie.eval.rate_limiter import get_rate_limiter
 
     limiter = get_rate_limiter()
     prompt_text = _build_analysis_prompt(ds)
@@ -132,7 +132,7 @@ def analyze(test_id: str) -> int:
     Returns:
         Exit code: 0 on success, 1 on error.
     """
-    from pixie.evals.rate_limiter import configure_rate_limits_from_config
+    from pixie.eval.rate_limiter import configure_rate_limits_from_config
 
     configure_rate_limits_from_config()
 

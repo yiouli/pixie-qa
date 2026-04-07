@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from pixie.storage.evaluable import Evaluable
+from pixie.eval.evaluable import Evaluable
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ async def evaluate(
             unchanged so callers see clear, actionable errors.
     """
     # Rate-limit LLM evaluator calls when a limiter is configured
-    from pixie.evals.rate_limiter import get_rate_limiter
+    from pixie.eval.rate_limiter import get_rate_limiter
 
     limiter = get_rate_limiter()
     if limiter:

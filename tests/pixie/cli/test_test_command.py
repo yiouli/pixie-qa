@@ -8,7 +8,7 @@ import pytest
 
 import pixie.instrumentation as instrumentation
 from pixie.cli import test_command
-from pixie.evals.rate_limiter import configure_rate_limits, get_rate_limiter
+from pixie.eval.rate_limiter import configure_rate_limits, get_rate_limiter
 
 
 class TestTestCommandRateLimitConfig:

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from difflib import SequenceMatcher
 
-from pixie.evals.evaluation import Evaluation
-from pixie.storage.evaluable import Evaluable, _Unset
+from pixie.eval.evaluation import Evaluation
+from pixie.eval.evaluable import Evaluable, _Unset
 
 
 def sample_qa_runnable(eval_input: object) -> str:

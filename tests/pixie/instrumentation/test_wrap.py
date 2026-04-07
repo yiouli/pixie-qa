@@ -7,14 +7,14 @@ from typing import Any
 import pytest
 
 from pixie.instrumentation.wrap import WrapRegistryMissError, wrap
-from pixie.instrumentation.wrap_registry import (
+from pixie.instrumentation.wrap import (
     clear_eval_input,
     clear_eval_output,
     get_eval_output,
     init_eval_output,
     set_eval_input,
 )
-from pixie.instrumentation.wrap_serialization import serialize_wrap_data
+from pixie.instrumentation.wrap import serialize_wrap_data
 
 
 @pytest.fixture(autouse=True)

@@ -47,7 +47,7 @@ def step1_run_with_tracing(trace_file: str) -> None:
 
     # Import after setting env vars so config picks them up
     from pixie.config import get_config
-    from pixie.instrumentation.wrap_processors import TraceLogProcessor
+    from pixie.instrumentation.wrap import TraceLogProcessor
 
     config = get_config()
     if not config.tracing_enabled:
@@ -93,7 +93,7 @@ def _run_chatbot_with_trace_capture(
     are written to the JSONL file.
     """
     from pixie.instrumentation.wrap import logger_provider
-    from pixie.instrumentation.wrap_processors import (
+    from pixie.instrumentation.wrap import (
         get_trace_log_processor,
         set_trace_log_processor,
     )

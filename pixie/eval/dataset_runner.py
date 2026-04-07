@@ -24,7 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel, JsonValue
 
-from pixie.storage.evaluable import TestCase
+from pixie.eval.evaluable import TestCase
 
 #: Names of all built-in evaluators exported from ``pixie``.
 #: When a dataset uses a bare name (no dots), it is looked up here.

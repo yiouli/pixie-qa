@@ -93,15 +93,8 @@ CLI Commands
 | ``pixie analyze <test_run_id>`` | Generate analysis and recommendations |
 """
 
-from pixie.evals.criteria import ScoreThreshold
-from pixie.evals.evaluation import Evaluation, Evaluator, evaluate
-from pixie.evals.scorecard import (
-    DatasetEntryResult,
-    DatasetScorecard,
-    generate_dataset_scorecard_html,
-    save_dataset_scorecard,
-)
-from pixie.evals.scorers import (
+from pixie.eval.evaluation import Evaluation, Evaluator, evaluate
+from pixie.eval.scorers import (
     AnswerCorrectness,
     AnswerRelevancy,
     AutoevalsAdapter,
@@ -133,8 +126,6 @@ __all__ = [
     "Battle",
     "ClosedQA",
     "ContextRelevancy",
-    "DatasetEntryResult",
-    "DatasetScorecard",
     "EmbeddingSimilarity",
     "Evaluation",
     "Evaluator",
@@ -148,13 +139,10 @@ __all__ = [
     "Moderation",
     "NumericDiff",
     "Possible",
-    "ScoreThreshold",
     "Security",
     "Sql",
     "Summary",
     "Translation",
     "ValidJSON",
     "evaluate",
-    "generate_dataset_scorecard_html",
-    "save_dataset_scorecard",
 ]

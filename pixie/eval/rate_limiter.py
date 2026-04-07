@@ -6,7 +6,7 @@ naturally with the async evaluation pipeline.
 
 Usage::
 
-    from pixie.evals.rate_limiter import configure_rate_limits_from_config
+    from pixie.eval.rate_limiter import configure_rate_limits_from_config
 
     configure_rate_limits_from_config()
 

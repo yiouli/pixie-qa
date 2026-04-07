@@ -8,7 +8,7 @@ import time
 import pytest
 
 from pixie.config import PixieConfig
-from pixie.evals.rate_limiter import (
+from pixie.eval.rate_limiter import (
     EvalRateLimiter,
     RateLimitConfig,
     configure_rate_limits,

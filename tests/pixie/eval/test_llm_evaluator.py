@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pixie.evals.evaluation import Evaluation
-from pixie.evals.llm_evaluator import _LLMEvaluator, _parse_score, create_llm_evaluator
-from pixie.storage.evaluable import UNSET, Evaluable, NamedData
+from pixie.eval.evaluable import UNSET, Evaluable, NamedData
+from pixie.eval.evaluation import Evaluation
+from pixie.eval.llm_evaluator import _LLMEvaluator, _parse_score, create_llm_evaluator
 
 
 def _nd(name: str, value: object) -> NamedData:

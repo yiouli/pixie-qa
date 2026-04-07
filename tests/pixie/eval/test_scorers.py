@@ -1,4 +1,4 @@
-"""Tests for pixie.evals.scorers — autoevals adapter and pre-made evaluators."""
+"""Tests for pixie.eval.scorers — autoevals adapter and pre-made evaluators."""
 
 from __future__ import annotations
 
@@ -10,8 +10,9 @@ import pytest
 from autoevals.score import Score as _AEScore
 from autoevals.score import Scorer as _AEScorer
 
-from pixie.evals.evaluation import Evaluation
-from pixie.evals.scorers import (
+from pixie.eval.evaluable import Evaluable, NamedData
+from pixie.eval.evaluation import Evaluation
+from pixie.eval.scorers import (
     AnswerCorrectness,
     AnswerRelevancy,
     AutoevalsAdapter,
@@ -36,7 +37,6 @@ from pixie.evals.scorers import (
     ValidJSON,
     _score_to_evaluation,
 )
-from pixie.storage.evaluable import Evaluable, NamedData
 
 
 def _nd(name: str, value: object) -> NamedData:
@@ -377,7 +377,7 @@ class TestLevenshteinMatch:
 
     @pytest.mark.asyncio
     async def test_passes_output_and_expected(self) -> None:
-        with patch("pixie.evals.scorers._Levenshtein") as MockCls:
+        with patch("pixie.eval.scorers._Levenshtein") as MockCls:
             mock_instance = MagicMock()
             mock_instance.eval_async = AsyncMock(
                 return_value=FakeScore(name="Levenshtein", score=0.91)
@@ -457,7 +457,7 @@ class TestFactualityEval:
 
     @pytest.mark.asyncio
     async def test_passes_input_from_evaluable(self) -> None:
-        with patch("pixie.evals.scorers._Factuality") as MockCls:
+        with patch("pixie.eval.scorers._Factuality") as MockCls:
             mock_instance = MagicMock()
             mock_instance.eval_async = AsyncMock(
                 return_value=FakeScore(

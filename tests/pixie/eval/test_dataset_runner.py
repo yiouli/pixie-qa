@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from pixie.evals.dataset_runner import (
+from pixie.eval.dataset_runner import (
     _expand_evaluator_names,
     _load_callable,
     _noop_runnable,
@@ -54,8 +54,8 @@ class TestResolveEvaluator:
         """A module-level function should be returned as-is, not called."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / "func_eval.py").write_text(
-            "from pixie.evals.evaluation import Evaluation\n"
-            "from pixie.storage.evaluable import Evaluable\n"
+            "from pixie.eval.evaluation import Evaluation\n"
+            "from pixie.eval.evaluable import Evaluable\n"
             "\n"
             "def my_func_eval(evaluable: Evaluable, *, trace=None) -> Evaluation:\n"
             "    return Evaluation(score=1.0, reasoning='ok')\n"
@@ -70,8 +70,8 @@ class TestResolveEvaluator:
         """A module-level callable instance should be returned as-is."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / "inst_eval.py").write_text(
-            "from pixie.evals.evaluation import Evaluation\n"
-            "from pixie.storage.evaluable import Evaluable\n"
+            "from pixie.eval.evaluation import Evaluation\n"
+            "from pixie.eval.evaluable import Evaluable\n"
             "\n"
             "class _Inner:\n"
             "    def __call__(self, evaluable: Evaluable, *, trace=None) -> Evaluation:\n"
@@ -125,7 +125,7 @@ class TestResolveRunnable:
 
 class TestShortName:
     def test_fully_qualified(self) -> None:
-        assert _short_name("pixie.evals.scorers.Factuality") == "Factuality"
+        assert _short_name("pixie.eval.scorers.Factuality") == "Factuality"
 
     def test_filepath_reference(self) -> None:
         assert _short_name("pixie_qa/evaluators.py:ConciseStyle") == "ConciseStyle"
