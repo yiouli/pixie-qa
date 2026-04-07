@@ -26,7 +26,7 @@ Variables
 Functions
 ---------
 
-`discover_dataset_files(path: str) ‑> list[pathlib.Path]`
+`def discover_dataset_files(path: str) ‑> list[pathlib.Path]`
 :   Find all dataset JSON files under *path*.
     
     Args:
@@ -35,7 +35,7 @@ Functions
     Returns:
         Sorted list of dataset file paths.
 
-`evaluate_entry(evaluable: Evaluable, evaluator_names: list[str]) ‑> pixie.harness.run_result.EntryResult`
+`async def evaluate_entry(evaluable: Evaluable, evaluator_names: list[str]) ‑> pixie.harness.run_result.EntryResult`
 :   Run evaluators on a fully-populated evaluable and return an EntryResult.
     
     Args:
@@ -45,7 +45,7 @@ Functions
     Returns:
         An EntryResult with evaluation scores and reasoning.
 
-`load_dataset(dataset_path: Path) ‑> pixie.harness.runner.Dataset`
+`def load_dataset(dataset_path: Path) ‑> pixie.harness.runner.Dataset`
 :   Load a dataset and return a :class:`Dataset`.
     
     The dataset JSON is validated directly by :class:`Dataset`.
@@ -60,7 +60,7 @@ Functions
         FileNotFoundError: If *dataset_path* does not exist.
         ValueError: If dataset validation fails.
 
-`load_input_kwargs(input_path: str | Path) ‑> dict[str, typing.Any]`
+`def load_input_kwargs(input_path: str | Path) ‑> dict[str, typing.Any]`
 :   Load kwargs from a JSON file.
     
     Args:
@@ -73,7 +73,7 @@ Functions
         FileNotFoundError: If the file does not exist.
         ValueError: If the JSON is invalid or not a dict.
 
-`resolve_evaluator_name(name: str) ‑> str`
+`def resolve_evaluator_name(name: str) ‑> str`
 :   Resolve short built-in name or validate a custom evaluator reference.
     
     Args:
@@ -89,7 +89,7 @@ Functions
         ValueError: If *name* is not a known built-in and does not use
             the ``filepath:name`` format.
 
-`resolve_runnable_reference(reference: str) ‑> Any`
+`def resolve_runnable_reference(reference: str) ‑> Any`
 :   Load a runnable from a ``filepath:callable_name`` reference.
     
     Args:
@@ -101,7 +101,7 @@ Functions
     Raises:
         ValueError: If *reference* is not in ``filepath:name`` format.
 
-`run_dataset(dataset_path: str) ‑> tuple[str, list[pixie.harness.run_result.EntryResult]]`
+`async def run_dataset(dataset_path: str) ‑> tuple[str, list[pixie.harness.run_result.EntryResult]]`
 :   Run evaluations for a single dataset and return the dataset name and results.
     
     Entries run concurrently (gated by a semaphore for runnables).
@@ -122,7 +122,7 @@ Functions
         FileNotFoundError: If the dataset file does not exist.
         ValueError: If the dataset fails validation.
 
-`run_entry(entry: DatasetEntry, runnable: Callable[..., Any], semaphore: asyncio.Semaphore, *, args_type: type[BaseModel] | None = None) ‑> pixie.harness.run_result.EntryResult`
+`async def run_entry(entry: DatasetEntry, runnable: Callable[..., Any], semaphore: asyncio.Semaphore, *, args_type: type[BaseModel] | None = None) ‑> pixie.harness.run_result.EntryResult`
 :   Process a single dataset entry: call runnable, then evaluate.
     
     Sets up ``eval_input`` (for ``wrap(purpose="input")`` injection) and
@@ -142,7 +142,7 @@ Functions
     Returns:
         An EntryResult with output and evaluation scores.
 
-`run_runnable(reference: str, kwargs: dict[str, Any]) ‑> None`
+`async def run_runnable(reference: str, kwargs: dict[str, Any]) ‑> None`
 :   Resolve, create, and run a Runnable with the given kwargs.
     
     Handles the full lifecycle: ``create()`` → ``setup()`` → ``run(args)``

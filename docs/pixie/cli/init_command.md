@@ -16,7 +16,7 @@ project is a safe no-op.
 Functions
 ---------
 
-`init_pixie_dir(root: str | None = None) ‑> pathlib.Path`
+`def init_pixie_dir(root: str | None = None) ‑> pathlib.Path`
 :   Create the pixie working directory and its standard layout.
     
     Args:

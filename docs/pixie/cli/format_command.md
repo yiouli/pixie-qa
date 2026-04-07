@@ -13,7 +13,7 @@ dataset file.
 Functions
 ---------
 
-`format_trace_to_entry(input_path: Path, output_path: Path) ‑> None`
+`def format_trace_to_entry(input_path: Path, output_path: Path) ‑> None`
 :   Convert a trace log file into a dataset entry JSON file.
     
     Args:
@@ -24,7 +24,7 @@ Functions
         FileNotFoundError: If the input file does not exist.
         ValueError: If the trace log has no usable data.
 
-`main(argv: list[str] | None = None) ‑> int`
+`def main(argv: list[str] | None = None) ‑> int`
 :   Entry point for ``pixie format`` command.
     
     Args:

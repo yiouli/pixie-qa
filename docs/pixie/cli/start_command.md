@@ -14,7 +14,7 @@ updates live when files change.
 Functions
 ---------
 
-`start(root: str | None = None, *, tab: str | None = None, item_id: str | None = None) ‑> int`
+`def start(root: str | None = None, *, tab: str | None = None, item_id: str | None = None) ‑> int`
 :   Initialize the pixie directory (if needed) and launch the web UI server.
     
     The init step is idempotent — existing directories and files are preserved.

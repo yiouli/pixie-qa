@@ -34,19 +34,19 @@ Sub-modules
 Functions
 ---------
 
-`add_handler(handler: InstrumentationHandler) ‑> None`
+`def add_handler(handler: InstrumentationHandler) ‑> None`
 :   Register *handler* to receive span notifications.
     
     Must be called after :func:`enable_llm_tracing`.  Multiple handlers can
     be registered; each receives every span.
 
-`clear_eval_input() ‑> None`
+`def clear_eval_input() ‑> None`
 :   Clear the eval input registry.
 
-`clear_eval_output() ‑> None`
+`def clear_eval_output() ‑> None`
 :   Clear the eval output list.
 
-`enable_llm_tracing(*, capture_content: bool = True, queue_size: int = 1000) ‑> None`
+`def enable_llm_tracing(*, capture_content: bool = True, queue_size: int = 1000) ‑> None`
 :   Initialize the LLM tracing sub-system.
     
     Sets up the OpenTelemetry ``TracerProvider``, span processor, delivery
@@ -56,12 +56,12 @@ Functions
     
     Handler registration is done separately via :func:`add_handler`.
 
-`ensure_eval_capture_registered() ‑> None`
+`def ensure_eval_capture_registered() ‑> None`
 :   Register a single :class:`EvalCaptureLogProcessor` on the wrap logger.
     
     Safe to call multiple times — only the first call has an effect.
 
-`filter_by_purpose(entries: list[WrappedData], purposes: set[str]) ‑> list[pixie.instrumentation.wrap.WrappedData]`
+`def filter_by_purpose(entries: list[WrappedData], purposes: set[str]) ‑> list[pixie.instrumentation.wrap.WrappedData]`
 :   Filter wrap log entries by purpose.
     
     Args:
@@ -71,27 +71,27 @@ Functions
     Returns:
         Filtered list.
 
-`flush(timeout_seconds: float = 5.0) ‑> bool`
+`def flush(timeout_seconds: float = 5.0) ‑> bool`
 :   Flush the delivery queue, blocking until all items are processed.
 
-`get_eval_input() ‑> collections.abc.Mapping[str, JsonValue] | None`
+`def get_eval_input() ‑> collections.abc.Mapping[str, JsonValue] | None`
 :   Get the eval input registry, or ``None`` if not in eval mode.
 
-`get_eval_output() ‑> list[dict[str, typing.Any]] | None`
+`def get_eval_output() ‑> list[dict[str, typing.Any]] | None`
 :   Get the eval output list, or ``None`` if not initialised.
 
-`init_eval_output() ‑> list[dict[str, typing.Any]]`
+`def init_eval_output() ‑> list[dict[str, typing.Any]]`
 :   Initialise and return a fresh eval output list.
 
-`remove_handler(handler: InstrumentationHandler) ‑> None`
+`def remove_handler(handler: InstrumentationHandler) ‑> None`
 :   Unregister a previously registered *handler*.
     
     Raises ``ValueError`` if *handler* was not registered.
 
-`set_eval_input(registry: Mapping[str, JsonValue]) ‑> None`
+`def set_eval_input(registry: Mapping[str, JsonValue]) ‑> None`
 :   Set the eval input registry for the current context.
 
-`wrap(data: T, *, purpose: Purpose, name: str, description: str | None = None) ‑> ~T`
+`def wrap(data: T, *, purpose: Purpose, name: str, description: str | None = None) ‑> ~T`
 :   Observe *data* at a named wrap point with a specified purpose.
 
 Classes
@@ -128,7 +128,7 @@ Classes
 
     ### Methods
 
-    `force_flush(self, timeout_millis: int = 30000) ‑> bool`
+    `def force_flush(self, timeout_millis: int = 30000) ‑> bool`
     :   Export all the received logs to the configured Exporter that have not yet
         been exported.
         
@@ -139,14 +139,14 @@ Classes
         Returns:
             False if the timeout is exceeded, True otherwise.
 
-    `on_emit(self, log_record: ReadWriteLogRecord) ‑> None`
+    `def on_emit(self, log_record: ReadWriteLogRecord) ‑> None`
     :   Emits the ``ReadWriteLogRecord``.
         
         Implementers should handle any exceptions raised during log processing
         to prevent application crashes. See the class docstring for details
         on error handling expectations.
 
-    `shutdown(self) ‑> None`
+    `def shutdown(self) ‑> None`
     :   Called when a :class:`opentelemetry.sdk._logs.Logger` is shutdown
 
 `ImageContent(url: str, detail: str | None = None, type: "Literal['image']" = 'image')`
@@ -178,13 +178,13 @@ Classes
 
     ### Methods
 
-    `on_llm(self, span: LLMSpan) ‑> None`
+    `async def on_llm(self, span: LLMSpan) ‑> None`
     :   Called when an LLM provider call completes.
         
         Default: no-op. Override to capture LLM call data for root-cause analysis.
         Exceptions are caught and suppressed.
 
-    `on_observe(self, span: ObserveSpan) ‑> None`
+    `async def on_observe(self, span: ObserveSpan) ‑> None`
     :   Called when a start_observation() block completes.
         
         Default: no-op. Override to capture eval-relevant data.
@@ -386,7 +386,7 @@ Classes
 
     ### Methods
 
-    `force_flush(self, timeout_millis: int = 30000) ‑> bool`
+    `def force_flush(self, timeout_millis: int = 30000) ‑> bool`
     :   Export all the received logs to the configured Exporter that have not yet
         been exported.
         
@@ -397,17 +397,17 @@ Classes
         Returns:
             False if the timeout is exceeded, True otherwise.
 
-    `on_emit(self, log_record: ReadWriteLogRecord) ‑> None`
+    `def on_emit(self, log_record: ReadWriteLogRecord) ‑> None`
     :   Emits the ``ReadWriteLogRecord``.
         
         Implementers should handle any exceptions raised during log processing
         to prevent application crashes. See the class docstring for details
         on error handling expectations.
 
-    `shutdown(self) ‑> None`
+    `def shutdown(self) ‑> None`
     :   Called when a :class:`opentelemetry.sdk._logs.Logger` is shutdown
 
-    `write_line(self, record: dict[str, Any]) ‑> None`
+    `def write_line(self, record: dict[str, Any]) ‑> None`
     :   Write an arbitrary JSON record (e.g. kwargs, llm_span).
 
 `UserMessage(content: tuple[MessageContent, ...], role: "Literal['user']" = 'user')`
@@ -415,7 +415,7 @@ Classes
 
     ### Static methods
 
-    `from_text(text: str) ‑> pixie.instrumentation.llm_tracing.UserMessage`
+    `def from_text(text: str) ‑> pixie.instrumentation.llm_tracing.UserMessage`
     :   Create a UserMessage with a single TextContent part.
 
     ### Instance variables

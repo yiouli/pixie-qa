@@ -8,7 +8,7 @@ Uses ``watchfiles`` to monitor the pixie root for artifact changes
 Functions
 ---------
 
-`watch_artifacts(root: str, sse: SSEManager) ‑> None`
+`async def watch_artifacts(root: str, sse: SSEManager) ‑> None`
 :   Watch the artifact root for changes and broadcast SSE events.
     
     This coroutine runs indefinitely (until cancelled). It watches the root

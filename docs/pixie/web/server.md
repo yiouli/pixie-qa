@@ -13,7 +13,7 @@ the server is already running and on which port.
 Functions
 ---------
 
-`build_url(host: str = '127.0.0.1', port: int = 7118, *, tab: str | None = None, item_id: str | None = None) ‑> str`
+`def build_url(host: str = '127.0.0.1', port: int = 7118, *, tab: str | None = None, item_id: str | None = None) ‑> str`
 :   Build the web UI URL with optional query parameters.
     
     Args:
@@ -25,12 +25,12 @@ Functions
     Returns:
         Full URL string.
 
-`get_server_status(root: str, host: str = '127.0.0.1') ‑> pixie.web.server.ServerStatus`
+`def get_server_status(root: str, host: str = '127.0.0.1') ‑> pixie.web.server.ServerStatus`
 :   Return the status of the pixie web server for *root*.
     
     Checks the lock file and probes the ``/api/status`` endpoint.
 
-`open_webui(root: str, *, host: str = '127.0.0.1', port: int = 7118, tab: str | None = None, item_id: str | None = None) ‑> None`
+`def open_webui(root: str, *, host: str = '127.0.0.1', port: int = 7118, tab: str | None = None, item_id: str | None = None) ‑> None`
 :   Open the web UI, starting the server in the background if needed.
     
     Checks the ``server.lock`` file in *root* to discover whether a
@@ -47,7 +47,7 @@ Functions
         tab: Optional tab to pre-select in the web UI.
         item_id: Optional item path to pre-select within the tab.
 
-`run_server(root: str, *, host: str = '127.0.0.1', port: int = 7118, open_browser: bool = True, tab: str | None = None, item_id: str | None = None) ‑> None`
+`def run_server(root: str, *, host: str = '127.0.0.1', port: int = 7118, open_browser: bool = True, tab: str | None = None, item_id: str | None = None) ‑> None`
 :   Start the pixie web UI server.
     
     Writes a ``server.lock`` to *root* on startup and removes it on

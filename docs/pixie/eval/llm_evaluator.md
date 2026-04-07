@@ -26,7 +26,7 @@ Usage::
 Functions
 ---------
 
-`create_llm_evaluator(name: str, prompt_template: str, *, model: str = 'gpt-4o-mini', client: Any | None = None) ‑> pixie.eval.llm_evaluator._LLMEvaluator`
+`def create_llm_evaluator(name: str, prompt_template: str, *, model: str = 'gpt-4o-mini', client: Any | None = None) ‑> pixie.eval.llm_evaluator._LLMEvaluator`
 :   Create a custom LLM-as-judge evaluator from a prompt template.
     
     The template may reference these variables (populated from the

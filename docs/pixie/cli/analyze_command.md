@@ -16,7 +16,7 @@ The analysis markdown is saved alongside the result JSON at
 Functions
 ---------
 
-`analyze(test_id: str) ‑> int`
+`def analyze(test_id: str) ‑> int`
 :   Entry point for ``pixie analyze <test_run_id>``.
     
     Args:

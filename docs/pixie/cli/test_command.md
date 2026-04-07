@@ -11,7 +11,7 @@ Supports dataset-driven mode — each dataset JSON file specifies its evaluators
 Functions
 ---------
 
-`main(argv: list[str] | None = None) ‑> int`
+`def main(argv: list[str] | None = None) ‑> int`
 :   Entry point for ``pixie test`` command.
     
     Args:

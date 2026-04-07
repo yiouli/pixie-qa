@@ -19,7 +19,7 @@ evaluator calls proceed without throttling.
 Functions
 ---------
 
-`configure_rate_limits(config: RateLimitConfig | None = None) ‑> None`
+`def configure_rate_limits(config: RateLimitConfig | None = None) ‑> None`
 :   Set (or clear) the global rate limiter for evaluator calls.
     
     Pass a ``RateLimitConfig`` to enable rate limiting, or ``None`` to
@@ -29,10 +29,10 @@ Functions
         config: The rate-limit configuration.  Passing ``None`` removes
             any previously configured limiter.
 
-`configure_rate_limits_from_config(config: PixieConfig | None = None) ‑> None`
+`def configure_rate_limits_from_config(config: PixieConfig | None = None) ‑> None`
 :   Apply the central Pixie config to the module-level rate limiter.
 
-`get_rate_limiter() ‑> pixie.eval.rate_limiter.EvalRateLimiter | None`
+`def get_rate_limiter() ‑> pixie.eval.rate_limiter.EvalRateLimiter | None`
 :   Return the active rate limiter, auto-loading it from Pixie config once.
 
 Classes
@@ -52,14 +52,14 @@ Classes
 
     ### Methods
 
-    `acquire(self, estimated_tokens: int = 0) ‑> None`
+    `async def acquire(self, estimated_tokens: int = 0) ‑> None`
     :   Wait until the request can proceed within rate limits.
         
         Blocks (with a short polling interval) until *all* four
         constraints (RPS, RPM, TPS, TPM) are satisfied, then records
         the request in the sliding windows.
 
-    `estimate_tokens(self, text: str) ‑> int`
+    `def estimate_tokens(self, text: str) ‑> int`
     :   Estimate token count using ``len(text) // 3`` approximation.
 
 `RateLimitConfig(rps: float = 4.0, rpm: float = 50.0, tps: float = 10000.0, tpm: float = 500000.0)`

@@ -100,7 +100,7 @@ Sub-modules
 Functions
 ---------
 
-`AnswerCorrectness(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def AnswerCorrectness(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Answer correctness evaluator (RAGAS).
     
     Judges whether ``eval_output`` is correct compared to
@@ -116,7 +116,7 @@ Functions
     Args:
         client: OpenAI client instance.
 
-`AnswerRelevancy(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def AnswerRelevancy(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Answer relevancy evaluator (RAGAS).
     
     Judges whether ``eval_output`` directly addresses the question in
@@ -132,7 +132,7 @@ Functions
     Args:
         client: OpenAI client instance.
 
-`Battle(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Battle(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Head-to-head comparison evaluator (LLM-as-judge).
     
     Uses an LLM to compare ``eval_output`` against ``expectation``
@@ -147,7 +147,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`ClosedQA(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def ClosedQA(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Closed-book question-answering evaluator (LLM-as-judge).
     
     Uses an LLM to judge whether ``eval_output`` correctly answers the
@@ -164,7 +164,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`ContextRelevancy(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def ContextRelevancy(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Context relevancy evaluator (RAGAS).
     
     Judges whether the retrieved context is relevant to the query.
@@ -178,7 +178,7 @@ Functions
     Args:
         client: OpenAI client instance.
 
-`EmbeddingSimilarity(*, prefix: str | None = None, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def EmbeddingSimilarity(*, prefix: str | None = None, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Embedding-based semantic similarity evaluator.
     
     Computes cosine similarity between embedding vectors of ``eval_output``
@@ -195,7 +195,7 @@ Functions
         model: Embedding model name.
         client: OpenAI client instance.
 
-`ExactMatch() ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def ExactMatch() ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Exact value comparison evaluator.
     
     Returns 1.0 if ``eval_output`` exactly equals ``expectation``,
@@ -208,7 +208,7 @@ Functions
     
     **Requires ``expectation``**: Yes.
 
-`Factuality(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Factuality(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Factual accuracy evaluator (LLM-as-judge).
     
     Uses an LLM to judge whether ``eval_output`` is factually consistent
@@ -225,7 +225,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`Faithfulness(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Faithfulness(*, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Faithfulness evaluator (RAGAS).
     
     Judges whether ``eval_output`` is faithful to (i.e. supported by)
@@ -240,7 +240,7 @@ Functions
     Args:
         client: OpenAI client instance.
 
-`Humor(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Humor(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Humor quality evaluator (LLM-as-judge).
     
     Uses an LLM to judge the humor quality of ``eval_output`` against
@@ -255,7 +255,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`JSONDiff(*, string_scorer: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def JSONDiff(*, string_scorer: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Structural JSON comparison evaluator.
     
     Recursively compares two JSON structures and produces a similarity
@@ -269,7 +269,7 @@ Functions
     Args:
         string_scorer: Optional pairwise scorer for string fields.
 
-`LevenshteinMatch() ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def LevenshteinMatch() ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Edit-distance string similarity evaluator.
     
     Computes a normalised Levenshtein distance between ``eval_output`` and
@@ -283,7 +283,7 @@ Functions
     
     **Requires ``expectation``**: Yes.
 
-`ListContains(*, pairwise_scorer: Any = None, allow_extra_entities: bool = False) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def ListContains(*, pairwise_scorer: Any = None, allow_extra_entities: bool = False) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   List overlap evaluator.
     
     Checks whether ``eval_output`` contains all items from
@@ -298,7 +298,7 @@ Functions
         pairwise_scorer: Optional scorer for pairwise element comparison.
         allow_extra_entities: If True, extra items in output are not penalised.
 
-`Moderation(*, threshold: float | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Moderation(*, threshold: float | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Content moderation evaluator.
     
     Uses the OpenAI moderation API to check ``eval_output`` for unsafe
@@ -313,7 +313,7 @@ Functions
         threshold: Custom flagging threshold.
         client: OpenAI client instance.
 
-`NumericDiff() ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def NumericDiff() ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Normalised numeric difference evaluator.
     
     Computes a normalised numeric distance between ``eval_output`` and
@@ -325,7 +325,7 @@ Functions
     
     **Requires ``expectation``**: Yes.
 
-`Possible(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Possible(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Feasibility / plausibility evaluator (LLM-as-judge).
     
     Uses an LLM to judge whether ``eval_output`` is a plausible or
@@ -340,7 +340,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`Security(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Security(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Security vulnerability evaluator (LLM-as-judge).
     
     Uses an LLM to check ``eval_output`` for security vulnerabilities
@@ -355,7 +355,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`Sql(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Sql(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   SQL equivalence evaluator (LLM-as-judge).
     
     Uses an LLM to judge whether ``eval_output`` SQL is semantically
@@ -370,7 +370,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`Summary(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Summary(*, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Summarisation quality evaluator (LLM-as-judge).
     
     Uses an LLM to judge the quality of ``eval_output`` as a summary
@@ -385,7 +385,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`Translation(*, language: str | None = None, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def Translation(*, language: str | None = None, model: str | None = None, client: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   Translation quality evaluator (LLM-as-judge).
     
     Uses an LLM to judge the translation quality of ``eval_output``
@@ -400,7 +400,7 @@ Functions
         model: LLM model name.
         client: OpenAI client instance.
 
-`ValidJSON(*, schema: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
+`def ValidJSON(*, schema: Any = None) ‑> pixie.eval.scorers.AutoevalsAdapter`
 :   JSON syntax and schema validation evaluator.
     
     Returns 1.0 if ``eval_output`` is valid JSON (and optionally matches
@@ -414,7 +414,7 @@ Functions
     Args:
         schema: Optional JSON Schema to validate against.
 
-`evaluate(evaluator: Callable[..., Any], evaluable: Evaluable) ‑> pixie.eval.evaluation.Evaluation`
+`async def evaluate(evaluator: Callable[..., Any], evaluable: Evaluable) ‑> pixie.eval.evaluation.Evaluation`
 :   Run a single evaluator against a single evaluable.
     
     Behavior:

@@ -5,7 +5,7 @@ Evaluation primitives: Evaluation result, Evaluator protocol, evaluate().
 Functions
 ---------
 
-`evaluate(evaluator: Callable[..., Any], evaluable: Evaluable) ‑> pixie.eval.evaluation.Evaluation`
+`async def evaluate(evaluator: Callable[..., Any], evaluable: Evaluable) ‑> pixie.eval.evaluation.Evaluation`
 :   Run a single evaluator against a single evaluable.
     
     Behavior:

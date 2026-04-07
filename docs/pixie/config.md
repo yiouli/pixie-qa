@@ -17,7 +17,7 @@ Variables
 Functions
 ---------
 
-`get_config() ‑> pixie.config.PixieConfig`
+`def get_config() ‑> pixie.config.PixieConfig`
 :   Read configuration from environment variables with defaults.
     
     Supported variables:

@@ -13,13 +13,13 @@ Combines all LLM tracing functionality:
 Functions
 ---------
 
-`add_handler(handler: InstrumentationHandler) ‑> None`
+`def add_handler(handler: InstrumentationHandler) ‑> None`
 :   Register *handler* to receive span notifications.
     
     Must be called after :func:`enable_llm_tracing`.  Multiple handlers can
     be registered; each receives every span.
 
-`enable_llm_tracing(*, capture_content: bool = True, queue_size: int = 1000) ‑> None`
+`def enable_llm_tracing(*, capture_content: bool = True, queue_size: int = 1000) ‑> None`
 :   Initialize the LLM tracing sub-system.
     
     Sets up the OpenTelemetry ``TracerProvider``, span processor, delivery
@@ -29,10 +29,10 @@ Functions
     
     Handler registration is done separately via :func:`add_handler`.
 
-`flush(timeout_seconds: float = 5.0) ‑> bool`
+`def flush(timeout_seconds: float = 5.0) ‑> bool`
 :   Flush the delivery queue, blocking until all items are processed.
 
-`remove_handler(handler: InstrumentationHandler) ‑> None`
+`def remove_handler(handler: InstrumentationHandler) ‑> None`
 :   Unregister a previously registered *handler*.
     
     Raises ``ValueError`` if *handler* was not registered.
@@ -86,13 +86,13 @@ Classes
 
     ### Methods
 
-    `on_llm(self, span: LLMSpan) ‑> None`
+    `async def on_llm(self, span: LLMSpan) ‑> None`
     :   Called when an LLM provider call completes.
         
         Default: no-op. Override to capture LLM call data for root-cause analysis.
         Exceptions are caught and suppressed.
 
-    `on_observe(self, span: ObserveSpan) ‑> None`
+    `async def on_observe(self, span: ObserveSpan) ‑> None`
     :   Called when a start_observation() block completes.
         
         Default: no-op. Override to capture eval-relevant data.
@@ -184,16 +184,16 @@ Classes
 
     ### Methods
 
-    `force_flush(self, timeout_millis: int = 30000) ‑> bool`
+    `def force_flush(self, timeout_millis: int = 30000) ‑> bool`
     :   Flush the delivery queue.
 
-    `on_end(self, span: ReadableSpan) ‑> None`
+    `def on_end(self, span: ReadableSpan) ‑> None`
     :   Convert completed OpenInference LLM spans to LLMSpan and submit.
 
-    `on_shutdown(self) ‑> None`
+    `def on_shutdown(self) ‑> None`
     :   No-op.
 
-    `on_start(self, span: Any, parent_context: Any = None) ‑> None`
+    `def on_start(self, span: Any, parent_context: Any = None) ‑> None`
     :   No-op — we only process completed spans.
 
 `ObserveSpan(span_id: str, trace_id: str, parent_span_id: str | None, started_at: datetime, ended_at: datetime, duration_ms: float, name: str | None, input: Any, output: Any, metadata: dict[str, Any], error: str | None)`
@@ -306,7 +306,7 @@ Classes
 
     ### Static methods
 
-    `from_text(text: str) ‑> pixie.instrumentation.llm_tracing.UserMessage`
+    `def from_text(text: str) ‑> pixie.instrumentation.llm_tracing.UserMessage`
     :   Create a UserMessage with a single TextContent part.
 
     ### Instance variables

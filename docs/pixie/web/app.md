@@ -9,7 +9,7 @@ Serves the single-page React app and provides API endpoints for:
 Functions
 ---------
 
-`create_app(root: str, sse_manager: SSEManager | None = None) ‑> starlette.applications.Starlette`
+`def create_app(root: str, sse_manager: SSEManager | None = None) ‑> starlette.applications.Starlette`
 :   Create the Starlette web UI application.
     
     Args:
@@ -32,14 +32,14 @@ Classes
 
     ### Methods
 
-    `broadcast(self, event_type: str, data: object) ‑> None`
+    `async def broadcast(self, event_type: str, data: object) ‑> None`
     :
 
-    `has_subscribers(self) ‑> bool`
+    `def has_subscribers(self) ‑> bool`
     :
 
-    `subscribe(self) ‑> asyncio.queues.Queue[str]`
+    `def subscribe(self) ‑> asyncio.queues.Queue[str]`
     :
 
-    `unsubscribe(self, q: asyncio.Queue[str]) ‑> None`
+    `def unsubscribe(self, q: asyncio.Queue[str]) ‑> None`
     :

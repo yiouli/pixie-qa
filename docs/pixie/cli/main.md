@@ -14,7 +14,7 @@ Usage::
 Functions
 ---------
 
-`main(argv: list[str] | None = None) ‑> int`
+`def main(argv: list[str] | None = None) ‑> int`
 :   Entry point for the ``pixie`` command.
     
     Args:

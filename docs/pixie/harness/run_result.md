@@ -14,13 +14,13 @@ Provides:
 Functions
 ---------
 
-`generate_test_id() ‑> str`
+`def generate_test_id() ‑> str`
 :   Generate a timestamped test run ID.
     
     Returns:
         A string of the form ``YYYYMMDD-HHMMSS``.
 
-`load_test_result(test_id: str) ‑> pixie.harness.run_result.RunResult`
+`def load_test_result(test_id: str) ‑> pixie.harness.run_result.RunResult`
 :   Load a test result from ``<pixie_root>/results/<test_id>/result.json``.
     
     Also reads any ``dataset-<index>.md`` analysis files and attaches
@@ -35,7 +35,7 @@ Functions
     Raises:
         FileNotFoundError: If the result file does not exist.
 
-`save_test_result(result: RunResult) ‑> str`
+`def save_test_result(result: RunResult) ‑> str`
 :   Write test result JSON to ``<pixie_root>/results/<test_id>/result.json``.
     
     Args:
