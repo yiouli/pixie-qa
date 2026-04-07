@@ -13,7 +13,7 @@ uv run pytest
 uv run pytest tests/pixie/
 
 # Run a specific test file
-uv run pytest tests/pixie/evals/test_scorecard.py -v
+uv run pytest tests/pixie/eval/test_scorers.py -v
 
 # Run tests matching a name pattern
 uv run pytest -k "test_factuality"
@@ -31,22 +31,37 @@ tests/
 ├── pixie/                             # Automated tests (pytest)
 │   ├── __init__.py
 │   ├── test_config.py
+│   ├── test_config_tracing.py
 │   ├── test_init.py
 │   ├── cli/
 │   │   ├── test_test_command.py       # pixie test config wiring
 │   │   ├── test_analyze_command.py    # pixie analyze CLI tests
+│   │   ├── test_init_command.py       # pixie init CLI tests
+│   │   ├── test_main.py              # CLI main entry point tests
+│   │   ├── test_trace_format_commands.py  # pixie trace / pixie format tests
 │   │   └── e2e_fixtures/
 │   │       ├── mock_evaluators.py     # Deterministic mock evaluators
 │   │       ├── conftest.py
 │   │       └── datasets/
 │   │           └── customer-faq.json  # 5-item golden dataset with evaluators per row
-│   ├── dataset/
-│   ├── evals/
-│   │   ├── test_scorecard.py          # Scorecard helper unit tests
-│   │   ├── test_test_result.py        # Test result JSON model tests
-│   │   └── ...
+│   ├── eval/
+│   │   ├── test_dataset_runner.py     # Dataset loading and runner tests
+│   │   ├── test_evaluation.py         # Evaluator protocol and evaluate() tests
+│   │   ├── test_llm_evaluator.py      # create_llm_evaluator tests
+│   │   ├── test_rate_limiter.py       # Rate limiter tests
+│   │   ├── test_runnable.py           # Runnable protocol tests
+│   │   ├── test_scorers.py            # Autoevals adapter tests
+│   │   └── test_test_result.py        # Test result JSON model tests
 │   ├── instrumentation/
-│   ├── observation_store/
+│   │   ├── test_handler.py            # Handler registry tests
+│   │   ├── test_processor.py          # OTel LLMSpanProcessor tests
+│   │   ├── test_queue.py              # Delivery queue tests
+│   │   ├── test_spans.py              # Span data model tests
+│   │   ├── test_wrap.py               # wrap() API tests
+│   │   ├── test_wrap_log.py           # Wrap log entry tests
+│   │   ├── test_wrap_processors.py    # TraceLogProcessor / EvalCaptureLogProcessor tests
+│   │   ├── test_wrap_registry.py      # Wrap registry tests
+│   │   └── test_wrap_serialization.py # jsonpickle serialization tests
 │   └── web/
 │       ├── test_app.py                # Web UI server + CLI tests
 │       └── test_watcher.py            # File watcher utility tests
@@ -129,12 +144,21 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 | ----------------------------------- | --------------------------------- | --------------------------------- |
 | `cli/test_test_command.py`          | `pixie.cli.test_command`          | dotenv/config wiring              |
 | `cli/test_analyze_command.py`       | `pixie.cli.analyze_command`       | pixie analyze CLI                 |
-| `evals/test_scorecard.py`           | `pixie.evals.scorecard`           | Scorecard helpers                 |
-| `evals/test_test_result.py`         | `pixie.evals.test_result`         | Test result JSON models           |
-| `evals/test_eval_utils.py`          | `pixie.evals.eval_utils`          | assert_pass / assert_dataset_pass |
-| `instrumentation/test_spans.py`     | `pixie.instrumentation.spans`     | Span data models                  |
-| `instrumentation/test_processor.py` | `pixie.instrumentation.processor` | OTel processor                    |
-| `instrumentation/test_queue.py`     | `pixie.instrumentation.queue`     | Delivery queue                    |
+| `cli/test_init_command.py`          | `pixie.cli.init_command`          | pixie init scaffolding            |
+| `cli/test_main.py`                  | `pixie.cli.main`                  | CLI entry point                   |
+| `cli/test_trace_format_commands.py` | `pixie.cli.trace_command` / `format_command` | pixie trace / format   |
+| `eval/test_dataset_runner.py`       | `pixie.harness.runner`            | Dataset loading and eval runner   |
+| `eval/test_evaluation.py`           | `pixie.eval.evaluation`           | Evaluator protocol, evaluate()    |
+| `eval/test_llm_evaluator.py`        | `pixie.eval.llm_evaluator`        | create_llm_evaluator              |
+| `eval/test_rate_limiter.py`         | `pixie.eval.rate_limiter`         | Rate limiting                     |
+| `eval/test_runnable.py`             | `pixie.harness.runnable`          | Runnable protocol                 |
+| `eval/test_scorers.py`              | `pixie.eval.scorers`              | Autoevals adapters                |
+| `eval/test_test_result.py`          | `pixie.harness.run_result`        | Test result JSON models           |
+| `instrumentation/test_handler.py`   | `pixie.instrumentation.llm_tracing` | Handler registry                |
+| `instrumentation/test_processor.py` | `pixie.instrumentation.llm_tracing` | OTel LLMSpanProcessor          |
+| `instrumentation/test_queue.py`     | `pixie.instrumentation.llm_tracing` | Delivery queue                  |
+| `instrumentation/test_spans.py`     | `pixie.instrumentation.llm_tracing` | Span data models                |
+| `instrumentation/test_wrap.py`      | `pixie.instrumentation.wrap`      | wrap() API                        |
 | `web/test_app.py`                   | `pixie.web.app` + CLI             | Manifest, SSE, endpoints, CLI     |
 | `web/test_watcher.py`               | `pixie.web.watcher`               | Artifact filtering, change labels |
 
