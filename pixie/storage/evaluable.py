@@ -13,7 +13,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, Field, JsonValue, model_validator
 
 
 class _Unset(Enum):
@@ -34,8 +34,6 @@ class NamedData(BaseModel):
         value: The JSON-serializable value.
     """
 
-    model_config = ConfigDict(frozen=True)
-
     name: str
     value: JsonValue
 
@@ -54,8 +52,6 @@ class TestCase(BaseModel):
         eval_metadata: Supplementary metadata (``None`` when absent).
         description: Human-readable description.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     eval_input: list[NamedData] = Field(min_length=1)
     expectation: JsonValue | _Unset = Field(default=UNSET)

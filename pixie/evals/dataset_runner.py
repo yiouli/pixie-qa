@@ -192,16 +192,17 @@ def _resolve_evaluator(name: str) -> Callable[..., Any]:
     )
 
 
-def _resolve_runnable(reference: str) -> Callable[..., Any]:
-    """Load a runnable function from a ``filepath:callable_name`` reference.
+def _resolve_runnable(reference: str) -> Callable[..., Any] | type:
+    """Load a runnable function or Runnable class from a reference.
 
     Args:
         reference: Reference in ``filepath:callable_name`` format
             (e.g. ``"pixie_qa/scripts/run_app.py:run_app"``).
             The file path is relative to the current working directory.
+            May resolve to a plain callable or a :class:`Runnable` class.
 
     Returns:
-        The resolved callable.
+        The resolved callable or Runnable class.
 
     Raises:
         ValueError: If *reference* does not use ``filepath:name`` format.
@@ -213,8 +214,9 @@ def _resolve_runnable(reference: str) -> Callable[..., Any]:
             f"(e.g. 'pixie_qa/scripts/run_app.py:run_app'), "
             f"got {reference!r}."
         )
-    func: Callable[..., Any] = _load_callable(reference, Path.cwd())
-    return func
+    attr = _load_callable(reference, Path.cwd())
+    result: Callable[..., Any] | type = attr
+    return result
 
 
 async def _noop_runnable(eval_input: object) -> None:

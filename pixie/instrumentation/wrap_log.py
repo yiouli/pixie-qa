@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class WrappedData(BaseModel):
@@ -34,8 +34,6 @@ class WrappedData(BaseModel):
         trace_id: OTel trace ID (if available).
         span_id: OTel span ID (if available).
     """
-
-    model_config = ConfigDict(frozen=True)
 
     type: str = "wrap"
     name: str

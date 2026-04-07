@@ -73,6 +73,11 @@ class TraceFileWriter:
         record = {"type": "llm_span", **span_data}
         self._write_line(record)
 
+    def write_kwargs(self, kwargs: dict[str, Any]) -> None:
+        """Write runnable kwargs as a JSONL line."""
+        record: dict[str, Any] = {"type": "kwargs", "value": kwargs}
+        self._write_line(record)
+
     def _write_line(self, record: dict[str, Any]) -> None:
         line = json.dumps(record, default=str)
         with self._lock, open(self._path, "a", encoding="utf-8") as f:

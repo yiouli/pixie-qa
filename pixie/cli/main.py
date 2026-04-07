@@ -3,6 +3,8 @@
 Usage::
 
     pixie test [path] [-v] [--no-open]
+    pixie trace --runnable <ref> --input <file> --output <file>
+    pixie format --input <file> --output <file>
     pixie analyze <test_run_id>
     pixie init [root]
     pixie start [root]
@@ -78,6 +80,47 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Artifact root directory (default: from PIXIE_ROOT or pixie_qa)",
     )
 
+    # -- pixie trace --------------------------------------------------------
+    trace_parser = subparsers.add_parser(
+        "trace",
+        help="Run a Runnable and capture trace output to a JSONL file",
+    )
+    trace_parser.add_argument(
+        "--runnable",
+        required=True,
+        help="Runnable reference in filepath:name format",
+    )
+    trace_parser.add_argument(
+        "--input",
+        required=True,
+        dest="trace_input",
+        help="Path to JSON file containing kwargs for the runnable",
+    )
+    trace_parser.add_argument(
+        "--output",
+        required=True,
+        dest="trace_output",
+        help="Path for the JSONL trace output file",
+    )
+
+    # -- pixie format -------------------------------------------------------
+    format_parser = subparsers.add_parser(
+        "format",
+        help="Convert a trace log into a dataset entry JSON object",
+    )
+    format_parser.add_argument(
+        "--input",
+        required=True,
+        dest="format_input",
+        help="Path to the JSONL trace file (produced by 'pixie trace')",
+    )
+    format_parser.add_argument(
+        "--output",
+        required=True,
+        dest="format_output",
+        help="Path for the output dataset entry JSON file",
+    )
+
     return parser
 
 
@@ -127,6 +170,30 @@ def main(argv: list[str] | None = None) -> int:
         from pixie.cli.start_command import start
 
         return start(root=args.root)
+
+    elif args.command == "trace":
+        from pixie.cli.trace_command import main as trace_main
+
+        trace_argv = [
+            "--runnable",
+            args.runnable,
+            "--input",
+            args.trace_input,
+            "--output",
+            args.trace_output,
+        ]
+        return trace_main(trace_argv)
+
+    elif args.command == "format":
+        from pixie.cli.format_command import main as format_main
+
+        format_argv = [
+            "--input",
+            args.format_input,
+            "--output",
+            args.format_output,
+        ]
+        return format_main(format_argv)
 
     return 0
 

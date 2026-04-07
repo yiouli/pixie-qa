@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel
+
 import pixie
 
 # ── Fake databases ──────────────────────────────────────────────────────────
@@ -44,7 +46,9 @@ _FAQ_KB: dict[str, str] = {
 
 def _lookup_customer(customer_id: str) -> dict[str, Any]:
     """Fetch a customer profile from the fake database."""
-    return _CUSTOMER_DB.get(customer_id, {"id": customer_id, "name": "Unknown", "tier": "basic"})
+    return _CUSTOMER_DB.get(
+        customer_id, {"id": customer_id, "name": "Unknown", "tier": "basic"}
+    )
 
 
 def _search_faq(query: str) -> str:
@@ -127,7 +131,9 @@ def chat(entry_input: dict[str, Any] | None) -> None:
     if route == "escalation":
         response = f"{greeting} I understand your concern. Let me connect you with a specialist."
     elif route == "priority":
-        response = f"{greeting} As a valued premium member, here's your answer: {faq_answer}"
+        response = (
+            f"{greeting} As a valued premium member, here's your answer: {faq_answer}"
+        )
     else:
         response = f"{greeting} {faq_answer}"
 
@@ -153,3 +159,35 @@ def chat(entry_input: dict[str, Any] | None) -> None:
         name="interaction_summary",
         description="Summary of the chat interaction",
     )()
+
+
+# ── Runnable protocol implementation ────────────────────────────────────────
+
+
+class ChatArgs(BaseModel):
+    """Typed arguments for the ChatRunnable."""
+
+    user_message: str
+    customer_id: str = "C001"
+
+
+class ChatRunnable:
+    """Runnable protocol implementation for the chatbot.
+
+    Wraps the ``chat()`` function with typed args, setup, and teardown.
+    """
+
+    @classmethod
+    def create(cls) -> ChatRunnable:
+        """Construct a ChatRunnable instance."""
+        return cls()
+
+    async def setup(self) -> None:
+        """No-op setup."""
+
+    async def teardown(self) -> None:
+        """No-op teardown."""
+
+    async def run(self, args: ChatArgs) -> None:
+        """Run the chatbot with typed arguments."""
+        chat({"user_message": args.user_message, "customer_id": args.customer_id})

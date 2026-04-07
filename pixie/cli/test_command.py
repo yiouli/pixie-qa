@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
+
 import pixie.instrumentation as px
 from pixie.evals.dataset_runner import (
     DatasetEntry,
@@ -33,6 +35,7 @@ from pixie.evals.dataset_runner import (
 )
 from pixie.evals.evaluation import Evaluation, evaluate
 from pixie.evals.rate_limiter import configure_rate_limits_from_config
+from pixie.evals.runnable import get_runnable_args_type, is_runnable_class
 from pixie.evals.test_result import (
     DatasetResult,
     EntryResult,
@@ -91,12 +94,17 @@ async def _run_entry(
     entry: DatasetEntry,
     runnable: Callable[..., Any],
     semaphore: asyncio.Semaphore,
+    *,
+    args_type: type[BaseModel] | None = None,
 ) -> EntryResult:
     """Process a single dataset entry: call runnable, then evaluate.
 
     Always calls the runnable with ``entry.entry_kwargs``.  The runnable's
     return value becomes the primary ``eval_output``.  Any wrap()
     captures are appended as additional output items.
+
+    When *args_type* is provided (Runnable protocol), kwargs are validated
+    into the Pydantic model before calling the runnable.
     """
     test_case = entry.test_case
 
@@ -110,7 +118,10 @@ async def _run_entry(
         set_input_registry(dependency_registry)
 
         try:
-            if inspect.iscoroutinefunction(runnable):
+            if args_type is not None:
+                args = args_type.model_validate(entry.entry_kwargs)
+                result = await runnable(args)
+            elif inspect.iscoroutinefunction(runnable):
                 result = await runnable(entry.entry_kwargs)
             else:
                 result = runnable(entry.entry_kwargs)
@@ -164,13 +175,38 @@ async def _run_dataset(dataset_path: Path) -> DatasetResult:
     Entries run concurrently (gated by a semaphore for runnables).
     Evaluators within each entry also run concurrently.
     Rate limiting is enforced inside ``evaluate()`` when configured.
+
+    When the dataset's runnable resolves to a :class:`Runnable` class,
+    setup/teardown lifecycle hooks are called once around all entries,
+    and each entry's kwargs are validated into the Runnable's args type.
     """
     dataset = load_dataset_entries(dataset_path)
-    runnable = _resolve_runnable(dataset.runnable)
+    resolved = _resolve_runnable(dataset.runnable)
     semaphore = asyncio.Semaphore(4)
 
-    entry_tasks = [_run_entry(entry, runnable, semaphore) for entry in dataset.entries]
-    entry_results: list[EntryResult] = list(await asyncio.gather(*entry_tasks))
+    if is_runnable_class(resolved):
+        assert isinstance(resolved, type)  # narrow for type checker
+        args_type = get_runnable_args_type(resolved)
+        runnable_instance = resolved.create()  # type: ignore[attr-defined]
+        try:
+            await runnable_instance.setup()
+            entry_tasks = [
+                _run_entry(
+                    entry,
+                    runnable_instance.run,
+                    semaphore,
+                    args_type=args_type,
+                )
+                for entry in dataset.entries
+            ]
+            entry_results: list[EntryResult] = list(await asyncio.gather(*entry_tasks))
+        finally:
+            await runnable_instance.teardown()
+    else:
+        entry_tasks = [
+            _run_entry(entry, resolved, semaphore) for entry in dataset.entries
+        ]
+        entry_results = list(await asyncio.gather(*entry_tasks))
 
     return DatasetResult(dataset=dataset.name, entries=entry_results)
 
