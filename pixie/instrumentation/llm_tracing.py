@@ -754,11 +754,12 @@ def enable_llm_tracing(
     capture_content: bool = True,
     queue_size: int = 1000,
 ) -> None:
-    """Initialize the instrumentation sub-package.
+    """Initialize the LLM tracing sub-system.
 
     Sets up the OpenTelemetry ``TracerProvider``, span processor, delivery
-    queue, and activates auto-instrumentors.  Truly idempotent — calling
-    ``init()`` a second time is a no-op.
+    queue, and activates auto-instrumentors for known LLM providers.
+    Truly idempotent — calling ``enable_llm_tracing()`` a second time is
+    a no-op.
 
     Handler registration is done separately via :func:`add_handler`.
     """
@@ -788,12 +789,12 @@ def enable_llm_tracing(
 def add_handler(handler: InstrumentationHandler) -> None:
     """Register *handler* to receive span notifications.
 
-    Must be called after :func:`init`.  Multiple handlers can be
-    registered; each receives every span.
+    Must be called after :func:`enable_llm_tracing`.  Multiple handlers can
+    be registered; each receives every span.
     """
     if _state.registry is None:
         raise RuntimeError(
-            "pixie.instrumentation.init() must be called before add_handler()"
+            "pixie.instrumentation.enable_llm_tracing() must be called before add_handler()"
         )
     _state.registry.add(handler)
 
@@ -805,7 +806,7 @@ def remove_handler(handler: InstrumentationHandler) -> None:
     """
     if _state.registry is None:
         raise RuntimeError(
-            "pixie.instrumentation.init() must be called before remove_handler()"
+            "pixie.instrumentation.enable_llm_tracing() must be called before remove_handler()"
         )
     _state.registry.remove(handler)
 

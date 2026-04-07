@@ -1,18 +1,29 @@
-"""pixie.instrumentation — public API for tracing and observing LLM applications.
+"""pixie.instrumentation — tracing and observation API for LLM applications.
 
 Core functions:
-    - ``init()`` — initialize the tracer provider, span processor, and auto-instrumentors.
-    - ``flush()`` — flush pending spans to handlers.
-    - ``add_handler()`` / ``remove_handler()`` — register span handlers.
-    - ``wrap()`` — data-oriented observation API for dependency injection and output capture.
+    - :func:`enable_llm_tracing` — initialize the tracer provider, span
+      processor, delivery queue, and auto-instrumentors (idempotent).
+    - :func:`flush` — flush pending spans to handlers.
+    - :func:`add_handler` / :func:`remove_handler` — register or unregister
+      :class:`InstrumentationHandler` instances to receive span notifications.
+    - :func:`wrap` — data-oriented observation API for dependency injection
+      and output capture.
 
-Configuration
--------------
+Span types:
+    - :class:`LLMSpan` — one LLM provider call (chat or embedding).
+    - :class:`ObserveSpan` — user-defined instrumented block.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| ``PIXIE_ROOT`` | ``pixie_qa`` | Root directory for all pixie-generated artefacts |
-| ``PIXIE_DATASET_DIR`` | ``{PIXIE_ROOT}/datasets`` | Directory for dataset JSON files |
+Message types:
+    - :class:`SystemMessage`, :class:`UserMessage`, :class:`AssistantMessage`,
+      :class:`ToolResultMessage` — LLM conversation messages.
+    - :class:`TextContent`, :class:`ImageContent` — multimodal content parts.
+    - :class:`ToolCall`, :class:`ToolDefinition` — tool invocation types.
+
+Wrap support:
+    - :class:`WrappedData` — Pydantic model for ``wrap()`` observation records.
+    - :class:`TraceLogProcessor` — writes wrap events to JSONL trace files.
+    - :class:`EvalCaptureLogProcessor` — captures output/state wrap events
+      during ``pixie test`` evaluation runs.
 """
 
 from __future__ import annotations

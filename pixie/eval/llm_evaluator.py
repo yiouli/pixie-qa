@@ -167,7 +167,7 @@ def create_llm_evaluator(
     """Create a custom LLM-as-judge evaluator from a prompt template.
 
     The template may reference these variables (populated from the
-    :class:`~pixie.storage.evaluable.Evaluable` fields):
+    :class:`~pixie.eval.evaluable.Evaluable` fields):
 
     - ``{eval_input}`` — the evaluable's input
     - ``{eval_output}`` — the evaluable's output
