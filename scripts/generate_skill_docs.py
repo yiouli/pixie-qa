@@ -72,9 +72,7 @@ def _generate_evaluators_md() -> str:
     lines.append("# Built-in Evaluators")
     lines.append("")
     lines.append("> Auto-generated from pixie source code docstrings.")
-    lines.append(
-        "> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`."
-    )
+    lines.append("> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`.")
     lines.append("")
 
     # Module-level docstring (includes the selection guide)
@@ -127,9 +125,7 @@ def _generate_wrap_api_md() -> str:
     lines.append("# Wrap API Reference")
     lines.append("")
     lines.append("> Auto-generated from pixie source code docstrings.")
-    lines.append(
-        "> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`."
-    )
+    lines.append("> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`.")
     lines.append("")
 
     # Module-level docstring (includes mode descriptions)
@@ -177,10 +173,9 @@ def _generate_wrap_api_md() -> str:
         lines.append(_render_member("wrap", wrap_member.obj, prefix="pixie."))
 
     # enable_storage
-    if hasattr(pixie, "enable_storage"):
-        lines.append(
-            _render_member("enable_storage", pixie.enable_storage, prefix="pixie.")
-        )
+    enable_storage = getattr(pixie, "enable_storage", None)
+    if enable_storage is not None:
+        lines.append(_render_member("enable_storage", enable_storage, prefix="pixie."))
 
     lines.append("---")
     lines.append("")
@@ -229,9 +224,7 @@ def _generate_testing_api_md() -> str:
     lines.append("# Testing API Reference")
     lines.append("")
     lines.append("> Auto-generated from pixie source code docstrings.")
-    lines.append(
-        "> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`."
-    )
+    lines.append("> Do not edit by hand — run `uv run python scripts/generate_skill_docs.py`.")
     lines.append("")
 
     # Module-level docstring (includes dataset JSON format, CLI commands, etc.)

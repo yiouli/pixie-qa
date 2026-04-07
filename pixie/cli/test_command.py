@@ -16,13 +16,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import inspect
+import json
 import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from pixie.config import get_config
 from pixie.eval.dataset_runner import (
@@ -56,7 +57,9 @@ from pixie.instrumentation.wrap import (
     serialize_wrap_data,
     set_eval_input,
 )
-from pixie.web.server import open_webui
+from pixie.web import server as web_server
+
+_JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 
 
 async def _evaluate_entry(
@@ -120,14 +123,15 @@ async def _run_entry(
         }
         set_eval_input(dependency_registry)
 
+        runnable_result: Any = None
         try:
             if args_type is not None:
                 args = args_type.model_validate(entry.entry_kwargs)
-                await runnable(args)
+                runnable_result = await runnable(args)
             elif inspect.iscoroutinefunction(runnable):
-                await runnable(entry.entry_kwargs)
+                runnable_result = await runnable(entry.entry_kwargs)
             else:
-                runnable(entry.entry_kwargs)
+                runnable_result = runnable(entry.entry_kwargs)
         except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
             clear_eval_input()
             clear_eval_output()
@@ -149,13 +153,17 @@ async def _run_entry(
         clear_eval_input()
         clear_eval_output()
 
-    # Build eval_output from runnable result and captured wrap events
-    warpped_output = [
-        WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured
-    ]
-    eval_output = [
-        NamedData(name=wrapped.name, value=wrapped.data) for wrapped in warpped_output
-    ]
+    # Build eval_output from captured wrap events, or fallback to runnable return.
+    wrapped_output = [WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured]
+    eval_output = [NamedData(name=wrapped.name, value=wrapped.data) for wrapped in wrapped_output]
+    if not eval_output:
+        fallback_value: JsonValue
+        try:
+            fallback_value = _JSON_VALUE_ADAPTER.validate_python(runnable_result)
+        except Exception:
+            # Always provide a JSON-compatible fallback for deterministic evaluators.
+            fallback_value = json.dumps(runnable_result, default=str)
+        eval_output = [NamedData(name="output", value=fallback_value)]
 
     evaluable = Evaluable(
         eval_input=test_case.eval_input,
@@ -202,9 +210,7 @@ async def _run_dataset(dataset_path: Path) -> DatasetResult:
         finally:
             await runnable_instance.teardown()
     else:
-        entry_tasks = [
-            _run_entry(entry, resolved, semaphore) for entry in dataset.entries
-        ]
+        entry_tasks = [_run_entry(entry, resolved, semaphore) for entry in dataset.entries]
         entry_results = list(await asyncio.gather(*entry_tasks))
 
     return DatasetResult(dataset=dataset.name, entries=entry_results)
@@ -241,9 +247,7 @@ def _run_datasets(
 
         # Print results
         passed_count = sum(
-            1
-            for entry in ds_result.entries
-            if all(ev.score >= 0.5 for ev in entry.evaluations)
+            1 for entry in ds_result.entries if all(ev.score >= 0.5 for ev in entry.evaluations)
         )
         total_count = len(ds_result.entries)
         print(f"\n{'=' * 52} {ds_result.dataset} {'=' * 52}")  # noqa: T201
@@ -256,7 +260,7 @@ def _run_datasets(
             if len(desc) > 80:
                 desc = desc[:80] + "…"
             print(  # noqa: T201
-                f"  [{i+1}] {desc} ({evals_str}) [{', '.join(scores)}] {mark}"
+                f"  [{i + 1}] {desc} ({evals_str}) [{', '.join(scores)}] {mark}"
             )
             if not all_pass:
                 all_passed = False
@@ -279,7 +283,7 @@ def _run_datasets(
     print(f"\nResults saved to {result_path}")  # noqa: T201
 
     if not no_open:
-        open_webui(
+        web_server.open_webui(
             get_config().root,
             tab="results",
             item_id=f"results/{test_id}",

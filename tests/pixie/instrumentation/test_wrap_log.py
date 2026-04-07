@@ -30,7 +30,7 @@ class TestWrappedDataModel:
     def test_frozen(self) -> None:
         wd = WrappedData(name="msg", purpose="entry", data="hello")
         with pytest.raises(ValidationError):
-            wd.name = "changed"  # type: ignore[misc]
+            wd.name = "changed"
 
     def test_wrap_log_entry_is_alias(self) -> None:
         assert WrapLogEntry is WrappedData
@@ -82,13 +82,9 @@ class TestLoadWrapLogEntries:
     def test_loads_wrap_entries(self, tmp_path: Path) -> None:
         jsonl = tmp_path / "trace.jsonl"
         lines = [
-            json.dumps(
-                {"type": "wrap", "name": "msg", "purpose": "entry", "data": "hi"}
-            ),
+            json.dumps({"type": "wrap", "name": "msg", "purpose": "entry", "data": "hi"}),
             json.dumps({"type": "llm_span", "span_id": "abc"}),
-            json.dumps(
-                {"type": "wrap", "name": "out", "purpose": "output", "data": "bye"}
-            ),
+            json.dumps({"type": "wrap", "name": "out", "purpose": "output", "data": "bye"}),
         ]
         jsonl.write_text("\n".join(lines))
         entries = load_wrap_log_entries(jsonl)

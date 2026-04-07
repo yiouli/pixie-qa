@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 
@@ -195,9 +196,9 @@ class TestObserveSpan:
 class TestLLMSpan:
     """Tests for LLMSpan."""
 
-    def _make_llm_span(self, **overrides: object) -> LLMSpan:
+    def _make_llm_span(self, **overrides: Any) -> LLMSpan:
         now = datetime.now(tz=timezone.utc)
-        defaults = {
+        defaults: dict[str, Any] = {
             "span_id": "0000000000000001",
             "trace_id": "00000000000000000000000000000001",
             "parent_span_id": None,
@@ -224,7 +225,7 @@ class TestLLMSpan:
             "tool_definitions": (),
         }
         defaults.update(overrides)
-        return LLMSpan(**defaults)  # type: ignore[arg-type]
+        return LLMSpan(**defaults)
 
     def test_frozen(self) -> None:
         span = self._make_llm_span()

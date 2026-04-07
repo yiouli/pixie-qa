@@ -5,25 +5,30 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import JsonValue
 
-from pixie.eval.evaluable import UNSET, Evaluable, NamedData
+from pixie.eval.evaluable import UNSET, Evaluable, NamedData, _Unset
 from pixie.eval.evaluation import Evaluation
 from pixie.eval.llm_evaluator import _LLMEvaluator, _parse_score, create_llm_evaluator
 
 
-def _nd(name: str, value: object) -> NamedData:
+def _nd(name: str, value: JsonValue) -> NamedData:
     return NamedData(name=name, value=value)
 
 
 def _ev(
-    inp: object = None,
-    out: object = None,
-    **kwargs: object,
+    inp: JsonValue = None,
+    out: JsonValue = None,
+    expectation: JsonValue | _Unset = UNSET,
+    eval_metadata: dict[str, JsonValue] | None = None,
+    description: str | None = None,
 ) -> Evaluable:
     return Evaluable(
         eval_input=[_nd("input", inp)],
         eval_output=[_nd("output", out)],
-        **kwargs,  # type: ignore[arg-type]
+        expectation=expectation,
+        eval_metadata=eval_metadata,
+        description=description,
     )
 
 
@@ -70,7 +75,7 @@ class TestLLMEvaluatorRendering:
         evaluator = create_llm_evaluator(
             name="TestEval",
             prompt_template=(
-                "Input: {eval_input}\nOutput: {eval_output}\n" "Expected: {expectation}"
+                "Input: {eval_input}\nOutput: {eval_output}\nExpected: {expectation}"
             ),
         )
         evaluable = _ev(inp="hello", out="world", expectation="world")

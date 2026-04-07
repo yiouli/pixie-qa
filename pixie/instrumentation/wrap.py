@@ -19,8 +19,8 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 import jsonpickle
-from opentelemetry.sdk._logs import LogRecordProcessor, LoggerProvider, ReadWriteLogRecord
-from pydantic import BaseModel
+from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor, ReadWriteLogRecord
+from pydantic import BaseModel, ConfigDict
 
 T = TypeVar("T")
 
@@ -55,6 +55,9 @@ class WrappedData(BaseModel):
     description: str | None = None
     trace_id: str | None = None
     span_id: str | None = None
+
+    # Keep wrap records immutable after validation to avoid accidental mutation.
+    model_config = ConfigDict(frozen=True)
 
 
 # Backward-compatible alias
@@ -170,14 +173,10 @@ def deserialize_wrap_data(data_str: str) -> Any:
 
 # Input registry: populated by test runner before each eval run.
 # Keys are wrap names, values are jsonpickle-serialised strings.
-_eval_input: ContextVar[dict[str, str] | None] = ContextVar(
-    "_eval_input", default=None
-)
+_eval_input: ContextVar[dict[str, str] | None] = ContextVar("_eval_input", default=None)
 
 # Output list: each dict is the body of a wrap event (output/state).
-_eval_output: ContextVar[list[dict[str, Any]] | None] = ContextVar(
-    "_eval_output", default=None
-)
+_eval_output: ContextVar[list[dict[str, Any]] | None] = ContextVar("_eval_output", default=None)
 
 
 def set_eval_input(registry: dict[str, str]) -> None:

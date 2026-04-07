@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ class MissingAnnotation:
     def create(cls) -> MissingAnnotation:
         return cls()
 
-    async def run(self, args: Any) -> None:  # type: ignore[override]
+    async def run(self, args: Any) -> None:
         pass
 
 
@@ -59,7 +59,7 @@ class WrongAnnotation:
     def create(cls) -> WrongAnnotation:
         return cls()
 
-    async def run(self, args: str) -> None:  # type: ignore[override]
+    async def run(self, args: str) -> None:
         pass
 
 
@@ -87,11 +87,11 @@ class TestGetRunnableArgsType:
 
     def test_no_run_method_raises(self) -> None:
         with pytest.raises(TypeError, match="does not have a 'run' method"):
-            get_runnable_args_type(NotARunnable)  # type: ignore[arg-type]
+            get_runnable_args_type(cast(Any, NotARunnable))
 
     def test_wrong_annotation_raises(self) -> None:
         with pytest.raises(TypeError, match="must be a BaseModel subclass"):
-            get_runnable_args_type(WrongAnnotation)  # type: ignore[arg-type]
+            get_runnable_args_type(cast(Any, WrongAnnotation))
 
 
 class TestRunnableLifecycle:
