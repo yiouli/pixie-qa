@@ -52,15 +52,14 @@ __all__ = [
     "add_handler",
     "remove_handler",
     "wrap",
-    # Evals
-    "AnswerCorrectness",
-    "AnswerRelevancy",
-    "AutoevalsAdapter",
-    "Battle",
-    "ClosedQA",
-    "remove_handler",
-    "wrap",
-    # Evals
+    # Eval data models
+    "Evaluable",
+    "TestCase",
+    "Evaluation",
+    "Evaluator",
+    "evaluate",
+    "create_llm_evaluator",
+    # Pre-made evaluators (autoevals adapters)
     "AnswerCorrectness",
     "AnswerRelevancy",
     "AutoevalsAdapter",
@@ -68,8 +67,6 @@ __all__ = [
     "ClosedQA",
     "ContextRelevancy",
     "EmbeddingSimilarity",
-    "Evaluation",
-    "Evaluator",
     "ExactMatch",
     "Factuality",
     "Faithfulness",
@@ -85,8 +82,4 @@ __all__ = [
     "Summary",
     "Translation",
     "ValidJSON",
-    "create_llm_evaluator",
-    "evaluate",
-    "Evaluable",
-    "TestCase",
 ]

@@ -4,7 +4,7 @@ This module provides :class:`AutoevalsAdapter`, which bridges the
 autoevals ``Scorer`` interface to pixie's ``Evaluator`` protocol, and
 a set of factory functions for common evaluation tasks.
 
-Public API (all are also re-exported from ``pixie.evals``):
+Public API (all are also re-exported from ``pixie.eval``):
 
 **Core adapter:**
     - :class:`AutoevalsAdapter` — generic wrapper for any autoevals ``Scorer``.
@@ -161,9 +161,9 @@ class AutoevalsAdapter:
 
     The adapter translates between two interfaces:
 
-    * **pixie** — evaluator receives :class:`~pixie.storage.evaluable.Evaluable`
+    * **pixie** — evaluator receives :class:`~pixie.eval.evaluable.Evaluable`
       (``eval_input``, ``eval_output``, ``eval_metadata``) and returns
-      :class:`~pixie.evals.evaluation.Evaluation`.
+      :class:`~pixie.eval.evaluation.Evaluation`.
     * **autoevals** — scorer receives ``output``, ``expected``, ``**kwargs``
       and returns :class:`autoevals.score.Score`.
 

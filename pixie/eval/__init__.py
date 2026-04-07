@@ -1,38 +1,33 @@
-"""pixie.evals — evaluation harness for LLM applications.
+"""pixie.eval — evaluation framework for LLM applications.
 
-Public API:
-    - ``Evaluation`` — result dataclass for a single evaluator run
-    - ``Evaluator`` — protocol for evaluation callables
-    - ``evaluate`` — run one evaluator against one evaluable
-    - ``ScoreThreshold`` — configurable pass criteria
-    - ``DatasetEntryResult`` — evaluation results for a single dataset entry
-    - ``DatasetScorecard`` — per-dataset scorecard with non-uniform evaluators
-    - ``generate_dataset_scorecard_html`` — render a scorecard as HTML
-    - ``save_dataset_scorecard`` — write scorecard HTML to disk
+Core API:
+    - :class:`Evaluation` — result dataclass for a single evaluator run.
+    - :class:`Evaluator` — protocol for evaluation callables.
+    - :func:`evaluate` — run one evaluator against one :class:`Evaluable`.
 
-Pre-made evaluators (autoevals adapters):
-    - ``AutoevalsAdapter`` — generic wrapper for any autoevals ``Scorer``
-    - ``LevenshteinMatch`` — edit-distance string similarity
-    - ``ExactMatch`` — exact value comparison
-    - ``NumericDiff`` — normalised numeric difference
-    - ``JSONDiff`` — structural JSON comparison
-    - ``ValidJSON`` — JSON syntax / schema validation
-    - ``ListContains`` — list overlap
-    - ``EmbeddingSimilarity`` — embedding cosine similarity
-    - ``Factuality`` — LLM factual accuracy check
-    - ``ClosedQA`` — closed-book QA evaluation
-    - ``Battle`` — head-to-head comparison
-    - ``Humor`` — humor detection
-    - ``Security`` — security vulnerability check
-    - ``Sql`` — SQL equivalence
-    - ``Summary`` — summarisation quality
-    - ``Translation`` — translation quality
-    - ``Possible`` — feasibility check
-    - ``Moderation`` — content moderation
-    - ``ContextRelevancy`` — RAGAS context relevancy
-    - ``Faithfulness`` — RAGAS faithfulness
-    - ``AnswerRelevancy`` — RAGAS answer relevancy
-    - ``AnswerCorrectness`` — RAGAS answer correctness
+Pre-made evaluators (``autoevals`` adapters):
+    - :class:`AutoevalsAdapter` — generic wrapper for any autoevals ``Scorer``.
+    - :func:`LevenshteinMatch` — edit-distance string similarity.
+    - :func:`ExactMatch` — exact value comparison.
+    - :func:`NumericDiff` — normalised numeric difference.
+    - :func:`JSONDiff` — structural JSON comparison.
+    - :func:`ValidJSON` — JSON syntax / schema validation.
+    - :func:`ListContains` — list overlap.
+    - :func:`EmbeddingSimilarity` — embedding cosine similarity.
+    - :func:`Factuality` — LLM factual accuracy check.
+    - :func:`ClosedQA` — closed-book QA evaluation.
+    - :func:`Battle` — head-to-head comparison.
+    - :func:`Humor` — humor detection.
+    - :func:`Security` — security vulnerability check.
+    - :func:`Sql` — SQL equivalence.
+    - :func:`Summary` — summarisation quality.
+    - :func:`Translation` — translation quality.
+    - :func:`Possible` — feasibility check.
+    - :func:`Moderation` — content moderation.
+    - :func:`ContextRelevancy` — RAGAS context relevancy.
+    - :func:`Faithfulness` — RAGAS faithfulness.
+    - :func:`AnswerRelevancy` — RAGAS answer relevancy.
+    - :func:`AnswerCorrectness` — RAGAS answer correctness.
 
 Dataset JSON Format
 -------------------

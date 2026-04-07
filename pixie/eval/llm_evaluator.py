@@ -31,8 +31,8 @@ from typing import Any
 
 from openai import OpenAI
 
-from pixie.eval.evaluation import Evaluation
 from pixie.eval.evaluable import Evaluable, _Unset
+from pixie.eval.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def create_llm_evaluator(
     """Create a custom LLM-as-judge evaluator from a prompt template.
 
     The template may reference these variables (populated from the
-    :class:`~pixie.storage.evaluable.Evaluable` fields):
+    :class:`~pixie.eval.evaluable.Evaluable` fields):
 
     - ``{eval_input}`` — the evaluable's input
     - ``{eval_output}`` — the evaluable's output

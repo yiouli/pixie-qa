@@ -1,6 +1,6 @@
 # pixie-qa
 
-An agent skill that make coding agent the QA engineer for LLM applications.
+An agent skill that makes coding agents the QA engineer for LLM applications.
 
 ## What the Skill Does
 
