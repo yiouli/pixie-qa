@@ -47,7 +47,6 @@ from pixie.instrumentation.wrap import (
     clear_eval_output,
     get_eval_output,
     init_eval_output,
-    serialize_wrap_data,
     set_eval_input,
 )
 
@@ -606,8 +605,8 @@ async def run_entry(
     async with semaphore:
         init_eval_output()
 
-        dependency_registry: dict[str, str] = {
-            nd.name: serialize_wrap_data(nd.value) for nd in test_case.eval_input
+        dependency_registry: dict[str, JsonValue] = {
+            nd.name: nd.value for nd in test_case.eval_input
         }
         set_eval_input(dependency_registry)
 

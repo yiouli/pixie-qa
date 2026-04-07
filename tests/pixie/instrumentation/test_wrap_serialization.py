@@ -26,13 +26,12 @@ class TestSerializeWrapData:
     def test_none_roundtrip(self) -> None:
         assert deserialize_wrap_data(serialize_wrap_data(None)) is None
 
-    def test_returns_string(self) -> None:
+    def test_returns_json_compatible_value(self) -> None:
         result = serialize_wrap_data({"a": 1})
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
+        assert result["a"] == 1
 
-    def test_output_is_valid_json(self) -> None:
-        import json
-
+    def test_dict_is_json_object(self) -> None:
         result = serialize_wrap_data({"x": [1, 2, 3]})
-        parsed = json.loads(result)
-        assert parsed["x"] == [1, 2, 3]
+        assert isinstance(result, dict)
+        assert result["x"] == [1, 2, 3]

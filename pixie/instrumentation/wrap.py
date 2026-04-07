@@ -13,7 +13,7 @@ from __future__ import annotations
 import functools
 import json
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal, TypeVar
@@ -82,39 +82,42 @@ def filter_by_purpose(
 # ── Serialization helpers ─────────────────────────────────────────────────────
 
 
-def serialize_wrap_data(data: Any) -> str:
-    """Serialize a Python object to a jsonpickle JSON string.
+def serialize_wrap_data(data: Any) -> JsonValue:
+    """Serialize a Python object to a JSON-compatible value.
 
-    The output is valid JSON but uses jsonpickle's type-metadata format
-    (e.g. ``py/object`` keys) rather than plain JSON. This preserves type
-    information so that :func:`deserialize_wrap_data` can reconstruct the
-    original Python object.
+    Uses jsonpickle internally to preserve type information (e.g.
+    ``py/object`` keys) and returns a parsed JSON value (dict, list,
+    string, etc.) — **not** a raw JSON string.
+
+    :func:`deserialize_wrap_data` can reconstruct the original Python
+    object from the returned value.
     """
-    return jsonpickle.encode(data, unpicklable=True, indent=2)  # type: ignore[no-any-return]
+    encoded: str = jsonpickle.encode(data, unpicklable=True)  # type: ignore[no-any-return]
+    return json.loads(encoded)  # type: ignore[no-any-return]
 
 
-def deserialize_wrap_data(data_str: str) -> Any:
-    """Deserialize a jsonpickle string back to a Python object."""
-    return jsonpickle.decode(data_str)
+def deserialize_wrap_data(data: JsonValue) -> Any:
+    """Deserialize a JSON-compatible value back to a Python object."""
+    return jsonpickle.decode(json.dumps(data))
 
 
 # ── Context-variable registries ──────────────────────────────────────────────
 
 
 # Input registry: populated by test runner before each eval run.
-# Keys are wrap names, values are jsonpickle-serialised strings.
-_eval_input: ContextVar[dict[str, str] | None] = ContextVar("_eval_input", default=None)
+# Keys are wrap names, values are JSON-compatible objects.
+_eval_input: ContextVar[Mapping[str, JsonValue] | None] = ContextVar("_eval_input", default=None)
 
 # Output list: each dict is the body of a wrap event (output/state).
 _eval_output: ContextVar[list[dict[str, Any]] | None] = ContextVar("_eval_output", default=None)
 
 
-def set_eval_input(registry: dict[str, str]) -> None:
+def set_eval_input(registry: Mapping[str, JsonValue]) -> None:
     """Set the eval input registry for the current context."""
     _eval_input.set(registry)
 
 
-def get_eval_input() -> dict[str, str] | None:
+def get_eval_input() -> Mapping[str, JsonValue] | None:
     """Get the eval input registry, or ``None`` if not in eval mode."""
     return _eval_input.get()
 
