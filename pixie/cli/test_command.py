@@ -24,7 +24,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-import pixie.instrumentation as px
 from pixie.evals.dataset_runner import (
     DatasetEntry,
     _resolve_evaluator,
@@ -45,15 +44,17 @@ from pixie.evals.test_result import (
     save_test_result,
 )
 from pixie.instrumentation.wrap import WrapRegistryMissError, WrapTypeMismatchError
+from pixie.instrumentation.wrap_log import WrappedData
 from pixie.instrumentation.wrap_registry import (
-    clear_capture_registry,
-    clear_input_registry,
-    get_output_capture_registry,
-    get_state_capture_registry,
-    init_capture_registry,
-    set_input_registry,
+    clear_eval_input,
+    clear_eval_output,
+    get_eval_output,
+    init_eval_output,
+    set_eval_input,
 )
-from pixie.instrumentation.wrap_serialization import serialize_wrap_data
+from pixie.instrumentation.wrap_serialization import (
+    serialize_wrap_data,
+)
 from pixie.storage.evaluable import Evaluable, NamedData, _Unset
 
 
@@ -99,9 +100,10 @@ async def _run_entry(
 ) -> EntryResult:
     """Process a single dataset entry: call runnable, then evaluate.
 
-    Always calls the runnable with ``entry.entry_kwargs``.  The runnable's
-    return value becomes the primary ``eval_output``.  Any wrap()
-    captures are appended as additional output items.
+    Sets up ``eval_input`` (for ``wrap(purpose="input")`` injection) and
+    ``eval_output`` (populated by ``EvalCaptureLogProcessor``) before
+    calling the runnable.  After the call, captured bodies are validated
+    into :class:`WrappedData` and converted to :class:`NamedData`.
 
     When *args_type* is provided (Runnable protocol), kwargs are validated
     into the Pydantic model before calling the runnable.
@@ -109,25 +111,25 @@ async def _run_entry(
     test_case = entry.test_case
 
     async with semaphore:
-        init_capture_registry()
+        init_eval_output()
 
         # Set dependency inputs from test_case.eval_input
         dependency_registry: dict[str, str] = {
             nd.name: serialize_wrap_data(nd.value) for nd in test_case.eval_input
         }
-        set_input_registry(dependency_registry)
+        set_eval_input(dependency_registry)
 
         try:
             if args_type is not None:
                 args = args_type.model_validate(entry.entry_kwargs)
-                result = await runnable(args)
+                await runnable(args)
             elif inspect.iscoroutinefunction(runnable):
-                result = await runnable(entry.entry_kwargs)
+                await runnable(entry.entry_kwargs)
             else:
-                result = runnable(entry.entry_kwargs)
+                runnable(entry.entry_kwargs)
         except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
-            clear_input_registry()
-            clear_capture_registry()
+            clear_eval_input()
+            clear_eval_output()
             return EntryResult(
                 input=test_case.eval_input[0].value,
                 output=None,
@@ -142,21 +144,17 @@ async def _run_entry(
                 ],
             )
 
-        output_captures = dict(get_output_capture_registry() or {})
-        state_captures = dict(get_state_capture_registry() or {})
-        clear_input_registry()
-        clear_capture_registry()
+        captured = get_eval_output() or []
+        clear_eval_input()
+        clear_eval_output()
 
-    # Build eval_output from runnable result and captures
-    eval_output: list[NamedData] = []
-    if result is not None:
-        eval_output.append(NamedData(name="output", value=result))
-    for k, v in output_captures.items():
-        eval_output.append(NamedData(name=k, value=v))
-    for k, v in state_captures.items():
-        eval_output.append(NamedData(name=k, value=v))
-    if not eval_output:
-        eval_output.append(NamedData(name="output", value=None))
+    # Build eval_output from runnable result and captured wrap events
+    warpped_output = [
+        WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured
+    ]
+    eval_output = [
+        NamedData(name=wrapped.name, value=wrapped.data) for wrapped in warpped_output
+    ]
 
     evaluable = Evaluable(
         eval_input=test_case.eval_input,
@@ -331,9 +329,13 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Ensure instrumentation is initialised before running test functions
-    px.init()
     configure_rate_limits_from_config()
+
+    # Register the eval capture processor so wrap() output/state events
+    # are accumulated into eval_output for each entry run.
+    from pixie.instrumentation.wrap_processors import ensure_eval_capture_registered
+
+    ensure_eval_capture_registered()
 
     # Determine mode
     if args.path is None:

@@ -36,8 +36,8 @@ from pixie.evals.scorers import (
 # -- Instrumentation ----------------------------------------------------------
 from pixie.instrumentation.observation import (
     add_handler,
+    enable_llm_tracing,
     flush,
-    init,
     remove_handler,
 )
 from pixie.instrumentation.wrap import (
@@ -53,14 +53,12 @@ from pixie.instrumentation.wrap_log import (
     parse_wrapped_data_list,
 )
 from pixie.instrumentation.wrap_registry import (
-    clear_capture_registry,
-    clear_input_registry,
-    get_capture_registry,
-    get_input_registry,
-    get_output_capture_registry,
-    get_state_capture_registry,
-    init_capture_registry,
-    set_input_registry,
+    clear_eval_input,
+    clear_eval_output,
+    get_eval_input,
+    get_eval_output,
+    init_eval_output,
+    set_eval_input,
 )
 from pixie.storage.evaluable import UNSET, Evaluable, NamedData, TestCase
 
@@ -71,20 +69,18 @@ __all__ = [
     "WrapLogEntry",
     "WrappedData",
     "add_handler",
-    "clear_capture_registry",
-    "clear_input_registry",
+    "clear_eval_input",
+    "clear_eval_output",
     "flush",
     "filter_by_purpose",
-    "get_capture_registry",
-    "get_input_registry",
-    "get_output_capture_registry",
-    "get_state_capture_registry",
-    "init",
-    "init_capture_registry",
+    "get_eval_input",
+    "get_eval_output",
+    "enable_llm_tracing",
+    "init_eval_output",
     "load_wrap_log_entries",
     "parse_wrapped_data_list",
     "remove_handler",
-    "set_input_registry",
+    "set_eval_input",
     "wrap",
     # Evals
     "AnswerCorrectness",

@@ -47,7 +47,7 @@ def step1_run_with_tracing(trace_file: str) -> None:
 
     # Import after setting env vars so config picks them up
     from pixie.config import get_config
-    from pixie.instrumentation.trace_writer import TraceFileWriter
+    from pixie.instrumentation.wrap_processors import TraceLogProcessor
 
     config = get_config()
     if not config.tracing_enabled:
@@ -56,8 +56,8 @@ def step1_run_with_tracing(trace_file: str) -> None:
         _fail(f"trace_output mismatch: {config.trace_output} != {trace_file}")
     _ok("Config: tracing_enabled=True, trace_output set")
 
-    # Create trace writer directly (enable_storage would set up OTel too)
-    writer = TraceFileWriter(trace_file)
+    # Create trace log processor directly
+    processor = TraceLogProcessor(trace_file)
 
     # Import chatbot
     # Run chatbot with a test message - use wrap() in tracing mode
@@ -73,7 +73,7 @@ def step1_run_with_tracing(trace_file: str) -> None:
     for inp in test_inputs:
         # Manually simulate what wrap() does in tracing mode,
         # writing events to the trace file
-        _run_chatbot_with_trace_capture(chat, inp, writer)
+        _run_chatbot_with_trace_capture(chat, inp, processor)
 
     _ok(f"Chatbot ran {len(test_inputs)} conversations")
 
@@ -85,23 +85,27 @@ def step1_run_with_tracing(trace_file: str) -> None:
 def _run_chatbot_with_trace_capture(
     chat_fn: Any,
     chat_input: dict[str, Any],
-    writer: Any,
+    processor: Any,
 ) -> None:
     """Run the chatbot, capturing wrap events to the trace file.
 
-    Temporarily sets the trace writer on the handlers module so that
-    ``wrap()`` in tracing mode writes events to the JSONL file.
+    Temporarily sets the trace log processor so that ``wrap()`` events
+    are written to the JSONL file.
     """
-    from pixie.instrumentation import handlers
+    from pixie.instrumentation.wrap import logger_provider
+    from pixie.instrumentation.wrap_processors import (
+        get_trace_log_processor,
+        set_trace_log_processor,
+    )
 
-    # Temporarily set the trace writer on the handlers module
-    old_writer = handlers._trace_writer
-    handlers._trace_writer = writer
+    old_processor = get_trace_log_processor()
+    set_trace_log_processor(processor)
+    logger_provider.add_log_record_processor(processor)
 
     try:
         chat_fn(chat_input)
     finally:
-        handlers._trace_writer = old_writer
+        set_trace_log_processor(old_processor)
 
 
 def step2_validate_trace(trace_file: str) -> list[dict[str, Any]]:

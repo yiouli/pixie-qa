@@ -39,7 +39,7 @@ class TestTestCommandRateLimitConfig:
             encoding="utf-8",
         )
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(instrumentation, "init", lambda: None)
+        monkeypatch.setattr(instrumentation, "enable_llm_tracing", lambda: None)
         monkeypatch.setattr(
             test_command, "discover_dataset_files", lambda *_args, **_kwargs: []
         )

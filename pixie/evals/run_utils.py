@@ -2,7 +2,7 @@
 
 Provides :func:`run_runnable` — used by both ``pixie trace`` and
 ``pixie test`` to create, setup, run, and teardown a Runnable instance
-while optionally logging kwargs to the trace writer.
+while optionally logging kwargs to the trace log.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from typing import Any
 
 from pixie.evals.dataset_runner import _load_callable
 from pixie.evals.runnable import get_runnable_args_type, is_runnable_class
-from pixie.instrumentation.trace_writer import get_trace_writer
 
 
 def resolve_runnable_reference(reference: str) -> Any:
@@ -45,7 +44,7 @@ async def run_runnable(
     """Resolve, create, and run a Runnable with the given kwargs.
 
     Handles the full lifecycle: ``create()`` → ``setup()`` → ``run(args)``
-    → ``teardown()``.  Also writes kwargs to the trace writer if active.
+    → ``teardown()``.
 
     For plain callables (non-Runnable), calls directly with kwargs dict.
 
@@ -54,11 +53,6 @@ async def run_runnable(
         kwargs: Arguments to pass to the runnable.
     """
     resolved = resolve_runnable_reference(reference)
-
-    # Log kwargs to trace writer if active
-    writer = get_trace_writer()
-    if writer is not None:
-        writer.write_kwargs(kwargs)
 
     if is_runnable_class(resolved):
         assert isinstance(resolved, type)

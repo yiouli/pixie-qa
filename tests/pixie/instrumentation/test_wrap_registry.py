@@ -3,45 +3,50 @@
 from __future__ import annotations
 
 from pixie.instrumentation.wrap_registry import (
-    clear_capture_registry,
-    clear_input_registry,
-    get_capture_registry,
-    get_input_registry,
-    init_capture_registry,
-    set_input_registry,
+    clear_eval_input,
+    clear_eval_output,
+    get_eval_input,
+    get_eval_output,
+    init_eval_output,
+    set_eval_input,
 )
 
 
-class TestInputRegistry:
+class TestEvalInput:
     def test_default_is_none(self) -> None:
-        assert get_input_registry() is None
+        clear_eval_input()
+        assert get_eval_input() is None
 
     def test_set_and_get(self) -> None:
         registry = {"key": "value"}
-        set_input_registry(registry)
-        assert get_input_registry() == {"key": "value"}
+        set_eval_input(registry)
+        assert get_eval_input() == {"key": "value"}
+        clear_eval_input()
 
     def test_clear_returns_none(self) -> None:
-        set_input_registry({"key": "value"})
-        clear_input_registry()
-        assert get_input_registry() is None
+        set_eval_input({"key": "value"})
+        clear_eval_input()
+        assert get_eval_input() is None
 
 
-class TestCaptureRegistry:
+class TestEvalOutput:
     def test_default_is_none(self) -> None:
-        assert get_capture_registry() is None
+        clear_eval_output()
+        assert get_eval_output() is None
 
-    def test_init_returns_empty_dict(self) -> None:
-        reg = init_capture_registry()
-        assert reg == {}
-        assert get_capture_registry() is reg
+    def test_init_returns_empty_list(self) -> None:
+        out = init_eval_output()
+        assert out == []
+        assert get_eval_output() is out
+        clear_eval_output()
 
     def test_mutations_are_visible(self) -> None:
-        reg = init_capture_registry()
-        reg["answer"] = 42
-        assert get_capture_registry() == {"answer": 42}
+        out = init_eval_output()
+        out.append({"name": "x", "purpose": "output"})
+        assert get_eval_output() == [{"name": "x", "purpose": "output"}]
+        clear_eval_output()
 
     def test_clear_returns_none(self) -> None:
-        init_capture_registry()
-        clear_capture_registry()
-        assert get_capture_registry() is None
+        init_eval_output()
+        clear_eval_output()
+        assert get_eval_output() is None

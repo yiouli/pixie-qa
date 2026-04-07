@@ -8,16 +8,16 @@ from pathlib import Path
 import pytest
 
 from pixie.cli.format_command import format_trace_to_entry
-from pixie.instrumentation.trace_writer import TraceFileWriter
+from pixie.instrumentation.wrap_processors import TraceLogProcessor
 
 
-class TestTraceFileWriterKwargs:
-    """Tests for the new write_kwargs method."""
+class TestTraceLogProcessorWriteLine:
+    """Tests for TraceLogProcessor.write_line (used for kwargs, LLM spans)."""
 
     def test_writes_kwargs_record(self, tmp_path: Path) -> None:
         output = tmp_path / "trace.jsonl"
-        writer = TraceFileWriter(str(output))
-        writer.write_kwargs({"question": "hello", "count": 42})
+        processor = TraceLogProcessor(str(output))
+        processor.write_line({"type": "kwargs", "value": {"question": "hello", "count": 42}})
 
         lines = output.read_text().strip().split("\n")
         assert len(lines) == 1

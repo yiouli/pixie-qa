@@ -19,9 +19,9 @@ class TestRootPackageExports:
         assert callable(flush)
 
     def test_init(self) -> None:
-        from pixie import init
+        from pixie import enable_llm_tracing
 
-        assert callable(init)
+        assert callable(enable_llm_tracing)
 
     def test_add_handler(self) -> None:
         from pixie import add_handler

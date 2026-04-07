@@ -13,6 +13,28 @@ import argparse
 import asyncio
 import os
 import sys
+from dataclasses import asdict
+
+from pixie.instrumentation.handler import InstrumentationHandler
+from pixie.instrumentation.observation import add_handler
+from pixie.instrumentation.spans import LLMSpan
+from pixie.instrumentation.wrap_processors import TraceLogProcessor
+
+
+class LLMTraceLogger(InstrumentationHandler):
+    def __init__(self, trace_log_processor: TraceLogProcessor) -> None:
+        self.trace_log_processor = trace_log_processor
+
+    async def on_llm(self, span: LLMSpan) -> None:
+        self.trace_log_processor.write_line(
+            {
+                "type": "llm_span",
+                "operation": span.operation,
+                "input_messages": [asdict(msg) for msg in span.input_messages],
+                "output_messages": [asdict(msg) for msg in span.output_messages],
+                "tool_definitions": [asdict(tool) for tool in span.tool_definitions],
+            }
+        )
 
 
 def _run_trace(
@@ -27,8 +49,8 @@ def _run_trace(
         Exit code: 0 on success, 1 on error.
     """
     from pixie.evals.run_utils import load_input_kwargs, run_runnable
-    from pixie.instrumentation.observation import init
-    from pixie.instrumentation.trace_writer import TraceFileWriter, set_trace_writer
+    from pixie.instrumentation.observation import enable_llm_tracing
+    from pixie.instrumentation.wrap import logger_provider
 
     # Enable tracing via env so init() picks it up
     os.environ["PIXIE_TRACING"] = "1"
@@ -40,15 +62,16 @@ def _run_trace(
         print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
         return 1
 
-    # Set up trace writer before init (init also sets one up, but we
-    # want to ensure the output path is correct)
-    writer = TraceFileWriter(output_path)
-    set_trace_writer(writer)
+    # Set up trace log processor for wrap events, kwargs, and LLM spans.
+    trace_logger = TraceLogProcessor(output_path)
+    logger_provider.add_log_record_processor(trace_logger)
 
     # Initialize instrumentation (OTel, auto-instrumentors, etc.)
-    init()
+    enable_llm_tracing()
+    add_handler(LLMTraceLogger(trace_logger))
 
     try:
+        trace_logger.write_line({"type": "kwargs", "value": kwargs})
         asyncio.run(run_runnable(runnable, kwargs))
     except Exception as exc:
         print(f"Error running runnable: {exc}", file=sys.stderr)  # noqa: T201

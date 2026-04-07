@@ -37,7 +37,7 @@ def _reset_state() -> None:
     _state.initialized = False
 
 
-def init(
+def enable_llm_tracing(
     *,
     capture_content: bool = True,
     queue_size: int = 1000,
@@ -47,10 +47,6 @@ def init(
     Sets up the OpenTelemetry ``TracerProvider``, span processor, delivery
     queue, and activates auto-instrumentors.  Truly idempotent — calling
     ``init()`` a second time is a no-op.
-
-    When ``PIXIE_TRACING=1`` and ``PIXIE_TRACE_OUTPUT`` is set, a
-    :class:`~pixie.instrumentation.trace_writer.TraceFileWriter` is also
-    created for ``wrap()`` and ``LLMSpanProcessor`` to use.
 
     Handler registration is done separately via :func:`add_handler`.
     """
@@ -75,15 +71,6 @@ def init(
     _state.initialized = True
 
     _activate_instrumentors()
-
-    # Set up trace file writer when tracing is enabled
-    from pixie.config import get_config
-
-    config = get_config()
-    if config.tracing_enabled and config.trace_output:
-        from pixie.instrumentation.trace_writer import TraceFileWriter, set_trace_writer
-
-        set_trace_writer(TraceFileWriter(config.trace_output))
 
 
 def add_handler(handler: InstrumentationHandler) -> None:
