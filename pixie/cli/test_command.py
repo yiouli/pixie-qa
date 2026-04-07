@@ -24,6 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from pixie.config import get_config
 from pixie.eval.dataset_runner import (
     DatasetEntry,
     _resolve_evaluator,
@@ -55,6 +56,7 @@ from pixie.instrumentation.wrap import (
     serialize_wrap_data,
     set_eval_input,
 )
+from pixie.web.server import open_webui
 
 
 async def _evaluate_entry(
@@ -208,15 +210,15 @@ async def _run_dataset(dataset_path: Path) -> DatasetResult:
     return DatasetResult(dataset=dataset.name, entries=entry_results)
 
 
-def _run_dataset_mode(
-    path: str,
+def _run_datasets(
+    dataset_dir: str,
     *,
     verbose: bool = False,
     no_open: bool = False,
     argv: list[str] | None = None,
 ) -> int:
     """Execute dataset-driven mode: find datasets, run evals, save result JSON."""
-    dataset_files = discover_dataset_files(path)
+    dataset_files = discover_dataset_files(dataset_dir)
     if not dataset_files:
         print("No dataset files found.")  # noqa: T201
         return 1
@@ -277,12 +279,8 @@ def _run_dataset_mode(
     print(f"\nResults saved to {result_path}")  # noqa: T201
 
     if not no_open:
-        from pixie.config import get_config
-        from pixie.web.server import open_webui
-
-        config = get_config()
         open_webui(
-            config.root,
+            get_config().root,
             tab="results",
             item_id=f"results/{test_id}",
         )
@@ -336,21 +334,9 @@ def main(argv: list[str] | None = None) -> int:
 
     ensure_eval_capture_registered()
 
-    # Determine mode
-    if args.path is None:
-        # No argument: search pixie datasets directory
-        from pixie.config import get_config
-
-        config = get_config()
-        return _run_dataset_mode(
-            config.dataset_dir,
-            verbose=args.verbose,
-            no_open=args.no_open,
-            argv=argv,
-        )
-
-    return _run_dataset_mode(
-        args.path,
+    dataset_dir = args.path or get_config().dataset_dir
+    return _run_datasets(
+        dataset_dir,
         verbose=args.verbose,
         no_open=args.no_open,
         argv=argv,

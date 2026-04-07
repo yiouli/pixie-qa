@@ -92,9 +92,9 @@ def _run_chatbot_with_trace_capture(
     Temporarily sets the trace log processor so that ``wrap()`` events
     are written to the JSONL file.
     """
-    from pixie.instrumentation.wrap import logger_provider
     from pixie.instrumentation.wrap import (
         get_trace_log_processor,
+        logger_provider,
         set_trace_log_processor,
     )
 
@@ -256,9 +256,9 @@ def step4_run_pixie_test(dataset_path: str, result_root: str) -> str:
     os.environ.pop("PIXIE_TRACING", None)
     os.environ.pop("PIXIE_TRACE_OUTPUT", None)
 
-    from pixie.cli.test_command import _run_dataset_mode
+    from pixie.cli.test_command import _run_datasets
 
-    exit_code = _run_dataset_mode(
+    exit_code = _run_datasets(
         dataset_path,
         verbose=True,
         no_open=True,
