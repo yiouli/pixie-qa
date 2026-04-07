@@ -140,33 +140,34 @@ with sync_playwright() as p:
 
 Unit tests are in `tests/pixie/` and mirror the source structure. Key test files:
 
-| Test file                           | Module tested                     | Tests                             |
-| ----------------------------------- | --------------------------------- | --------------------------------- |
-| `cli/test_test_command.py`          | `pixie.cli.test_command`          | dotenv/config wiring              |
-| `cli/test_analyze_command.py`       | `pixie.cli.analyze_command`       | pixie analyze CLI                 |
-| `cli/test_init_command.py`          | `pixie.cli.init_command`          | pixie init scaffolding            |
-| `cli/test_main.py`                  | `pixie.cli.main`                  | CLI entry point                   |
-| `cli/test_trace_format_commands.py` | `pixie.cli.trace_command` / `format_command` | pixie trace / format   |
-| `eval/test_dataset_runner.py`       | `pixie.harness.runner`            | Dataset loading and eval runner   |
-| `eval/test_evaluation.py`           | `pixie.eval.evaluation`           | Evaluator protocol, evaluate()    |
-| `eval/test_llm_evaluator.py`        | `pixie.eval.llm_evaluator`        | create_llm_evaluator              |
-| `eval/test_rate_limiter.py`         | `pixie.eval.rate_limiter`         | Rate limiting                     |
-| `eval/test_runnable.py`             | `pixie.harness.runnable`          | Runnable protocol                 |
-| `eval/test_scorers.py`              | `pixie.eval.scorers`              | Autoevals adapters                |
-| `eval/test_test_result.py`          | `pixie.harness.run_result`        | Test result JSON models           |
-| `instrumentation/test_handler.py`   | `pixie.instrumentation.llm_tracing` | Handler registry                |
-| `instrumentation/test_processor.py` | `pixie.instrumentation.llm_tracing` | OTel LLMSpanProcessor          |
-| `instrumentation/test_queue.py`     | `pixie.instrumentation.llm_tracing` | Delivery queue                  |
-| `instrumentation/test_spans.py`     | `pixie.instrumentation.llm_tracing` | Span data models                |
-| `instrumentation/test_wrap.py`      | `pixie.instrumentation.wrap`      | wrap() API                        |
-| `web/test_app.py`                   | `pixie.web.app` + CLI             | Manifest, SSE, endpoints, CLI     |
-| `web/test_watcher.py`               | `pixie.web.watcher`               | Artifact filtering, change labels |
+| Test file                           | Module tested                                | Tests                             |
+| ----------------------------------- | -------------------------------------------- | --------------------------------- |
+| `cli/test_test_command.py`          | `pixie.cli.test_command`                     | dotenv/config wiring              |
+| `cli/test_analyze_command.py`       | `pixie.cli.analyze_command`                  | pixie analyze CLI                 |
+| `cli/test_init_command.py`          | `pixie.cli.init_command`                     | pixie init scaffolding            |
+| `cli/test_main.py`                  | `pixie.cli.main`                             | CLI entry point                   |
+| `cli/test_trace_format_commands.py` | `pixie.cli.trace_command` / `format_command` | pixie trace / format              |
+| `eval/test_dataset_runner.py`       | `pixie.harness.runner`                       | Dataset loading and eval runner   |
+| `eval/test_evaluation.py`           | `pixie.eval.evaluation`                      | Evaluator protocol, evaluate()    |
+| `eval/test_llm_evaluator.py`        | `pixie.eval.llm_evaluator`                   | create_llm_evaluator              |
+| `eval/test_rate_limiter.py`         | `pixie.eval.rate_limiter`                    | Rate limiting                     |
+| `eval/test_runnable.py`             | `pixie.harness.runnable`                     | Runnable protocol                 |
+| `eval/test_scorers.py`              | `pixie.eval.scorers`                         | Autoevals adapters                |
+| `eval/test_test_result.py`          | `pixie.harness.run_result`                   | Test result JSON models           |
+| `instrumentation/test_handler.py`   | `pixie.instrumentation.llm_tracing`          | Handler registry                  |
+| `instrumentation/test_processor.py` | `pixie.instrumentation.llm_tracing`          | OTel LLMSpanProcessor             |
+| `instrumentation/test_queue.py`     | `pixie.instrumentation.llm_tracing`          | Delivery queue                    |
+| `instrumentation/test_spans.py`     | `pixie.instrumentation.llm_tracing`          | Span data models                  |
+| `instrumentation/test_wrap.py`      | `pixie.instrumentation.wrap`                 | wrap() API                        |
+| `web/test_app.py`                   | `pixie.web.app` + CLI                        | Manifest, SSE, endpoints, CLI     |
+| `web/test_watcher.py`               | `pixie.web.watcher`                          | Artifact filtering, change labels |
 
 ## Pre-Commit Checklist
 
 Before committing, run:
 
 ```bash
+uv run pre-commit run --all-files  # Regenerates docs/pixie/**/*.md via pdoc3 hook
 uv run pytest                    # All tests must pass
 uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
