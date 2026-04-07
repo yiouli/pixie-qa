@@ -8,17 +8,16 @@ from typing import Any
 
 import pytest
 
-from pixie.eval.dataset_runner import (
+from pixie.harness.runner import (
     _expand_evaluator_names,
     _load_callable,
     _noop_runnable,
     _resolve_evaluator,
-    _resolve_runnable,
     _short_name,
     discover_dataset_files,
-    load_dataset_entries,
+    load_dataset,
     resolve_evaluator_name,
-    validate_dataset_file,
+    resolve_runnable_reference,
 )
 
 # ---------------------------------------------------------------------------
@@ -85,7 +84,7 @@ class TestResolveEvaluator:
 
 
 # ---------------------------------------------------------------------------
-# _resolve_runnable / _short_name / _noop_runnable
+# resolve_runnable_reference / _short_name / _noop_runnable
 # ---------------------------------------------------------------------------
 
 
@@ -115,12 +114,12 @@ class TestResolveRunnable:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         (tmp_path / "run.py").write_text("def my_func(x): return str(x)\n")
-        func = _resolve_runnable("run.py:my_func")
+        func = resolve_runnable_reference("run.py:my_func")
         assert callable(func)
 
     def test_no_colon_raises(self) -> None:
         with pytest.raises(ValueError, match="filepath:name"):
-            _resolve_runnable("json.dumps")
+            resolve_runnable_reference("json.dumps")
 
 
 class TestShortName:
@@ -228,101 +227,11 @@ class TestExpandEvaluatorNames:
 
 
 # ---------------------------------------------------------------------------
-# validate_dataset_file
+# load_dataset
 # ---------------------------------------------------------------------------
 
 
-class TestValidateDatasetFile:
-    def test_valid_dataset(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "valid",
-            [_make_entry(expectation="A1", evaluators=["ExactMatch"])],
-        )
-        errors = validate_dataset_file(fpath)
-        assert errors == []
-
-    def test_missing_runnable(self, tmp_path: Path) -> None:
-        data = {
-            "name": "bad",
-            "entries": [
-                _make_entry(evaluators=["ExactMatch"]),
-            ],
-        }
-        fpath = tmp_path / "bad.json"
-        fpath.write_text(json.dumps(data), encoding="utf-8")
-        errors = validate_dataset_file(fpath)
-        assert any("missing required top-level 'runnable'" in err for err in errors)
-
-    def test_missing_description(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        entry = _make_entry(evaluators=["ExactMatch"])
-        del entry["test_case"]["description"]
-        fpath = _write_dataset(tmp_path, "bad-desc", [entry])
-        errors = validate_dataset_file(fpath)
-        assert any("missing required 'description'" in err for err in errors)
-
-    def test_requires_at_least_one_evaluator_per_row(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        entry = _make_entry()
-        # No evaluators at entry or dataset level
-        fpath = _write_dataset(tmp_path, "bad-evals", [entry])
-        errors = validate_dataset_file(fpath)
-        assert any("no evaluators resolved" in err for err in errors)
-
-    def test_invalid_runnable_name(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "bad-run",
-            [_make_entry(evaluators=["ExactMatch"])],
-            runnable="not_a_filepath",
-        )
-        errors = validate_dataset_file(fpath)
-        assert any("invalid runnable" in err for err in errors)
-
-    def test_invalid_evaluator_name(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        fpath = _write_dataset(
-            tmp_path,
-            "bad-evaluator",
-            [_make_entry(evaluators=["Nope"])],
-        )
-        errors = validate_dataset_file(fpath)
-        assert any("invalid evaluator" in err for err in errors)
-
-    def test_defaults_used_when_row_evaluators_missing(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
-        entry = _make_entry()  # no evaluators on the entry
-        fpath = _write_dataset(
-            tmp_path,
-            "defaults",
-            [entry],
-            evaluators=["ExactMatch"],
-        )
-        errors = validate_dataset_file(fpath)
-        assert errors == []
-
-
-# ---------------------------------------------------------------------------
-# load_dataset_entries
-# ---------------------------------------------------------------------------
-
-
-class TestLoadDatasetEntries:
+class TestLoadDataset:
     def test_loads_valid_dataset(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -334,7 +243,7 @@ class TestLoadDatasetEntries:
             [_make_entry(expectation="A1", evaluators=["ExactMatch"])],
             runnable=runnable_ref,
         )
-        loaded = load_dataset_entries(fpath)
+        loaded = load_dataset(fpath)
         assert loaded.name == "ok"
         assert loaded.runnable == runnable_ref
         assert len(loaded.entries) == 1
@@ -349,15 +258,97 @@ class TestLoadDatasetEntries:
             [_make_entry(evaluators=["...", "LevenshteinMatch"])],
             evaluators=["ExactMatch"],
         )
-        loaded = load_dataset_entries(fpath)
+        loaded = load_dataset(fpath)
         assert loaded.entries[0].evaluators == ["ExactMatch", "LevenshteinMatch"]
 
-    def test_invalid_dataset_raises(
+    def test_defaults_used_when_row_evaluators_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        entry = _make_entry()  # no evaluators on the entry
+        fpath = _write_dataset(
+            tmp_path,
+            "defaults",
+            [entry],
+            evaluators=["ExactMatch"],
+        )
+        loaded = load_dataset(fpath)
+        assert loaded.entries[0].evaluators == ["ExactMatch"]
+
+    def test_name_defaults_to_stem(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        runnable_ref = _write_runnable(tmp_path)
+        data: dict[str, Any] = {
+            "runnable": runnable_ref,
+            "entries": [_make_entry(evaluators=["ExactMatch"])],
+        }
+        fpath = tmp_path / "my-dataset.json"
+        fpath.write_text(json.dumps(data), encoding="utf-8")
+        loaded = load_dataset(fpath)
+        assert loaded.name == "my-dataset"
+
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            load_dataset(tmp_path / "nonexistent.json")
+
+    def test_missing_runnable_raises(self, tmp_path: Path) -> None:
+        data = {
+            "name": "bad",
+            "entries": [_make_entry(evaluators=["ExactMatch"])],
+        }
+        fpath = tmp_path / "bad.json"
+        fpath.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(ValueError, match="runnable"):
+            load_dataset(fpath)
+
+    def test_missing_description_raises(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         entry = _make_entry(evaluators=["ExactMatch"])
         del entry["test_case"]["description"]
-        fpath = _write_dataset(tmp_path, "invalid", [entry])
-        with pytest.raises(ValueError, match="Dataset validation failed"):
-            load_dataset_entries(fpath)
+        fpath = _write_dataset(tmp_path, "bad-desc", [entry])
+        with pytest.raises(ValueError, match="description"):
+            load_dataset(fpath)
+
+    def test_no_evaluators_raises(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        entry = _make_entry()  # no evaluators at entry or dataset level
+        fpath = _write_dataset(tmp_path, "bad-evals", [entry])
+        with pytest.raises(ValueError, match="no evaluators resolved"):
+            load_dataset(fpath)
+
+    def test_invalid_runnable_raises(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        fpath = _write_dataset(
+            tmp_path,
+            "bad-run",
+            [_make_entry(evaluators=["ExactMatch"])],
+            runnable="not_a_filepath",
+        )
+        with pytest.raises(ValueError, match="(?i)runnable|filepath:name"):
+            load_dataset(fpath)
+
+    def test_invalid_evaluator_raises(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        fpath = _write_dataset(
+            tmp_path,
+            "bad-evaluator",
+            [_make_entry(evaluators=["Nope"])],
+        )
+        with pytest.raises(ValueError, match="(?i)evaluator|Nope"):
+            load_dataset(fpath)
+
+    def test_non_dict_json_raises(self, tmp_path: Path) -> None:
+        fpath = tmp_path / "bad.json"
+        fpath.write_text("[1, 2, 3]", encoding="utf-8")
+        with pytest.raises(ValueError, match="object"):
+            load_dataset(fpath)

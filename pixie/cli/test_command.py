@@ -4,226 +4,49 @@ Usage::
 
     pixie test [path] [--verbose] [--no-open]
 
-Supports two modes:
-
-1. **Dataset mode** — when *path* is a ``.json`` file or a directory
-   containing dataset JSON files. Each dataset produces its own result.
-2. **Default** — no path searches the pixie datasets directory.
+Supports dataset-driven mode — each dataset JSON file specifies its evaluators per row.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import inspect
-import json
 import sys
-from collections.abc import Callable
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
-
-from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from pixie.config import get_config
-from pixie.eval.dataset_runner import (
-    DatasetEntry,
-    _resolve_evaluator,
-    _resolve_runnable,
-    _short_name,
-    discover_dataset_files,
-    load_dataset_entries,
-)
-from pixie.eval.evaluable import Evaluable, NamedData, _Unset
-from pixie.eval.evaluation import Evaluation, evaluate
 from pixie.eval.rate_limiter import configure_rate_limits_from_config
 from pixie.harness.run_result import (
     DatasetResult,
-    EntryResult,
-    EvaluationResult,
     RunResult,
     generate_test_id,
     save_test_result,
 )
-from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
-from pixie.instrumentation.wrap import (
-    WrappedData,
-    WrapRegistryMissError,
-    WrapTypeMismatchError,
-    clear_eval_input,
-    clear_eval_output,
-    get_eval_output,
-    init_eval_output,
-    serialize_wrap_data,
-    set_eval_input,
-)
+from pixie.harness.runner import discover_dataset_files, run_dataset
 from pixie.web import server as web_server
 
-_JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 
-
-async def _evaluate_entry(
-    evaluable: Evaluable,
-    evaluator_names: list[str],
-) -> EntryResult:
-    """Run evaluators on a fully-populated evaluable and return an EntryResult."""
-    evaluators = [_resolve_evaluator(name) for name in evaluator_names]
-    short_names = [_short_name(n) for n in evaluator_names]
-
-    evals: list[Evaluation] = list(
-        await asyncio.gather(*(evaluate(ev, evaluable) for ev in evaluators))
-    )
-
-    exp_out = evaluable.expectation
-    expectation = None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
-
-    eval_results = [
-        EvaluationResult(
-            evaluator=name,
-            score=ev.score,
-            reasoning=ev.reasoning,
-        )
-        for name, ev in zip(short_names, evals, strict=True)
-    ]
-
-    return EntryResult(
-        input=evaluable.eval_input[0].value,
-        output=evaluable.eval_output[0].value,
-        expected_output=expectation,
-        description=evaluable.description,
-        evaluations=eval_results,
-    )
-
-
-async def _run_entry(
-    entry: DatasetEntry,
-    runnable: Callable[..., Any],
-    semaphore: asyncio.Semaphore,
-    *,
-    args_type: type[BaseModel] | None = None,
-) -> EntryResult:
-    """Process a single dataset entry: call runnable, then evaluate.
-
-    Sets up ``eval_input`` (for ``wrap(purpose="input")`` injection) and
-    ``eval_output`` (populated by ``EvalCaptureLogProcessor``) before
-    calling the runnable.  After the call, captured bodies are validated
-    into :class:`WrappedData` and converted to :class:`NamedData`.
-
-    When *args_type* is provided (Runnable protocol), kwargs are validated
-    into the Pydantic model before calling the runnable.
-    """
-    test_case = entry.test_case
-
-    async with semaphore:
-        init_eval_output()
-
-        # Set dependency inputs from test_case.eval_input
-        dependency_registry: dict[str, str] = {
-            nd.name: serialize_wrap_data(nd.value) for nd in test_case.eval_input
-        }
-        set_eval_input(dependency_registry)
-
-        runnable_result: Any = None
-        try:
-            if args_type is not None:
-                args = args_type.model_validate(entry.entry_kwargs)
-                runnable_result = await runnable(args)
-            elif inspect.iscoroutinefunction(runnable):
-                runnable_result = await runnable(entry.entry_kwargs)
-            else:
-                runnable_result = runnable(entry.entry_kwargs)
-        except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
-            clear_eval_input()
-            clear_eval_output()
-            return EntryResult(
-                input=test_case.eval_input[0].value,
-                output=None,
-                expected_output=None,
-                description=test_case.description,
-                evaluations=[
-                    EvaluationResult(
-                        evaluator="WrapError",
-                        score=0.0,
-                        reasoning=str(exc),
-                    )
-                ],
-            )
-
-        captured = get_eval_output() or []
-        clear_eval_input()
-        clear_eval_output()
-
-    # Build eval_output from captured wrap events, or fallback to runnable return.
-    wrapped_output = [WrappedData.model_validate(wrapped_raw) for wrapped_raw in captured]
-    eval_output = [NamedData(name=wrapped.name, value=wrapped.data) for wrapped in wrapped_output]
-    if not eval_output:
-        fallback_value: JsonValue
-        try:
-            fallback_value = _JSON_VALUE_ADAPTER.validate_python(runnable_result)
-        except Exception:
-            # Always provide a JSON-compatible fallback for deterministic evaluators.
-            fallback_value = json.dumps(runnable_result, default=str)
-        eval_output = [NamedData(name="output", value=fallback_value)]
-
-    evaluable = Evaluable(
-        eval_input=test_case.eval_input,
-        eval_output=eval_output,
-        expectation=test_case.expectation,
-        eval_metadata=test_case.eval_metadata,
-        description=test_case.description,
-    )
-
-    return await _evaluate_entry(evaluable, entry.evaluators)
-
-
-async def _run_dataset(dataset_path: Path) -> DatasetResult:
-    """Run evaluations for a single dataset and return a DatasetResult.
-
-    Entries run concurrently (gated by a semaphore for runnables).
-    Evaluators within each entry also run concurrently.
-    Rate limiting is enforced inside ``evaluate()`` when configured.
-
-    When the dataset's runnable resolves to a :class:`Runnable` class,
-    setup/teardown lifecycle hooks are called once around all entries,
-    and each entry's kwargs are validated into the Runnable's args type.
-    """
-    dataset = load_dataset_entries(dataset_path)
-    resolved = _resolve_runnable(dataset.runnable)
-    semaphore = asyncio.Semaphore(4)
-
-    if is_runnable_class(resolved):
-        assert isinstance(resolved, type)  # narrow for type checker
-        args_type = get_runnable_args_type(resolved)
-        runnable_instance = resolved.create()  # type: ignore[attr-defined]
-        try:
-            await runnable_instance.setup()
-            entry_tasks = [
-                _run_entry(
-                    entry,
-                    runnable_instance.run,
-                    semaphore,
-                    args_type=args_type,
-                )
-                for entry in dataset.entries
-            ]
-            entry_results: list[EntryResult] = list(await asyncio.gather(*entry_tasks))
-        finally:
-            await runnable_instance.teardown()
-    else:
-        entry_tasks = [_run_entry(entry, resolved, semaphore) for entry in dataset.entries]
-        entry_results = list(await asyncio.gather(*entry_tasks))
-
-    return DatasetResult(dataset=dataset.name, entries=entry_results)
-
-
-def _run_datasets(
+async def _run_datasets(
     dataset_dir: str,
     *,
     verbose: bool = False,
     no_open: bool = False,
     argv: list[str] | None = None,
 ) -> int:
-    """Execute dataset-driven mode: find datasets, run evals, save result JSON."""
+    """Execute dataset-driven mode: find datasets, run evals, save result JSON.
+
+    Orchestrates multiple datasets, formats console output, saves results
+    to the results directory, and optionally opens the web UI.
+
+    Args:
+        dataset_dir: Directory or file path to dataset(s).
+        verbose: Whether to show detailed evaluation reasoning for failed items.
+        no_open: Whether to skip opening the web UI.
+        argv: Original command-line arguments for the command string.
+
+    Returns:
+        Exit code: 0 if all tests pass, 1 otherwise.
+    """
     dataset_files = discover_dataset_files(dataset_dir)
     if not dataset_files:
         print("No dataset files found.")  # noqa: T201
@@ -239,10 +62,12 @@ def _run_datasets(
 
     for ds_path in dataset_files:
         try:
-            ds_result = asyncio.run(_run_dataset(ds_path))
+            dataset_name, entry_results = await run_dataset(str(ds_path))
         except ValueError as exc:
             print(str(exc))  # noqa: T201
             return 1
+
+        ds_result = DatasetResult(dataset=dataset_name, entries=entry_results)
         dataset_results.append(ds_result)
 
         # Print results
@@ -339,11 +164,13 @@ def main(argv: list[str] | None = None) -> int:
     ensure_eval_capture_registered()
 
     dataset_dir = args.path or get_config().dataset_dir
-    return _run_datasets(
-        dataset_dir,
-        verbose=args.verbose,
-        no_open=args.no_open,
-        argv=argv,
+    return asyncio.run(
+        _run_datasets(
+            dataset_dir,
+            verbose=args.verbose,
+            no_open=args.no_open,
+            argv=argv,
+        )
     )
 
 

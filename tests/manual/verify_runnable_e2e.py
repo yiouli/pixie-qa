@@ -67,7 +67,7 @@ def main() -> int:
     for line in trace_output.read_text().strip().split("\n"):
         record = json.loads(line)
         print(
-            f"  type={record.get('type')}, name={record.get('name', 'N/A')}, purpose={record.get('purpose', 'N/A')}"
+            f"  type={record.get('type')}, name={record.get('name', 'N/A')}, purpose={record.get('purpose', 'N/A')}"  # noqa: E501
         )  # noqa: T201, E501
 
     # ── 3. Run pixie format ─────────────────────────────────────────────

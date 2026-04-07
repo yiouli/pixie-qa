@@ -184,10 +184,10 @@ class TestFormatTraceToEntry:
 
 
 class TestRunUtilsLoadInput:
-    """Tests for run_utils.load_input_kwargs."""
+    """Tests for load_input_kwargs."""
 
     def test_loads_valid_json(self, tmp_path: Path) -> None:
-        from pixie.harness.run_utils import load_input_kwargs
+        from pixie.harness.runner import load_input_kwargs
 
         f = tmp_path / "input.json"
         f.write_text('{"key": "value"}')
@@ -195,13 +195,13 @@ class TestRunUtilsLoadInput:
         assert result == {"key": "value"}
 
     def test_file_not_found(self, tmp_path: Path) -> None:
-        from pixie.harness.run_utils import load_input_kwargs
+        from pixie.harness.runner import load_input_kwargs
 
         with pytest.raises(FileNotFoundError):
             load_input_kwargs(tmp_path / "missing.json")
 
     def test_non_dict_raises(self, tmp_path: Path) -> None:
-        from pixie.harness.run_utils import load_input_kwargs
+        from pixie.harness.runner import load_input_kwargs
 
         f = tmp_path / "input.json"
         f.write_text("[1, 2, 3]")

@@ -46,7 +46,7 @@ def _run_trace(
     Returns:
         Exit code: 0 on success, 1 on error.
     """
-    from pixie.harness.run_utils import load_input_kwargs, run_runnable
+    from pixie.harness.runner import load_input_kwargs, run_runnable
     from pixie.instrumentation.llm_tracing import enable_llm_tracing
     from pixie.instrumentation.wrap import logger_provider
 

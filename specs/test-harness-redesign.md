@@ -75,18 +75,17 @@ When the path is a `.json` file or a directory containing `.json` files, the CLI
 ### How It Works
 
 1. **Dataset discovery** — `discover_dataset_files(path)` finds `.json` files (single file, directory, or recursive scan).
-2. **Validation** — `validate_dataset_file(path)` checks required fields (`runnable`, row `description`), evaluator/runnable name validity, and evaluator resolution per row.
-3. **Entry loading** — `load_dataset_entries(path)` validates then loads entries with resolved evaluator name lists.
-4. **Name resolution** — `resolve_evaluator_name(name)` maps bare names to `pixie.{Name}` for built-ins, passes through FQNs with dots, and raises `ValueError` for unknown bare names.
-5. **Runnable resolution** — `_resolve_runnable(name)` imports the dataset runnable callable.
-6. **Evaluator instantiation** — `_resolve_evaluator(name)` imports and instantiates evaluators.
-7. **Execution** — each entry runs through the runnable first, then evaluators are applied to produced output.
-8. **Result JSON** — each dataset contributes to `result.json` under `{PIXIE_ROOT}/results/<test_id>/`.
+2. **Loading & validation** — `load_dataset(path)` reads the JSON file and validates it directly via `Dataset.model_validate()`. All structural checks, evaluator resolution, and runnable importability are handled by Pydantic field- and model-validators on the `Dataset` and `DatasetEntry` models.
+3. **Name resolution** — `resolve_evaluator_name(name)` maps bare names to `pixie.{Name}` for built-ins, passes through FQNs with dots, and raises `ValueError` for unknown bare names.
+4. **Runnable resolution** — `resolve_runnable_reference(name)` imports the dataset runnable callable.
+5. **Evaluator instantiation** — `_resolve_evaluator(name)` imports and instantiates evaluators.
+6. **Execution** — each entry runs through the runnable first, then evaluators are applied to produced output.
+7. **Result JSON** — each dataset contributes to `result.json` under `{PIXIE_ROOT}/results/<test_id>/`.
 
 ### Key Files
 
 - `pixie/storage/evaluable.py` — `Evaluable` model has `evaluators: list[str] | None` field
-- `pixie/evals/dataset_runner.py` — `resolve_evaluator_name()`, `_resolve_evaluator()`, `discover_dataset_files()`, `load_dataset_entries()`, `BUILTIN_EVALUATOR_NAMES`
+- `pixie/evals/dataset_runner.py` — `resolve_evaluator_name()`, `_resolve_evaluator()`, `discover_dataset_files()`, `load_dataset()`, `Dataset`, `DatasetEntry`, `BUILTIN_EVALUATOR_NAMES`
 - `pixie/cli/test_command.py` — `_is_dataset_mode()`, `_run_dataset()`, `_run_dataset_mode()`, three CLI modes (no-arg/dir/file)
 - `pixie/evals/scorecard.py` — `DatasetEntryResult`, `DatasetScorecard`, `save_dataset_scorecard()`, `generate_dataset_scorecard_html()`
 - `tests/pixie/evals/test_dataset_runner.py` — 31 unit + integration tests
