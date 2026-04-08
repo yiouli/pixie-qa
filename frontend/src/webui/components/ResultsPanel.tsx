@@ -145,7 +145,7 @@ function ResultView({ data }: { data: TestResultData }) {
 
 function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
   const passed = dataset.entries.filter((e) =>
-    e.evaluations.every((ev) => ev.score >= 0.5),
+    e.evaluations.every((ev) => ev.score >= SCORE_FAIL_THRESHOLD),
   ).length;
   const total = dataset.entries.length;
   const allPass = passed === total;
@@ -210,10 +210,15 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
 
 type ScoreTier = "pass" | "warn" | "fail";
 
+/** Score below this threshold is a fail. */
+const SCORE_FAIL_THRESHOLD = 0.5;
+/** Score at or below this threshold (but passing) shows a warning. */
+const SCORE_WARN_THRESHOLD = 0.6;
+
 /** Classify a score into pass / warn / fail tier. */
 function scoreTier(score: number): ScoreTier {
-  if (score < 0.5) return "fail";
-  if (score <= 0.6) return "warn";
+  if (score < SCORE_FAIL_THRESHOLD) return "fail";
+  if (score <= SCORE_WARN_THRESHOLD) return "warn";
   return "pass";
 }
 
@@ -303,8 +308,8 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
 
 function EntryRow({ entry }: { entry: EntryResultData }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const allPass = entry.evaluations.every((ev) => ev.score >= 0.5);
-  const hasWarning = allPass && entry.evaluations.some((ev) => ev.score <= 0.6);
+  const allPass = entry.evaluations.every((ev) => ev.score >= SCORE_FAIL_THRESHOLD);
+  const hasWarning = allPass && entry.evaluations.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
 
   const description = entry.description || summarizeInput(entry.input);
 

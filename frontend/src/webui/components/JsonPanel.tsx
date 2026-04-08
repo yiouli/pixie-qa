@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import JsonView from "react18-json-view";
 import "react18-json-view/src/style.css";
 
+/** How many nesting levels to show expanded by default. */
+const DEFAULT_COLLAPSE_DEPTH = 2;
+/** Truncate long strings in the viewer after this many characters. */
+const STRING_COLLAPSE_LENGTH = 120;
+
 interface JsonPanelProps {
   path: string;
   version?: number;
@@ -59,9 +64,9 @@ export function JsonPanel({ path, version }: JsonPanelProps) {
       <div className="overflow-x-auto rounded-md bg-bg-inset px-5 py-4">
         <JsonView
           src={data}
-          collapsed={2}
+          collapsed={DEFAULT_COLLAPSE_DEPTH}
           collapseStringMode="address"
-          collapseStringsAfterLength={120}
+          collapseStringsAfterLength={STRING_COLLAPSE_LENGTH}
           theme="default"
           enableClipboard={false}
         />

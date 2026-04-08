@@ -45,11 +45,12 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
       .then((r) => r.json())
       .then((raw: Record<string, unknown>) => {
         // Normalise: dataset files may use "entries" instead of "items"
-        const items = (raw.items ?? raw.entries ?? []) as DatasetItem[];
-        setData({
-          name: (raw.name as string) ?? selected.replace(/^datasets\//, "").replace(/\.json$/, ""),
-          items,
-        });
+        const rawItems = raw.items ?? raw.entries ?? [];
+        const items = (Array.isArray(rawItems) ? rawItems : []) as DatasetItem[];
+        const name = typeof raw.name === "string"
+          ? raw.name
+          : selected.replace(/^datasets\//, "").replace(/\.json$/, "");
+        setData({ name, items });
         setLoading(false);
       })
       .catch(() => setLoading(false));
