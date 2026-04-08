@@ -8,8 +8,8 @@ description: >
 license: MIT
 compatibility: Python 3.11+
 metadata:
-  version: 0.5.0
-  pixie-qa-version: ">=0.5.0,<0.6.0"
+  version: 0.6.0
+  pixie-qa-version: ">=0.6.0,<0.7.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -108,17 +108,19 @@ Map each eval criterion from Step 1b to a concrete evaluator — implement custo
 
 ### Step 4: Build the dataset
 
-> **Reference**: Read `references/4-build-dataset.md` now — it has the sub-steps for using `pixie format` for data shapes, generating dataset entries with `entry_kwargs` and `test_case.eval_input`, building the dataset JSON, and understanding the `expectation` vs `eval_output` distinction.
+> **Reference**: Read `references/4-build-dataset.md` now — it has the sub-steps for using `pixie format` for data shapes, generating dataset entries with `entry_kwargs` and `eval_input`, building the dataset JSON, and understanding the `expectation` vs `eval_output` distinction.
 
-Use `pixie format` on the reference trace to get exact data shapes. Create a dataset JSON with:
+Use `pixie format` on the reference trace to get exact data shapes. Create a dataset JSON with entries containing:
 
-- **`entry_kwargs`** — runnable arguments (sibling of `test_case`)
-- **`test_case`** — contains `eval_input`, `expectation`, `description`
-- **`evaluators`** — per-entry evaluator list (**sibling** of `entry_kwargs` and `test_case`, NOT inside `test_case`)
+- **`entry_kwargs`** — runnable arguments
+- **`eval_input`** — list of `{"name": ..., "value": ...}` objects for wrap inputs
+- **`description`** — human-readable label for the test case
+- **`expectation`** — optional reference for comparison-based evaluators
+- **`evaluators`** — optional per-entry evaluator list
 
-Set the `runnable` to the `filepath:ClassName` reference from Step 2. Assign evaluators from Step 3 — dataset-level defaults in the top-level `evaluators` array, per-entry overrides in each entry's `evaluators` field.
+All fields are top-level on each entry (no nesting). Set the `runnable` to the `filepath:ClassName` reference from Step 2. Assign evaluators from Step 3 — dataset-level defaults in the top-level `evaluators` array, per-entry overrides in each entry's `evaluators` field.
 
-> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries, `entry_kwargs`, `test_case.eval_input`, `runnable`, evaluators, and descriptions. Do NOT read Step 5 instructions yet.
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries, `entry_kwargs`, `eval_input`, `runnable`, evaluators, and descriptions. Do NOT read Step 5 instructions yet.
 
 ---
 

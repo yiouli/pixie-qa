@@ -23,7 +23,7 @@ The test runner now:
 1. Resolves the `Runnable` class from the dataset's `runnable` field
 2. Calls `Runnable.create()` to construct an instance, then `setup()` once
 3. Runs all dataset entries **concurrently** (up to 4 in parallel):
-   a. Reads `entry_kwargs` and `test_case.eval_input` from the entry
+   a. Reads `entry_kwargs` and `eval_input` from the entry
    b. Populates the wrap input registry with `eval_input` data
    c. Initialises the capture registry
    d. Validates `entry_kwargs` into the Pydantic model and calls `Runnable.run(args)`
@@ -39,15 +39,15 @@ Because entries run concurrently, the Runnable's `run()` method must be concurre
 
 **Data validation errors** (registry miss, type mismatch, deserialization failure) are reported per-entry with clear messages pointing to the specific `wrap` name and dataset field. This step is about fixing **what you did wrong in Step 4** — bad data, wrong format, missing fields — not about evaluating the app's quality.
 
-| Error                                 | Cause                                                                                                                   | Fix                                                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `WrapRegistryMissError: name='<key>'` | Dataset entry missing an `eval_input` item with the `name` that the app's `wrap(purpose="input", name="<key>")` expects | Add the missing `{"name": "<key>", "value": ...}` to `test_case.eval_input` in every affected entry |
-| `WrapTypeMismatchError`               | Deserialized type doesn't match what the app expects                                                                    | Fix the value in the dataset                                                                        |
-| Runnable resolution failure           | `runnable` path or class name is wrong, or the class doesn't implement the `Runnable` protocol                          | Fix `filepath:ClassName` in the dataset; ensure the class has `create()` and `run()` methods        |
-| Import error                          | Module path or syntax error in runnable/evaluator                                                                       | Fix the referenced file                                                                             |
-| `ModuleNotFoundError: pixie_qa`       | `pixie_qa/` directory missing `__init__.py`                                                                             | Run `pixie init` to recreate it                                                                     |
-| `TypeError: ... is not callable`      | Evaluator name points to a non-callable attribute                                                                       | Evaluators must be functions, classes, or callable instances                                        |
-| `sqlite3.OperationalError`            | Concurrent `run()` calls sharing a SQLite connection                                                                    | Add `asyncio.Semaphore(1)` to the Runnable (see Step 2 concurrency section)                         |
+| Error                                 | Cause                                                                                                                   | Fix                                                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `WrapRegistryMissError: name='<key>'` | Dataset entry missing an `eval_input` item with the `name` that the app's `wrap(purpose="input", name="<key>")` expects | Add the missing `{"name": "<key>", "value": ...}` to `eval_input` in every affected entry    |
+| `WrapTypeMismatchError`               | Deserialized type doesn't match what the app expects                                                                    | Fix the value in the dataset                                                                 |
+| Runnable resolution failure           | `runnable` path or class name is wrong, or the class doesn't implement the `Runnable` protocol                          | Fix `filepath:ClassName` in the dataset; ensure the class has `create()` and `run()` methods |
+| Import error                          | Module path or syntax error in runnable/evaluator                                                                       | Fix the referenced file                                                                      |
+| `ModuleNotFoundError: pixie_qa`       | `pixie_qa/` directory missing `__init__.py`                                                                             | Run `pixie init` to recreate it                                                              |
+| `TypeError: ... is not callable`      | Evaluator name points to a non-callable attribute                                                                       | Evaluators must be functions, classes, or callable instances                                 |
+| `sqlite3.OperationalError`            | Concurrent `run()` calls sharing a SQLite connection                                                                    | Add `asyncio.Semaphore(1)` to the Runnable (see Step 2 concurrency section)                  |
 
 Iterate — fix errors, re-run, fix the next error — until `pixie test` runs cleanly with real evaluator scores for all entries.
 

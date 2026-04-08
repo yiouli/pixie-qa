@@ -247,7 +247,7 @@ uv run pixie format pixie_qa/reference-trace.jsonl
 The output is a formatted dataset entry template — it contains:
 
 - `entry_kwargs`: the exact keys/values for the runnable arguments
-- `test_case.eval_input`: the data for all dependencies (from `wrap(purpose="input")` calls)
+- `eval_input`: the data for all dependencies (from `wrap(purpose="input")` calls)
 - `eval_output`: the **actual app output** captured from the trace (this is the real output — use it to understand what the app produces, not as a dataset `eval_output` field)
 
 For each eval criterion from `pixie_qa/02-eval-criteria.md`, verify the format output contains the data needed to evaluate it. If a data point is missing, go back and add the `wrap()` call.

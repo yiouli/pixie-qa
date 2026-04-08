@@ -96,7 +96,7 @@ Reference by `filepath:callable_name` in the dataset: `"pixie_qa/evaluators.py:m
 
 **Accessing `eval_metadata` and captured data**: Custom evaluators access per-entry metadata and `wrap()` outputs via the `Evaluable` fields:
 
-- `evaluable.eval_metadata` — dict from `test_case.eval_metadata` in the dataset (e.g., `{"expected_tool": "endCall"}`)
+- `evaluable.eval_metadata` — dict from the entry's `eval_metadata` field (e.g., `{"expected_tool": "endCall"}`)
 - `evaluable.eval_output` — `list[NamedData]` containing ALL `wrap(purpose="output")` and `wrap(purpose="state")` values. Each item has `.name` (str) and `.value` (JsonValue). Use the helper below to look up by name.
 
 ```python

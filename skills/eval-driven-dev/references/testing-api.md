@@ -21,37 +21,27 @@ The dataset is a JSON object with these top-level fields:
   "entries": [
     {
       "entry_kwargs": { "question": "Hello" },
-      "test_case": {
-        "description": "Basic greeting",
-        "eval_input": [{ "name": "input", "value": "Hello" }],
-        "expectation": "A friendly greeting that offers to help"
-      },
+      "description": "Basic greeting",
+      "eval_input": [{ "name": "input", "value": "Hello" }],
+      "expectation": "A friendly greeting that offers to help",
       "evaluators": ["...", "ClosedQA"]
     }
   ]
 }
 ```
 
-### Entry structure (IMPORTANT)
+### Entry structure
 
-Each entry has **three sibling fields** at the same level:
+All fields are top-level on each entry (flat structure — no nesting):
 
 ```
 entry:
   ├── entry_kwargs    (required) — args for Runnable.run()
-  ├── test_case       (required) — eval_input, expectation, description
+  ├── eval_input      (required) — list of {"name": ..., "value": ...} objects
+  ├── description     (required) — human-readable label for the test case
+  ├── expectation     (optional) — reference for comparison-based evaluators
+  ├── eval_metadata   (optional) — extra per-entry data for custom evaluators
   └── evaluators      (optional) — evaluator names for THIS entry
-```
-
-**`evaluators` is a field on the entry, NOT inside `test_case`.**
-This is the most common mistake:
-
-```json
-// WRONG — evaluators inside test_case is ignored
-{ "entry_kwargs": {...}, "test_case": {..., "evaluators": ["Factuality"]} }
-
-// CORRECT — evaluators is a sibling of entry_kwargs and test_case
-{ "entry_kwargs": {...}, "test_case": {...}, "evaluators": ["Factuality"] }
 ```
 
 ### Field reference
@@ -63,17 +53,17 @@ This is the most common mistake:
 - `entries[].entry_kwargs` (required): Kwargs passed to `Runnable.run()` as a
   Pydantic model. Keys must match the fields of the Pydantic model used in
   `run(args: T)`.
-- `entries[].test_case.description` (required): Human-readable label for the test case.
-- `entries[].test_case.eval_input` (required): List of `{"name": ..., "value": ...}`
+- `entries[].description` (required): Human-readable label for the test case.
+- `entries[].eval_input` (required): List of `{"name": ..., "value": ...}`
   objects. Used to populate the wrap input registry — `wrap(purpose="input")`
   calls in the app return registry values keyed by `name`.
-- `entries[].test_case.expectation` (optional): Concise expectation description
+- `entries[].expectation` (optional): Concise expectation description
   for comparison-based evaluators. Should describe what a correct output looks
   like, **not** copy the verbatim output. Use `pixie format` on the trace to
   see the real output shape, then write a shorter description.
-- `entries[].test_case.eval_metadata` (optional): Extra per-entry data for custom
+- `entries[].eval_metadata` (optional): Extra per-entry data for custom
   evaluators — e.g., expected tool names, boolean flags, thresholds. Accessed in
-  evaluators as `evaluable.eval_metadata`. Must be inside `test_case`.
+  evaluators as `evaluable.eval_metadata`.
 - `entries[].evaluators` (optional): Row-level evaluator override. Rules:
   - Omit → entry inherits dataset-level `evaluators`.
   - `["...", "ClosedQA"]` → dataset defaults **plus** ClosedQA.
@@ -113,17 +103,17 @@ In dataset JSON, evaluator names are resolved as follows:
 class Evaluable(TestCase):
     eval_output: list[NamedData]      # wrap(purpose="output") + wrap(purpose="state") values
     # Inherited from TestCase:
-    # eval_input: list[NamedData]     # from test_case.eval_input in dataset
-    # expectation: JsonValue | _Unset # from test_case.expectation
-    # eval_metadata: dict[str, JsonValue] | None  # from test_case.eval_metadata
+    # eval_input: list[NamedData]     # from eval_input in dataset entry
+    # expectation: JsonValue | _Unset # from expectation in dataset entry
+    # eval_metadata: dict[str, JsonValue] | None  # from eval_metadata in dataset entry
     # description: str | None
 ```
 
 Data carrier for evaluators. Extends `TestCase` with actual output.
 
-- `eval_input` — `list[NamedData]` populated from dataset `test_case.eval_input`. **Must have at least one item** (`min_length=1`).
+- `eval_input` — `list[NamedData]` populated from the entry's `eval_input` field. **Must have at least one item** (`min_length=1`).
 - `eval_output` — `list[NamedData]` containing ALL `wrap(purpose="output")` and `wrap(purpose="state")` values captured during the run. Each item has `.name` (str) and `.value` (JsonValue). Use `_get_output(evaluable, "name")` to look up by name.
-- `eval_metadata` — `dict[str, JsonValue] | None` from dataset `test_case.eval_metadata`
+- `eval_metadata` — `dict[str, JsonValue] | None` from the entry's `eval_metadata` field
 - `expected_output` — expectation text from dataset (or `UNSET` if not provided)
 
 Attributes:
@@ -140,13 +130,13 @@ set to `None` to indicate "there is no expected output".
 
 When `pixie test` runs a dataset entry, `wrap()` calls in the app populate the `Evaluable` that evaluators receive:
 
-| `wrap()` call in app code                | Evaluable field   | Type              | How to access in evaluator                               |
-| ---------------------------------------- | ----------------- | ----------------- | -------------------------------------------------------- |
-| `wrap(data, purpose="input", name="X")`  | `eval_input`      | `list[NamedData]` | Pre-populated from `test_case.eval_input` in the dataset |
-| `wrap(data, purpose="output", name="X")` | `eval_output`     | `list[NamedData]` | `_get_output(evaluable, "X")` — see helper below         |
-| `wrap(data, purpose="state", name="X")`  | `eval_output`     | `list[NamedData]` | `_get_output(evaluable, "X")` — same list as output      |
-| (from dataset `test_case.expectation`)   | `expected_output` | `str \| None`     | `evaluable.expected_output`                              |
-| (from dataset `test_case.eval_metadata`) | `eval_metadata`   | `dict \| None`    | `evaluable.eval_metadata`                                |
+| `wrap()` call in app code                | Evaluable field   | Type              | How to access in evaluator                           |
+| ---------------------------------------- | ----------------- | ----------------- | ---------------------------------------------------- |
+| `wrap(data, purpose="input", name="X")`  | `eval_input`      | `list[NamedData]` | Pre-populated from `eval_input` in the dataset entry |
+| `wrap(data, purpose="output", name="X")` | `eval_output`     | `list[NamedData]` | `_get_output(evaluable, "X")` — see helper below     |
+| `wrap(data, purpose="state", name="X")`  | `eval_output`     | `list[NamedData]` | `_get_output(evaluable, "X")` — same list as output  |
+| (from dataset entry `expectation`)       | `expected_output` | `str \| None`     | `evaluable.expected_output`                          |
+| (from dataset entry `eval_metadata`)     | `eval_metadata`   | `dict \| None`    | `evaluable.eval_metadata`                            |
 
 **Key insight**: Both `purpose="output"` and `purpose="state"` wrap values end up in `eval_output` as `NamedData` items. There is no separate `captured_output` or `captured_state` dict. Use the helper function below to look up values by wrap name:
 
@@ -159,7 +149,7 @@ def _get_output(evaluable: Evaluable, name: str) -> Any:
     return None
 ```
 
-**`eval_metadata`** is for passing extra per-entry data to evaluators that isn't an app input or output — e.g., expected tool names, boolean flags, thresholds. Defined in `test_case.eval_metadata`, accessed as `evaluable.eval_metadata`.
+**`eval_metadata`** is for passing extra per-entry data to evaluators that isn't an app input or output — e.g., expected tool names, boolean flags, thresholds. Defined as a top-level field on the entry, accessed as `evaluable.eval_metadata`.
 
 **Complete custom evaluator example** (tool call check + dataset entry):
 
@@ -190,16 +180,12 @@ Corresponding dataset entry:
 ```json
 {
   "entry_kwargs": { "user_message": "I want to end this call" },
-  "test_case": {
-    "description": "User requests call end after failed verification",
-    "eval_input": [
-      { "name": "user_input", "value": "I want to end this call" }
-    ],
-    "expectation": "Agent should call endCall tool",
-    "eval_metadata": {
-      "expected_tool": "endCall",
-      "expected_call_ended": true
-    }
+  "description": "User requests call end after failed verification",
+  "eval_input": [{ "name": "user_input", "value": "I want to end this call" }],
+  "expectation": "Agent should call endCall tool",
+  "eval_metadata": {
+    "expected_tool": "endCall",
+    "expected_call_ended": true
   },
   "evaluators": ["...", "pixie_qa/evaluators.py:tool_call_check"]
 }
