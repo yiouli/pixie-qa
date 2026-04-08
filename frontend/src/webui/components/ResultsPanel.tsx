@@ -16,7 +16,11 @@ interface ResultsPanelProps {
   version?: number;
 }
 
-export function ResultsPanel({ results, autoSelect, version }: ResultsPanelProps) {
+export function ResultsPanel({
+  results,
+  autoSelect,
+  version,
+}: ResultsPanelProps) {
   const [selected, setSelected] = useState<string | null>(
     results[0]?.path ?? null,
   );
@@ -308,20 +312,28 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
 
 function EntryRow({ entry }: { entry: EntryResultData }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const allPass = entry.evaluations.every((ev) => ev.score >= SCORE_FAIL_THRESHOLD);
-  const hasWarning = allPass && entry.evaluations.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
+  const allPass = entry.evaluations.every(
+    (ev) => ev.score >= SCORE_FAIL_THRESHOLD,
+  );
+  const hasWarning =
+    allPass && entry.evaluations.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
 
   const description = entry.description || summarizeInput(entry.input);
-
-  // Sort evaluations by score ascending
-  const sortedEvals = [...entry.evaluations].sort((a, b) => a.score - b.score);
 
   // Row-level badge: FAIL > WARN > PASS
   const rowTier: ScoreTier = !allPass ? "fail" : hasWarning ? "warn" : "pass";
 
   return (
     <>
-      <tr className={rowTier === "fail" ? "bg-fail-bg" : rowTier === "warn" ? "bg-warn-bg" : "bg-transparent"}>
+      <tr
+        className={
+          rowTier === "fail"
+            ? "bg-fail-bg"
+            : rowTier === "warn"
+              ? "bg-warn-bg"
+              : "bg-transparent"
+        }
+      >
         <td className="max-w-75 border-b border-border px-3 py-2.5 align-middle font-sans text-sm">
           {description}
         </td>
@@ -334,7 +346,7 @@ function EntryRow({ entry }: { entry: EntryResultData }) {
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
           <div className="flex flex-wrap gap-1.5">
-            {sortedEvals.map((ev, i) => (
+            {entry.evaluations.map((ev, i) => (
               <EvalPill key={i} evaluation={ev} />
             ))}
           </div>
