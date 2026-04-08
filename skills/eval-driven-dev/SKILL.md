@@ -1,15 +1,15 @@
 ---
 name: eval-driven-dev
 description: >
-  Set up eval-based QA for Python LLM applications: instrument the app, build golden datasets,
-  write and run eval tests, and iterate on failures.
+  Set up eval-based QA for Python LLM applications: instrument the app with wrap(),
+  build golden datasets, write and run eval tests, and iterate on failures.
   ALWAYS USE THIS SKILL when the user asks to set up QA, add tests, add evals,
   evaluate, benchmark, fix wrong behaviors, improve quality, or do quality assurance for any Python project that calls an LLM model.
 license: MIT
 compatibility: Python 3.11+
 metadata:
-  version: 0.4.0
-  pixie-qa-version: ">=0.4.0,<0.5.0"
+  version: 0.5.0
+  pixie-qa-version: ">=0.5.0,<0.6.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -19,7 +19,7 @@ You're building an **automated QA pipeline** that tests a Python application end
 
 **What you're testing is the app itself** — its request handling, context assembly (how it gathers data, builds prompts, manages conversation state), routing, and response formatting. The app uses an LLM, which makes outputs non-deterministic — that's why you use evaluators (LLM-as-judge, similarity scores) instead of `assertEqual` — but the thing under test is the app's code, not the LLM.
 
-**What's in scope**: the app's entire code path from entry point to response — never mock or skip any part of it. **What's out of scope**: external data sources the app reads from (databases, caches, third-party APIs, voice streams) — mock these to control inputs and reduce flakiness.
+**What's in scope**: the app's entire code path from entry point to response — never mock or skip any part of it. **What's out of scope**: external data sources the app reads from (databases, caches, third-party APIs, voice streams) — these are handled automatically by `wrap(purpose="input")` at test time.
 
 **The deliverable is a working `pixie test` run with real scores** — not a plan, not just instrumentation, not just a dataset.
 
@@ -50,7 +50,7 @@ Follow Steps 1–6 straight through without stopping. Do not ask the user for co
 - **Create artifacts immediately.** After reading code for a sub-step, write the output file for that sub-step before moving on. Don't accumulate understanding across multiple sub-steps before writing anything.
 - **Verify, then move on.** Each step has a checkpoint. Verify it, then proceed to the next step. Don't plan future steps while verifying the current one.
 
-**Run Steps 1–7 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
+**Run Steps 1–6 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
 
 ---
 
@@ -64,7 +64,7 @@ Follow Steps 1–6 straight through without stopping. Do not ask the user for co
 
 If the prompt specifies any of the above, they take priority. Read and incorporate them before proceeding.
 
-Step 1 has three sub-steps. Each reads its own reference file and produces its own output file. **Complete each sub-step fully before starting the next.**
+Step 1 has two sub-steps. Each reads its own reference file and produces its own output file. **Complete each sub-step fully before starting the next.**
 
 #### Sub-step 1a: Entry point & execution flow
 
@@ -74,79 +74,59 @@ Read the source code to understand how the app starts and how a real user invoke
 
 > **Checkpoint**: `pixie_qa/01-entry-point.md` written with entry point, execution flow, user-facing interface, and env requirements.
 
-#### Sub-step 1b: Processing stack & data flow (DAG artifact)
+#### Sub-step 1b: Eval criteria
 
-> **Reference**: Read `references/1-b-data-flow.md` now.
+> **Reference**: Read `references/1-b-eval-criteria.md` now.
 
-Starting from the entry point you documented, trace the full processing stack and produce a **structured DAG JSON file** at `pixie_qa/02-data-flow.json`. The DAG has the common ancestor of LLM calls as root and contains every data dependency, intermediate state, LLM call, and side-effect as nodes with metadata and parent pointers.
+Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). For each criterion, determine whether it applies to all scenarios or only a subset — this drives whether it becomes a dataset-level default evaluator or an item-level evaluator. Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
 
-After writing the JSON, validate it:
-
-```bash
-uv run pixie dag validate pixie_qa/02-data-flow.json
-```
-
-This checks the DAG structure, verifies code pointers exist, and generates a Mermaid diagram at `pixie_qa/02-data-flow.md`. If validation fails, fix the errors and re-run.
-
-> **Checkpoint**: `pixie_qa/02-data-flow.json` written and `pixie dag validate` passes. Mermaid diagram generated at `pixie_qa/02-data-flow.md`.
->
-> **Schema reminder**: DAG node `name` must be unique, meaningful, and lower_snake_case (for example, `handle_turn`). If a node represents an LLM provider call, set `is_llm_call: true` (otherwise omit it or set `false`). Name-matching rules for `@observe` / `start_observation(...)` are defined in instrumentation guidance (Step 2), not here.
-
-#### Sub-step 1c: Eval criteria
-
-> **Reference**: Read `references/1-c-eval-criteria.md` now.
-
-Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 5); eval criteria drive evaluator selection (Step 4). For each criterion, determine whether it applies to all scenarios or only a subset — this drives whether it becomes a dataset-level default evaluator or an item-level evaluator. Write your findings to `pixie_qa/03-eval-criteria.md` before moving on.
-
-> **Checkpoint**: `pixie_qa/03-eval-criteria.md` written with use cases (each with a one-liner conveying input + expected behavior), eval criteria with applicability scope, and observability check. Do NOT read Step 2 instructions yet.
+> **Checkpoint**: `pixie_qa/02-eval-criteria.md` written with use cases (each with a one-liner conveying input + expected behavior), eval criteria with applicability scope, and a note on what data needs to be captured to evaluate each criterion. Do NOT read Step 2 instructions yet.
 
 ---
 
-### Step 2: Instrument and observe a real run
+### Step 2: Instrument with `wrap` and capture a reference trace
 
-> **Reference**: Read `references/2-instrument-and-observe.md` now — it has the detailed sub-steps for DAG-based instrumentation, running the app, verifying the trace against the DAG, documenting the reference trace, and the `@observe` and `enable_storage()` rules and patterns.
+> **Reference**: Read `references/2-wrap-and-trace.md` now — it has the sub-steps for data-flow analysis, adding `wrap()` calls, implementing the Runnable class, running `pixie trace` to capture a reference trace, and verifying coverage.
 
-Add `@observe` to application-level functions identified in your DAG (`pixie_qa/02-data-flow.json`). Run the app normally (no mocks) to produce a reference trace. Verify the trace with `pixie trace verify`, then validate it matches the DAG with `pixie dag check-trace`. Document the data shapes.
+Add `wrap()` calls at data boundaries in the application code. Implement a `Runnable` class with `setup`, `run`, and `teardown` methods. **Note**: `run()` is called concurrently for all dataset entries — if the app uses shared mutable state (SQLite, global caches), add concurrency protection (see the reference doc for patterns). Imports from project modules work automatically — no `sys.path` manipulation needed.
 
-> **Checkpoint**: `pixie_qa/04-reference-trace.md` exists with eval_input/eval_output shapes and completeness verification. Instrumentation is in the source code. `pixie dag check-trace` passes. Do NOT read Step 3 instructions yet.
+Run `pixie trace` to capture a reference trace. Verify all eval criteria have corresponding wrap coverage.
 
----
-
-### Step 3: Write a utility function to run the full app end-to-end
-
-> **Reference**: Read `references/3-run-harness.md` now — it has the contract, implementation guidance, verification steps, and concrete examples by app type (FastAPI, CLI, standalone function).
-
-Write a `run_app(eval_input) → eval_output` function that patches external dependencies, calls the app through its real entry point, and collects the response. Verify it produces the same structure as the reference trace.
-
-> **Checkpoint**: Utility function implemented and verified. When fed the reference trace's eval_input, it produces eval_output with the same structure and exercises the same code path. Do NOT read Step 4 instructions yet.
+> **Checkpoint**: `pixie_qa/scripts/run_app.py` written and verified. `pixie_qa/reference-trace.jsonl` exists and all expected data points appear when formatted with `pixie format`. Do NOT read Step 3 instructions yet.
 
 ---
 
-### Step 4: Define evaluators
+### Step 3: Define evaluators
 
-> **Reference**: Read `references/4-define-evaluators.md` now — it has the sub-steps for mapping criteria to evaluators, implementing custom evaluators, verifying discoverability, and producing the evaluator mapping artifact.
+> **Reference**: Read `references/3-define-evaluators.md` now — it has the sub-steps for mapping criteria to evaluators, implementing custom evaluators, verifying discoverability, and producing the evaluator mapping artifact.
 
-Map each eval criterion from Step 1c to a concrete evaluator — implement custom ones where needed. Then produce the evaluator mapping artifact.
+Map each eval criterion from Step 1b to a concrete evaluator — implement custom ones where needed. Then produce the evaluator mapping artifact.
 
-> **Checkpoint**: All evaluators implemented. `pixie_qa/05-evaluator-mapping.md` written with criterion-to-evaluator mapping using exact evaluator names (built-in names from `evaluators.md`, custom names in `filepath:callable_name` format). Do NOT read Step 5 instructions yet.
-
----
-
-### Step 5: Build the dataset
-
-> **Reference**: Read `references/5-build-dataset.md` now — it has the sub-steps for determining expectations, generating eval_input items, building the dataset JSON with the new format (runnable, evaluators, descriptions), and validating with `pixie dataset validate`.
-
-Create a dataset JSON file with made-up eval_input items that match the data shape from the reference trace. Set the `runnable` to the `filepath:callable_name` reference for the run function from Step 3 (e.g., `"pixie_qa/scripts/run_app.py:run_app"` — file path relative to project root). Assign evaluators based on the eval criteria (Step 1c) and the evaluator mapping (Step 4) — universal criteria become dataset-level defaults, case-specific criteria become item-level evaluators. Add a `description` for each item. Validate with `pixie dataset validate`.
-
-> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse eval_inputs, runnable, evaluators, and descriptions. `pixie dataset validate` passes. Do NOT read Step 6 instructions yet.
+> **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` written with criterion-to-evaluator mapping using exact evaluator names (built-in names from `evaluators.md`, custom names in `filepath:callable_name` format). Do NOT read Step 4 instructions yet.
 
 ---
 
-### Step 6: Run evaluation-based tests
+### Step 4: Build the dataset
 
-> **Reference**: Read `references/6-run-tests.md` now — it has the sub-steps for running tests, verifying output, and running analysis.
+> **Reference**: Read `references/4-build-dataset.md` now — it has the sub-steps for using `pixie format` for data shapes, generating dataset entries with `entry_kwargs` and `test_case.eval_input`, building the dataset JSON, and understanding the `expectation` vs `eval_output` distinction.
 
-Run `pixie test` (without a path argument) to execute the full evaluation pipeline. Verify that real scores are produced. Once tests complete without setup errors, run `pixie analyze` to generate analysis.
+Use `pixie format` on the reference trace to get exact data shapes. Create a dataset JSON with:
+
+- **`entry_kwargs`** — runnable arguments (sibling of `test_case`)
+- **`test_case`** — contains `eval_input`, `expectation`, `description`
+- **`evaluators`** — per-entry evaluator list (**sibling** of `entry_kwargs` and `test_case`, NOT inside `test_case`)
+
+Set the `runnable` to the `filepath:ClassName` reference from Step 2. Assign evaluators from Step 3 — dataset-level defaults in the top-level `evaluators` array, per-entry overrides in each entry's `evaluators` field.
+
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries, `entry_kwargs`, `test_case.eval_input`, `runnable`, evaluators, and descriptions. Do NOT read Step 5 instructions yet.
+
+---
+
+### Step 5: Run evaluation-based tests
+
+> **Reference**: Read `references/5-run-tests.md` now — it has the sub-steps for running tests, fixing dataset quality issues, and running analysis.
+
+Run `pixie test` to execute the full evaluation pipeline. Fix any data validation errors (`WrapRegistryMissError`, `WrapTypeMismatchError`, import failures). Once tests run cleanly, run `pixie analyze`.
 
 > **Checkpoint**: Tests run and produce real scores. Analysis generated.
 >
@@ -154,14 +134,14 @@ Run `pixie test` (without a path argument) to execute the full evaluation pipeli
 >
 > **STOP GATE — read this before doing anything else after tests produce scores:**
 >
-> - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 7.
-> - If the user's original prompt explicitly asks for iteration ("fix", "improve", "debug", "iterate", "investigate failures", "make tests pass"), proceed to Step 7.
+> - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 6.
+> - If the user's original prompt explicitly asks for iteration ("fix", "improve", "debug", "iterate", "investigate failures", "make tests pass"), proceed to Step 6.
 
 ---
 
-### Step 7: Investigate and iterate
+### Step 6: Investigate and iterate
 
-> **Reference**: Read `references/7-investigation.md` now — it has the stop/continue decision, analysis review, root-cause patterns, and investigation procedures. **Follow its instructions before doing any investigation work.**
+> **Reference**: Read `references/6-investigate.md` now — it has the stop/continue decision, analysis review, root-cause patterns, and investigation procedures. **Follow its instructions before doing any investigation work.**
 
 ---
 

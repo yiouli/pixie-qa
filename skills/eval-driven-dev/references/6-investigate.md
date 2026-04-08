@@ -1,6 +1,6 @@
 # Investigation and Iteration
 
-This reference covers Step 7 of the eval-driven-dev process: investigating test failures, root-causing them, and iterating on fixes.
+This reference covers Step 6 of the eval-driven-dev process: investigating test failures, root-causing them, and iterating on fixes.
 
 ---
 
@@ -24,7 +24,7 @@ When the user has confirmed (or their original prompt was explicitly about itera
 
 ### 1. Read the analysis
 
-Start by reading the analysis generated in Step 6. The analysis files are at `{PIXIE_ROOT}/results/<test_id>/dataset-<index>.md`. These contain LLM-generated insights about patterns in successes and failures across your test run. Use the analysis to prioritize which failures to investigate first and to understand systemic issues.
+Start by reading the analysis generated in Step 5. The analysis files are at `{PIXIE_ROOT}/results/<test_id>/dataset-<index>.md`. These contain LLM-generated insights about patterns in successes and failures across your test run. Use the analysis to prioritize which failures to investigate first and to understand systemic issues.
 
 ### 2. Get detailed test output
 
@@ -34,8 +34,8 @@ uv run pixie test -v    # shows score and reasoning per case
 
 Capture the full verbose output. For each failing case, note:
 
-- The `eval_input` (what was sent)
-- The `eval_output` (what the app produced)
+- The `entry_kwargs` (what was sent)
+- The `the captured output` (what the app produced)
 - The `expected_output` (what was expected, if applicable)
 - The evaluator score and reasoning
 
@@ -103,8 +103,8 @@ For non-LLM failures: note them in the investigation log and recommend the code 
 
 #### Failing case 1: "What rows have extra legroom?"
 
-- **eval_input**: `{"user_message": "What rows have extra legroom?"}`
-- **eval_output**: "I'm sorry, I don't have the exact row numbers for extra legroom..."
+- **entry_kwargs**: `{"user_message": "What rows have extra legroom?"}`
+- **the captured output**: "I'm sorry, I don't have the exact row numbers for extra legroom..."
 - **expected_output**: "rows 5-8 Economy Plus with extra legroom"
 - **Evaluator score**: 0.1 (Factuality)
 - **Evaluator reasoning**: "The output claims not to know the answer while the reference clearly states rows 5-8..."

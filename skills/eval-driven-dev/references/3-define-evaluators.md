@@ -1,12 +1,12 @@
-# Step 4: Define Evaluators
+# Step 3: Define Evaluators
 
-**Why this step**: With the app instrumented and a utility function ready, you now map each eval criterion to a concrete evaluator — implementing custom ones where needed — so the dataset (Step 5) can reference them by name.
+**Why this step**: With the app instrumented (Step 2), you now map each eval criterion to a concrete evaluator — implementing custom ones where needed — so the dataset (Step 4) can reference them by name.
 
 ---
 
-## 4a. Map criteria to evaluators
+## 3a. Map criteria to evaluators
 
-**Every eval criterion from Step 1c — including any dimensions specified by the user in the prompt — must have a corresponding evaluator.** If the user asked for "factuality, completeness, and bias," you need three evaluators (or a multi-criteria evaluator that covers all three). Do not silently drop any requested dimension.
+**Every eval criterion from Step 1b — including any dimensions specified by the user in the prompt — must have a corresponding evaluator.** If the user asked for "factuality, completeness, and bias," you need three evaluators (or a multi-criteria evaluator that covers all three). Do not silently drop any requested dimension.
 
 For each eval criterion, decide how to evaluate it:
 
@@ -18,7 +18,7 @@ For open-ended LLM text, **never** use `ExactMatch` — LLM outputs are non-dete
 
 `AnswerRelevancy` is **RAG-only** — it requires a `context` value in the trace. Returns 0.0 without it. For general relevance without RAG, use `create_llm_evaluator` with a custom prompt.
 
-## 4b. Implement custom evaluators
+## 3b. Implement custom evaluators
 
 If any criterion requires a custom evaluator, implement it now. Place custom evaluators in `pixie_qa/evaluators.py` (or a sub-module if there are many).
 
@@ -48,11 +48,16 @@ concise_voice_style = create_llm_evaluator(
 
 Reference the evaluator in your dataset JSON by its `filepath:callable_name` reference (e.g., `"pixie_qa/evaluators.py:concise_voice_style"`).
 
-**How template variables work**: `{eval_input}`, `{eval_output}`, `{expected_output}` are the only placeholders. Each is replaced with a string representation of the corresponding `Evaluable` field — if the field is a dict or list, it becomes a JSON string. The LLM judge sees the full serialized value.
+**How template variables work**: `{eval_input}`, `{eval_output}`, `{expectation}` are the only placeholders. Each is replaced with a string representation of the corresponding `Evaluable` field:
+
+- **Single-item** `eval_input` / `eval_output` → the item's value (string, JSON-serialized dict/list)
+- **Multi-item** `eval_input` / `eval_output` → a JSON dict mapping `name → value` for every item
+
+The LLM judge sees the full serialized value.
 
 **Rules**:
 
-- **Only `{eval_input}`, `{eval_output}`, `{expected_output}`** — no nested access like `{eval_input[key]}` (this will crash with a `TypeError`)
+- **Only `{eval_input}`, `{eval_output}`, `{expectation}`** — no nested access like `{eval_input[key]}` (this will crash with a `ValueError`)
 - **Keep templates short and direct** — the system prompt already tells the LLM to return `Score: X.X`. Your template just needs to present the data and define the scoring criteria.
 - **Don't instruct the LLM to "parse" or "extract" data** — just present the values and state the criteria. The LLM can read JSON naturally.
 
@@ -66,7 +71,7 @@ response_relevance = create_llm_evaluator(
 
     Input: {eval_input}
     Response: {eval_output}
-    Expected: {expected_output}
+    Expected: {expectation}
 
     Score 1.0 if the response directly addresses the question and meets expectations.
     Score 0.5 if partially relevant but misses important aspects.
@@ -89,9 +94,34 @@ def my_evaluator(evaluable: Evaluable, *, trace=None) -> Evaluation:
 
 Reference by `filepath:callable_name` in the dataset: `"pixie_qa/evaluators.py:my_evaluator"`.
 
-## 4c. Produce the evaluator mapping artifact
+**Accessing `eval_metadata` and captured data**: Custom evaluators access per-entry metadata and `wrap()` outputs via the `Evaluable` fields:
 
-Write the criterion-to-evaluator mapping to `pixie_qa/05-evaluator-mapping.md`. This artifact bridges between the eval criteria (Step 1c) and the dataset (Step 5).
+- `evaluable.eval_metadata` — dict from `test_case.eval_metadata` in the dataset (e.g., `{"expected_tool": "endCall"}`)
+- `evaluable.eval_output` — `list[NamedData]` containing ALL `wrap(purpose="output")` and `wrap(purpose="state")` values. Each item has `.name` (str) and `.value` (JsonValue). Use the helper below to look up by name.
+
+```python
+def _get_output(evaluable: Evaluable, name: str) -> Any:
+    """Look up a wrap value by name from eval_output."""
+    for item in evaluable.eval_output:
+        if item.name == name:
+            return item.value
+    return None
+
+def call_ended_check(evaluable: Evaluable, *, trace=None) -> Evaluation:
+    expected = evaluable.eval_metadata.get("expected_call_ended") if evaluable.eval_metadata else None
+    actual = _get_output(evaluable, "call_ended")
+    if expected is None:
+        return Evaluation(score=1.0, reasoning="No expected_call_ended in eval_metadata")
+    match = bool(actual) == bool(expected)
+    return Evaluation(
+        score=1.0 if match else 0.0,
+        reasoning=f"Expected call_ended={expected}, got {actual}",
+    )
+```
+
+## 3c. Produce the evaluator mapping artifact
+
+Write the criterion-to-evaluator mapping to `pixie_qa/03-evaluator-mapping.md`. This artifact bridges between the eval criteria (Step 1b) and the dataset (Step 4).
 
 **CRITICAL**: Use the exact evaluator names as they appear in the `evaluators.md` reference — built-in evaluators use their short name (e.g., `Factuality`, `ClosedQA`), and custom evaluators use `filepath:callable_name` format (e.g., `pixie_qa/evaluators.py:ConciseVoiceStyle`).
 
@@ -122,10 +152,10 @@ Write the criterion-to-evaluator mapping to `pixie_qa/05-evaluator-mapping.md`. 
 ## Output
 
 - Custom evaluator implementations in `pixie_qa/evaluators.py` (if any custom evaluators needed)
-- `pixie_qa/05-evaluator-mapping.md` — the criterion-to-evaluator mapping
+- `pixie_qa/03-evaluator-mapping.md` — the criterion-to-evaluator mapping
 
 ---
 
 > **Evaluator selection guide**: See `evaluators.md` for the full evaluator catalog, selection guide (which evaluator for which output type), and `create_llm_evaluator` reference.
 >
-> **If you hit an unexpected error** when implementing evaluators (import failures, API mismatch), read `evaluators.md` for the authoritative evaluator reference and `instrumentation-api.md` for API details before guessing at a fix.
+> **If you hit an unexpected error** when implementing evaluators (import failures, API mismatch), read `evaluators.md` for the authoritative evaluator reference and `wrap-api.md` for API details before guessing at a fix.
