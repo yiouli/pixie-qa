@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from pixie.eval.evaluable import Evaluable
+from pixie.eval.evaluable import Evaluable, collapse_named_data
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +84,8 @@ async def evaluate(
     limiter = get_rate_limiter()
     if limiter:
         estimated_tokens = limiter.estimate_tokens(
-            str(evaluable.eval_input[0].value)
-            + str(evaluable.eval_output[0].value or "")
+            str(collapse_named_data(evaluable.eval_input))
+            + str(collapse_named_data(evaluable.eval_output) or "")
         )
         await limiter.acquire(estimated_tokens)
 

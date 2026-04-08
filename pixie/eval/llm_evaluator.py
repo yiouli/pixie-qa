@@ -31,7 +31,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from pixie.eval.evaluable import Evaluable, _Unset
+from pixie.eval.evaluable import Evaluable, NamedData, _Unset, collapse_named_data
 from pixie.eval.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,15 @@ def _value_to_str(value: Any) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value, default=str)
     return str(value)
+
+
+def _serialize_named_data(items: list[NamedData]) -> str:
+    """Serialize a list of NamedData to a prompt-ready string.
+
+    Uses :func:`collapse_named_data` to collapse items, then
+    converts the result to a string via :func:`_value_to_str`.
+    """
+    return _value_to_str(collapse_named_data(items))
 
 
 def _parse_score(text: str) -> tuple[float, str]:
@@ -111,12 +120,20 @@ class _LLMEvaluator:
         return OpenAI()
 
     def _render_prompt(self, evaluable: Evaluable) -> str:
-        """Fill in the template with evaluable fields."""
-        expected = evaluable.expectation
+        """Fill in the template with evaluable fields.
+
+        Template variables are populated from the full
+        :class:`~pixie.eval.evaluable.Evaluable`:
+
+        - ``{eval_input}`` — all eval_input items (single item → its
+          value; multiple items → JSON dict of name→value)
+        - ``{eval_output}`` — all eval_output items (same rule)
+        - ``{expectation}`` — the expectation value
+        """
         rendered = self._prompt_template.format(
-            eval_input=_value_to_str(evaluable.eval_input[0].value),
-            eval_output=_value_to_str(evaluable.eval_output[0].value),
-            expectation=_value_to_str(expected),
+            eval_input=_serialize_named_data(evaluable.eval_input),
+            eval_output=_serialize_named_data(evaluable.eval_output),
+            expectation=_value_to_str(evaluable.expectation),
         )
         return rendered + "\n\nRespond with 'Score: X.X' followed by reasoning."
 
@@ -169,9 +186,13 @@ def create_llm_evaluator(
     The template may reference these variables (populated from the
     :class:`~pixie.eval.evaluable.Evaluable` fields):
 
-    - ``{eval_input}`` — the evaluable's input
-    - ``{eval_output}`` — the evaluable's output
-    - ``{expectation}`` — the evaluable's expected output
+    - ``{eval_input}`` — the evaluable's input data. When there is a
+      single ``eval_input`` item, this expands to that item's value.
+      When there are multiple items, it expands to a JSON dict mapping
+      each item's ``name`` to its ``value``.
+    - ``{eval_output}`` — the evaluable's output data (same rule as
+      ``eval_input``).
+    - ``{expectation}`` — the evaluable's expected output.
 
     Args:
         name: Display name for the evaluator (shown in scorecard).

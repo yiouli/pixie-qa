@@ -32,9 +32,13 @@ Functions
     The template may reference these variables (populated from the
     :class:`~pixie.eval.evaluable.Evaluable` fields):
     
-    - ``{eval_input}`` — the evaluable's input
-    - ``{eval_output}`` — the evaluable's output
-    - ``{expectation}`` — the evaluable's expected output
+    - ``{eval_input}`` — the evaluable's input data. When there is a
+      single ``eval_input`` item, this expands to that item's value.
+      When there are multiple items, it expands to a JSON dict mapping
+      each item's ``name`` to its ``value``.
+    - ``{eval_output}`` — the evaluable's output data (same rule as
+      ``eval_input``).
+    - ``{expectation}`` — the evaluable's expected output.
     
     Args:
         name: Display name for the evaluator (shown in scorecard).

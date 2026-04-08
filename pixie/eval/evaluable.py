@@ -80,3 +80,21 @@ class Evaluable(TestCase):
     """
 
     eval_output: list[NamedData] = Field(min_length=1)
+
+
+def collapse_named_data(items: list[NamedData]) -> JsonValue:
+    """Collapse a list of :class:`NamedData` into a single JSON value.
+
+    - Empty list → ``None``
+    - Single item → that item's ``value`` (preserves type)
+    - Multiple items → ``dict`` mapping ``name → value``
+
+    This is the canonical way to convert ``eval_input`` or
+    ``eval_output`` to a scalar suitable for evaluators, display,
+    or token estimation.
+    """
+    if not items:
+        return None
+    if len(items) == 1:
+        return items[0].value
+    return {item.name: item.value for item in items}

@@ -15,6 +15,20 @@ Variables
 `UNSET`
 :   Sentinel value: field was never set (as opposed to explicitly ``None``).
 
+Functions
+---------
+
+`def collapse_named_data(items: list[NamedData]) ‑> JsonValue`
+:   Collapse a list of :class:`NamedData` into a single JSON value.
+    
+    - Empty list → ``None``
+    - Single item → that item's ``value`` (preserves type)
+    - Multiple items → ``dict`` mapping ``name → value``
+    
+    This is the canonical way to convert ``eval_input`` or
+    ``eval_output`` to a scalar suitable for evaluators, display,
+    or token estimation.
+
 Classes
 -------
 

@@ -36,7 +36,13 @@ from pydantic import (
     model_validator,
 )
 
-from pixie.eval.evaluable import Evaluable, NamedData, TestCase, _Unset
+from pixie.eval.evaluable import (
+    Evaluable,
+    NamedData,
+    TestCase,
+    _Unset,
+    collapse_named_data,
+)
 from pixie.eval.evaluation import Evaluation, evaluate
 from pixie.harness.run_result import EntryResult, EvaluationResult
 from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
@@ -653,8 +659,8 @@ async def evaluate_entry(
     ]
 
     return EntryResult(
-        input=evaluable.eval_input[0].value,
-        output=evaluable.eval_output[0].value,
+        input=collapse_named_data(evaluable.eval_input),
+        output=collapse_named_data(evaluable.eval_output),
         expected_output=expectation,
         description=evaluable.description,
         evaluations=eval_results,
@@ -710,7 +716,7 @@ async def run_entry(
             clear_eval_input()
             clear_eval_output()
             return EntryResult(
-                input=test_case.eval_input[0].value,
+                input=collapse_named_data(test_case.eval_input),
                 output=None,
                 expected_output=None,
                 description=test_case.description,

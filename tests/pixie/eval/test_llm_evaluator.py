@@ -118,6 +118,52 @@ class TestLLMEvaluatorRendering:
         rendered = evaluator._render_prompt(evaluable)
         assert "Input: " in rendered
 
+    def test_renders_multiple_eval_input_items(self) -> None:
+        evaluator = create_llm_evaluator(
+            name="TestEval",
+            prompt_template="Input: {eval_input}",
+        )
+        evaluable = Evaluable(
+            eval_input=[
+                _nd("question", "What is 2+2?"),
+                _nd("context", "Math class"),
+            ],
+            eval_output=[_nd("answer", "4")],
+        )
+        rendered = evaluator._render_prompt(evaluable)
+        assert '"question": "What is 2+2?"' in rendered
+        assert '"context": "Math class"' in rendered
+
+    def test_renders_multiple_eval_output_items(self) -> None:
+        evaluator = create_llm_evaluator(
+            name="TestEval",
+            prompt_template="Output: {eval_output}",
+        )
+        evaluable = Evaluable(
+            eval_input=[_nd("q", "hi")],
+            eval_output=[
+                _nd("response", "Hello!"),
+                _nd("function_called", "greet"),
+                _nd("call_ended", True),
+            ],
+        )
+        rendered = evaluator._render_prompt(evaluable)
+        assert '"response": "Hello!"' in rendered
+        assert '"function_called": "greet"' in rendered
+        assert '"call_ended": true' in rendered
+
+    def test_single_item_renders_value_directly(self) -> None:
+        """Single-item lists render the bare value (backwards compatible)."""
+        evaluator = create_llm_evaluator(
+            name="TestEval",
+            prompt_template="Output: {eval_output}",
+        )
+        evaluable = _ev(inp="q", out="simple answer")
+        rendered = evaluator._render_prompt(evaluable)
+        assert "Output: simple answer" in rendered
+        # Should NOT be wrapped in a JSON dict
+        assert '"output"' not in rendered
+
 
 class TestLLMEvaluatorCall:
     """Tests for the __call__ method with mocked OpenAI client."""

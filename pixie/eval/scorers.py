@@ -114,7 +114,7 @@ from autoevals.string import Levenshtein as _Levenshtein
 from autoevals.value import ExactMatch as _ExactMatch
 from pydantic import JsonValue
 
-from pixie.eval.evaluable import Evaluable, _Unset
+from pixie.eval.evaluable import Evaluable, _Unset, collapse_named_data
 from pixie.eval.evaluation import Evaluation
 
 # Sentinel used to distinguish "caller did not pass expected" from ``None``.
@@ -218,7 +218,7 @@ class AutoevalsAdapter:
             3. ``evaluable.eval_metadata[expected_key]`` (if metadata is not ``None``).
         """
         try:
-            output = evaluable.eval_output[0].value if evaluable.eval_output else None
+            output = collapse_named_data(evaluable.eval_output)
 
             # Resolve expected — evaluable > constructor > metadata
             expected: JsonValue | None
@@ -236,9 +236,7 @@ class AutoevalsAdapter:
             # Build kwargs
             kwargs: dict[str, Any] = {}
             if self._input_key is not None:
-                kwargs[self._input_key] = (
-                    evaluable.eval_input[0].value if evaluable.eval_input else None
-                )
+                kwargs[self._input_key] = collapse_named_data(evaluable.eval_input)
             if evaluable.eval_metadata is not None:
                 for key in self._extra_metadata_keys:
                     if key in evaluable.eval_metadata:

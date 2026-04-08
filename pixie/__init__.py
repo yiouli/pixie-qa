@@ -32,6 +32,9 @@ from pixie.eval.scorers import (
     ValidJSON,
 )
 
+# -- Harness ------------------------------------------------------------------
+from pixie.harness.runnable import Runnable
+
 # -- Instrumentation ----------------------------------------------------------
 from pixie.instrumentation.llm_tracing import (
     add_handler,
@@ -52,6 +55,8 @@ __all__ = [
     "add_handler",
     "remove_handler",
     "wrap",
+    # Harness
+    "Runnable",
     # Eval data models
     "Evaluable",
     "TestCase",
