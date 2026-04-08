@@ -226,15 +226,39 @@ function scoreTier(score: number): ScoreTier {
   return "pass";
 }
 
-/** Tailwind classes for pill border/bg/text by tier. */
-function pillClasses(tier: ScoreTier): string {
+/** Tailwind classes for pill border/text by tier. */
+function pillBaseClasses(tier: ScoreTier): string {
   switch (tier) {
     case "pass":
-      return "border-pass-border bg-pass-bg text-pass";
+      return "border-pass-border text-pass";
     case "warn":
-      return "border-warn-border bg-warn-bg text-warn";
+      return "border-warn-border text-warn";
     case "fail":
-      return "border-fail-border bg-fail-bg text-fail";
+      return "border-fail-border text-fail";
+  }
+}
+
+/** Faint tinted fill shown on hover/focus, when popover is closed. */
+function pillHoverFillClasses(tier: ScoreTier): string {
+  switch (tier) {
+    case "pass":
+      return "hover:border-pass hover:bg-pass/12 focus-visible:border-pass focus-visible:bg-pass/12";
+    case "warn":
+      return "hover:border-warn hover:bg-warn/12 focus-visible:border-warn focus-visible:bg-warn/12";
+    case "fail":
+      return "hover:border-fail hover:bg-fail/12 focus-visible:border-fail focus-visible:bg-fail/12";
+  }
+}
+
+/** Stronger fill shown while the evaluator popover is open. */
+function pillOpenFillClasses(tier: ScoreTier): string {
+  switch (tier) {
+    case "pass":
+      return "border-pass bg-pass text-white";
+    case "warn":
+      return "border-warn bg-warn text-white";
+    case "fail":
+      return "border-fail bg-fail text-white";
   }
 }
 
@@ -280,8 +304,9 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className={`inline-block cursor-pointer rounded-pill border px-3 py-1 text-xs font-bold tracking-wide transition-opacity hover:opacity-80 ${pillClasses(tier)}`}
+        className={`inline-block cursor-pointer rounded-pill border px-3 py-1 text-xs font-bold tracking-wide transition-colors ${pillBaseClasses(tier)} ${open ? pillOpenFillClasses(tier) : pillHoverFillClasses(tier)}`}
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
       >
         {evaluation.evaluator}
       </button>
@@ -437,7 +462,7 @@ function EvalDetailModal({
             >
               <div className="mb-1 flex items-center gap-3">
                 <span
-                  className={`inline-block rounded-pill border px-3 py-1 text-xs font-bold tracking-wide ${pillClasses(scoreTier(ev.score))}`}
+                  className={`inline-block rounded-pill border px-3 py-1 text-xs font-bold tracking-wide ${pillBaseClasses(scoreTier(ev.score))} ${pillOpenFillClasses(scoreTier(ev.score))}`}
                 >
                   {ev.evaluator}
                 </span>
