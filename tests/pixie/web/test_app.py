@@ -32,13 +32,32 @@ class TestListMdFiles:
         (tmp_path / "not-md.txt").write_text("skip")
 
         result = _list_md_files(tmp_path)
-        assert len(result) == 2
-        assert result[0]["name"] == "01-entry-point.md"
-        assert result[1]["name"] == "02-data-flow.md"
+        names = [r["name"] for r in result]
+        assert "01-entry-point.md" in names
+        assert "02-data-flow.md" in names
+        assert "not-md.txt" not in names
 
     def test_returns_empty_for_missing_dir(self, tmp_path: Path) -> None:
         result = _list_md_files(tmp_path / "nonexistent")
         assert result == []
+
+    def test_includes_json_files(self, tmp_path: Path) -> None:
+        (tmp_path / "config.json").write_text("{}")
+        result = _list_md_files(tmp_path)
+        assert any(r["name"] == "config.json" for r in result)
+
+    def test_includes_jsonl_files(self, tmp_path: Path) -> None:
+        (tmp_path / "data.jsonl").write_text('{"a": 1}')
+        result = _list_md_files(tmp_path)
+        assert any(r["name"] == "data.jsonl" for r in result)
+
+    def test_includes_py_files_except_init(self, tmp_path: Path) -> None:
+        (tmp_path / "evaluator.py").write_text("pass")
+        (tmp_path / "__init__.py").write_text("")
+        result = _list_md_files(tmp_path)
+        names = [r["name"] for r in result]
+        assert "evaluator.py" in names
+        assert "__init__.py" not in names
 
 
 class TestListDatasets:
@@ -238,9 +257,27 @@ class TestAppEndpoints:
     def test_file_endpoint_unsupported_type(
         self, client: TestClient, app_root: Path
     ) -> None:
-        (app_root / "test.py").write_text("print('hello')")
-        resp = client.get("/api/file?path=test.py")
+        (app_root / "test.xyz").write_text("data")
+        resp = client.get("/api/file?path=test.xyz")
         assert resp.status_code == 400
+
+    def test_file_endpoint_serves_py_file(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        (app_root / "evaluator.py").write_text("print('hello')")
+        resp = client.get("/api/file?path=evaluator.py")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["content"] == "print('hello')"
+
+    def test_file_endpoint_serves_jsonl_file(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        (app_root / "data.jsonl").write_text('{"a": 1}\n{"b": 2}')
+        resp = client.get("/api/file?path=data.jsonl")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["content"] == '{"a": 1}\n{"b": 2}'
 
     def test_status_endpoint_returns_active_clients(self, client: TestClient) -> None:
         resp = client.get("/api/status")

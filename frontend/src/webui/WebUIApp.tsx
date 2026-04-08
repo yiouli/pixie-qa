@@ -5,7 +5,6 @@ import type { Manifest, FileChangeEvent, NavigateEvent } from "./types";
 import { useSSE } from "./useSSE";
 import { TabBar } from "./components/TabBar";
 import { ResultsPanel } from "./components/ResultsPanel";
-import { ScorecardsPanel } from "./components/ScorecardsPanel";
 import { DatasetsPanel } from "./components/DatasetsPanel";
 import { ProjectContextPanel } from "./components/ProjectContextPanel";
 
@@ -20,8 +19,7 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: "results", label: "Results" },
-  { id: "scorecards", label: "Scorecards" },
+  { id: "results", label: "Scorecards" },
   { id: "datasets", label: "Datasets" },
   { id: "project-context", label: "Project Context" },
 ];
@@ -39,6 +37,16 @@ function getInitialSelection(): { tab: string; id: string | null } {
   return { tab, id };
 }
 
+/** Check if a top-level file path belongs to the project context tab. */
+function isProjectContextFile(path: string): boolean {
+  // Must be top-level (no directory separators)
+  if (path.includes("/")) return false;
+  if (path.endsWith(".md")) return true;
+  if (path.endsWith(".json") || path.endsWith(".jsonl")) return true;
+  if (path.endsWith(".py") && path !== "__init__.py") return true;
+  return false;
+}
+
 export default function WebUIApp() {
   const initial = getInitialSelection();
 
@@ -49,9 +57,6 @@ export default function WebUIApp() {
     results: [],
   });
   const [activeTab, setActiveTab] = useState(initial.tab);
-  const [scorecardAutoSelect, setScorecardAutoSelect] = useState<string | null>(
-    initial.tab === "scorecards" ? initial.id : null,
-  );
   const [datasetAutoSelect, setDatasetAutoSelect] = useState<string | null>(
     initial.tab === "datasets" ? initial.id : null,
   );
@@ -79,17 +84,12 @@ export default function WebUIApp() {
             setResultAutoSelect(`results/${parts[1]}`);
           }
         }
-      } else if (change.path.startsWith("scorecards/")) {
-        setActiveTab("scorecards");
-        if (change.type === "added" || change.type === "modified") {
-          setScorecardAutoSelect(change.path);
-        }
       } else if (change.path.startsWith("datasets/")) {
         setActiveTab("datasets");
         if (change.type === "added" || change.type === "modified") {
           setDatasetAutoSelect(change.path);
         }
-      } else if (change.path.endsWith(".md")) {
+      } else if (isProjectContextFile(change.path)) {
         setActiveTab("project-context");
         setMdAutoSelect(change.path);
         setMdVersions((prev) => ({
@@ -106,8 +106,6 @@ export default function WebUIApp() {
     if (nav.id) {
       if (tab === "results") {
         setResultAutoSelect(nav.id);
-      } else if (tab === "scorecards") {
-        setScorecardAutoSelect(nav.id);
       } else if (tab === "datasets") {
         setDatasetAutoSelect(nav.id);
       } else if (tab === "project-context") {
@@ -120,7 +118,7 @@ export default function WebUIApp() {
 
   return (
     <div className="h-screen overflow-hidden">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-surface px-10 py-3">
+      <header className="sticky top-0 z-20 flex items-center justify-between bg-surface px-10 py-3">
         <div className="flex items-center gap-2">
           <img
             src={BRAND_ICON_URL}
@@ -159,12 +157,6 @@ export default function WebUIApp() {
           <ResultsPanel
             results={manifest.results}
             autoSelect={resultAutoSelect}
-          />
-        )}
-        {activeTab === "scorecards" && (
-          <ScorecardsPanel
-            scorecards={manifest.scorecards}
-            autoSelect={scorecardAutoSelect}
           />
         )}
         {activeTab === "datasets" && (

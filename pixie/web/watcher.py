@@ -16,7 +16,7 @@ from pixie.web.app import SSEManager, _build_manifest
 logger = logging.getLogger(__name__)
 
 #: File patterns we care about
-_WATCHED_SUFFIXES = {".md", ".json", ".html"}
+_WATCHED_SUFFIXES = {".md", ".json", ".jsonl", ".html", ".py"}
 
 
 def _is_artifact(path: Path, root: Path) -> bool:
@@ -25,8 +25,11 @@ def _is_artifact(path: Path, root: Path) -> bool:
         return False
     rel = path.relative_to(root)
     parts = rel.parts
-    # Top-level .md files
-    if len(parts) == 1 and path.suffix == ".md":
+    # Top-level .md, .json, .jsonl files
+    if len(parts) == 1 and path.suffix in (".md", ".json", ".jsonl"):
+        return True
+    # Top-level .py files (excluding __init__.py)
+    if len(parts) == 1 and path.suffix == ".py" and path.name != "__init__.py":
         return True
     # datasets/*.json
     if len(parts) == 2 and parts[0] == "datasets" and path.suffix == ".json":

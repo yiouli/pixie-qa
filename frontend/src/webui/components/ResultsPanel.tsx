@@ -1,11 +1,12 @@
 /** Results panel — sidebar list + result viewer */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   ArtifactEntry,
   TestResultData,
   DatasetResultData,
   EntryResultData,
+  EvaluationResultData,
 } from "../types";
 import { SidebarList } from "./SidebarList";
 
@@ -153,9 +154,7 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
       <div className="mb-4 flex items-center gap-3">
         <h2 className="font-mono text-lg font-bold">{dataset.dataset}</h2>
         <span
-          className={`inline-block rounded-pill px-2.5 py-0.5 text-xs font-semibold ${
-            allPass ? "bg-pass-bg text-pass-text" : "bg-fail-bg text-fail-text"
-          }`}
+          className={`text-xl font-bold ${allPass ? "text-pass" : "text-fail"}`}
         >
           {passed}/{total} passed
         </span>
@@ -206,6 +205,70 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
   );
 }
 
+// ── Evaluator Pill with Popover ──────────────────────────────────────
+
+function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const pass = evaluation.score >= 0.5;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className={`inline-block cursor-pointer rounded-pill border px-3 py-1 text-xs font-bold tracking-wide transition-opacity hover:opacity-80 ${
+          pass
+            ? "border-pass-border bg-pass-bg text-pass"
+            : "border-fail-border bg-fail-bg text-fail"
+        }`}
+        onClick={() => setOpen(!open)}
+      >
+        {evaluation.evaluator}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1.5 w-72 rounded-md border border-border bg-surface p-4 shadow-lg animate-fade-in">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-mono text-xs font-bold text-ink">
+              {evaluation.evaluator}
+            </span>
+            <span
+              className={`rounded-pill px-2 py-0.5 text-xs font-bold ${
+                pass ? "bg-pass text-white" : "bg-fail text-white"
+              }`}
+            >
+              {evaluation.score.toFixed(2)}
+            </span>
+          </div>
+          {evaluation.reasoning && (
+            <p className="m-0 text-xs leading-relaxed text-ink-secondary">
+              {evaluation.reasoning}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Entry Row ──────────────────────────────────────────────────
 
 function EntryRow({ entry }: { entry: EntryResultData }) {
@@ -225,29 +288,17 @@ function EntryRow({ entry }: { entry: EntryResultData }) {
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
           <span
-            className={`inline-block rounded-pill px-2 py-0.5 text-xs font-semibold ${
-              allPass
-                ? "bg-pass-bg text-pass-text"
-                : "bg-fail-bg text-fail-text"
+            className={`inline-block rounded-pill px-3 py-1 text-xs font-bold tracking-wide ${
+              allPass ? "bg-pass text-white" : "bg-fail text-white"
             }`}
           >
-            {allPass ? "Pass" : "Fail"}
+            {allPass ? "PASS" : "FAIL"}
           </span>
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {sortedEvals.map((ev, i) => (
-              <span
-                key={i}
-                className={`inline-block rounded-pill px-2 py-0.5 text-xs font-medium ${
-                  ev.score >= 0.5
-                    ? "bg-pass-bg text-pass-text"
-                    : "bg-fail-bg text-fail-text"
-                }`}
-                title={`${ev.evaluator}: ${ev.score.toFixed(2)}`}
-              >
-                {ev.evaluator}
-              </span>
+              <EvalPill key={i} evaluation={ev} />
             ))}
           </div>
         </td>
@@ -337,10 +388,10 @@ function EvalDetailModal({
             >
               <div className="mb-1 flex items-center gap-3">
                 <span
-                  className={`inline-block rounded-pill px-2 py-0.5 text-xs font-medium ${
+                  className={`inline-block rounded-pill px-3 py-1 text-xs font-bold tracking-wide ${
                     ev.score >= 0.5
-                      ? "bg-pass-bg text-pass-text"
-                      : "bg-fail-bg text-fail-text"
+                      ? "border border-pass-border bg-pass-bg text-pass"
+                      : "border border-fail-border bg-fail-bg text-fail"
                   }`}
                 >
                   {ev.evaluator}

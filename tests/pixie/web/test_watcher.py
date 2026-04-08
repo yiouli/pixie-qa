@@ -14,6 +14,22 @@ class TestIsArtifact:
         path = tmp_path / "01-entry.md"
         assert _is_artifact(path, tmp_path)
 
+    def test_top_level_json_is_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "config.json"
+        assert _is_artifact(path, tmp_path)
+
+    def test_top_level_jsonl_is_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "data.jsonl"
+        assert _is_artifact(path, tmp_path)
+
+    def test_top_level_py_is_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "evaluator.py"
+        assert _is_artifact(path, tmp_path)
+
+    def test_top_level_init_py_is_not_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "__init__.py"
+        assert not _is_artifact(path, tmp_path)
+
     def test_dataset_json_is_artifact(self, tmp_path: Path) -> None:
         path = tmp_path / "datasets" / "faq.json"
         assert _is_artifact(path, tmp_path)
@@ -22,8 +38,8 @@ class TestIsArtifact:
         path = tmp_path / "scorecards" / "test.html"
         assert _is_artifact(path, tmp_path)
 
-    def test_py_file_is_not_artifact(self, tmp_path: Path) -> None:
-        path = tmp_path / "test.py"
+    def test_txt_file_is_not_artifact(self, tmp_path: Path) -> None:
+        path = tmp_path / "test.txt"
         assert not _is_artifact(path, tmp_path)
 
     def test_nested_md_is_not_artifact(self, tmp_path: Path) -> None:

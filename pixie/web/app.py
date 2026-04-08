@@ -28,12 +28,23 @@ def _resolve_artifact_root(root: str) -> Path:
 
 
 def _list_md_files(root: Path) -> list[dict[str, str]]:
-    """Return markdown files sorted by name."""
+    """Return project context files sorted by name.
+
+    Includes markdown files, root-level JSON/JSONL files, and Python files
+    (excluding __init__.py).
+    """
     files: list[dict[str, str]] = []
     if not root.exists():
         return files
-    for p in sorted(root.glob("*.md")):
-        files.append({"name": p.name, "path": p.name})
+    for p in sorted(root.iterdir()):
+        if not p.is_file():
+            continue
+        if p.suffix == ".md":
+            files.append({"name": p.name, "path": p.name})
+        elif p.suffix in (".json", ".jsonl"):
+            files.append({"name": p.name, "path": p.name})
+        elif p.suffix == ".py" and p.name != "__init__.py":
+            files.append({"name": p.name, "path": p.name})
     return files
 
 
@@ -170,7 +181,7 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
         elif resolved.suffix == ".html":
             content = resolved.read_text(encoding="utf-8")
             return HTMLResponse(content)
-        elif resolved.suffix == ".md":
+        elif resolved.suffix in (".md", ".jsonl", ".py"):
             content = resolved.read_text(encoding="utf-8")
             return JSONResponse({"content": content})
         else:
