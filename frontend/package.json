@@ -10,7 +10,8 @@
     },
     "dependencies": {
         "react": "^19.1.0",
-        "react-dom": "^19.1.0"
+        "react-dom": "^19.1.0",
+        "react18-json-view": "^0.2.10"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.2.2",
