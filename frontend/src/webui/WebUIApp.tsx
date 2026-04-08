@@ -67,6 +67,7 @@ export default function WebUIApp() {
     initial.tab === "project-context" ? initial.id : null,
   );
   const [mdVersions, setMdVersions] = useState<Record<string, number>>({});
+  const [resultVersion, setResultVersion] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const onManifest = useCallback((m: Manifest) => {
@@ -77,6 +78,8 @@ export default function WebUIApp() {
     for (const change of changes) {
       if (change.path.startsWith("results/")) {
         setActiveTab("results");
+        // Bump version so ResultsPanel re-fetches (e.g. analysis files)
+        setResultVersion((v) => v + 1);
         if (change.type === "added" || change.type === "modified") {
           // Extract the result dir path (results/<test_id>)
           const parts = change.path.split("/");
@@ -157,6 +160,7 @@ export default function WebUIApp() {
           <ResultsPanel
             results={manifest.results}
             autoSelect={resultAutoSelect}
+            version={resultVersion}
           />
         )}
         {activeTab === "datasets" && (

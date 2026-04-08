@@ -15,6 +15,11 @@
   --color-pass-border: #a7f3d0;
   --color-pass-text: #166534;
 
+  --color-warn: #d97706;
+  --color-warn-bg: #fffbeb;
+  --color-warn-border: #fde68a;
+  --color-warn-text: #92400e;
+
   --color-fail: #dc2626;
   --color-fail-bg: #fef2f2;
   --color-fail-border: #fecaca;

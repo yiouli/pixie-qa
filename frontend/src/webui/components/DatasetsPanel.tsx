@@ -1,7 +1,7 @@
 /** Datasets panel — sidebar list + table viewer */
 
 import { useState, useEffect } from "react";
-import type { ArtifactEntry, DatasetData } from "../types";
+import type { ArtifactEntry, DatasetData, DatasetItem } from "../types";
 import { SidebarList } from "./SidebarList";
 
 interface DatasetsPanelProps {
@@ -43,8 +43,13 @@ export function DatasetsPanel({ datasets, autoSelect }: DatasetsPanelProps) {
     setLoading(true);
     fetch(`/api/file?path=${encodeURIComponent(selected)}`)
       .then((r) => r.json())
-      .then((d: DatasetData) => {
-        setData(d);
+      .then((raw: Record<string, unknown>) => {
+        // Normalise: dataset files may use "entries" instead of "items"
+        const items = (raw.items ?? raw.entries ?? []) as DatasetItem[];
+        setData({
+          name: (raw.name as string) ?? selected.replace(/^datasets\//, "").replace(/\.json$/, ""),
+          items,
+        });
         setLoading(false);
       })
       .catch(() => setLoading(false));

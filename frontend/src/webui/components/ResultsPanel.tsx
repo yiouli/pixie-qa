@@ -13,9 +13,10 @@ import { SidebarList } from "./SidebarList";
 interface ResultsPanelProps {
   results: ArtifactEntry[];
   autoSelect?: string | null;
+  version?: number;
 }
 
-export function ResultsPanel({ results, autoSelect }: ResultsPanelProps) {
+export function ResultsPanel({ results, autoSelect, version }: ResultsPanelProps) {
   const [selected, setSelected] = useState<string | null>(
     results[0]?.path ?? null,
   );
@@ -49,7 +50,7 @@ export function ResultsPanel({ results, autoSelect }: ResultsPanelProps) {
       .then((r) => r.json())
       .then((data) => setResultData(data as TestResultData))
       .catch(() => setResultData(null));
-  }, [selected]);
+  }, [selected, version]);
 
   return (
     <div className="flex h-full">
@@ -205,6 +206,41 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
   );
 }
 
+// ── Score tier helper ──────────────────────────────────────────────────
+
+type ScoreTier = "pass" | "warn" | "fail";
+
+/** Classify a score into pass / warn / fail tier. */
+function scoreTier(score: number): ScoreTier {
+  if (score < 0.5) return "fail";
+  if (score <= 0.6) return "warn";
+  return "pass";
+}
+
+/** Tailwind classes for pill border/bg/text by tier. */
+function pillClasses(tier: ScoreTier): string {
+  switch (tier) {
+    case "pass":
+      return "border-pass-border bg-pass-bg text-pass";
+    case "warn":
+      return "border-warn-border bg-warn-bg text-warn";
+    case "fail":
+      return "border-fail-border bg-fail-bg text-fail";
+  }
+}
+
+/** Tailwind classes for the solid score badge by tier. */
+function badgeClasses(tier: ScoreTier): string {
+  switch (tier) {
+    case "pass":
+      return "bg-pass text-white";
+    case "warn":
+      return "bg-warn text-white";
+    case "fail":
+      return "bg-fail text-white";
+  }
+}
+
 // ── Evaluator Pill with Popover ──────────────────────────────────────
 
 function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
@@ -229,17 +265,13 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
     };
   }, [open]);
 
-  const pass = evaluation.score >= 0.5;
+  const tier = scoreTier(evaluation.score);
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className={`inline-block cursor-pointer rounded-pill border px-3 py-1 text-xs font-bold tracking-wide transition-opacity hover:opacity-80 ${
-          pass
-            ? "border-pass-border bg-pass-bg text-pass"
-            : "border-fail-border bg-fail-bg text-fail"
-        }`}
+        className={`inline-block cursor-pointer rounded-pill border px-3 py-1 text-xs font-bold tracking-wide transition-opacity hover:opacity-80 ${pillClasses(tier)}`}
         onClick={() => setOpen(!open)}
       >
         {evaluation.evaluator}
@@ -251,9 +283,7 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
               {evaluation.evaluator}
             </span>
             <span
-              className={`rounded-pill px-2 py-0.5 text-xs font-bold ${
-                pass ? "bg-pass text-white" : "bg-fail text-white"
-              }`}
+              className={`rounded-pill px-2 py-0.5 text-xs font-bold ${badgeClasses(tier)}`}
             >
               {evaluation.score.toFixed(2)}
             </span>
@@ -274,25 +304,27 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
 function EntryRow({ entry }: { entry: EntryResultData }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const allPass = entry.evaluations.every((ev) => ev.score >= 0.5);
+  const hasWarning = allPass && entry.evaluations.some((ev) => ev.score <= 0.6);
 
   const description = entry.description || summarizeInput(entry.input);
 
   // Sort evaluations by score ascending
   const sortedEvals = [...entry.evaluations].sort((a, b) => a.score - b.score);
 
+  // Row-level badge: FAIL > WARN > PASS
+  const rowTier: ScoreTier = !allPass ? "fail" : hasWarning ? "warn" : "pass";
+
   return (
     <>
-      <tr className={allPass ? "bg-transparent" : "bg-fail-bg"}>
+      <tr className={rowTier === "fail" ? "bg-fail-bg" : rowTier === "warn" ? "bg-warn-bg" : "bg-transparent"}>
         <td className="max-w-75 border-b border-border px-3 py-2.5 align-middle font-sans text-sm">
           {description}
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
           <span
-            className={`inline-block rounded-pill px-3 py-1 text-xs font-bold tracking-wide ${
-              allPass ? "bg-pass text-white" : "bg-fail text-white"
-            }`}
+            className={`inline-block rounded-pill px-3 py-1 text-xs font-bold tracking-wide ${badgeClasses(rowTier)}`}
           >
-            {allPass ? "PASS" : "FAIL"}
+            {rowTier === "fail" ? "FAIL" : rowTier === "warn" ? "WARN" : "PASS"}
           </span>
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
@@ -388,11 +420,7 @@ function EvalDetailModal({
             >
               <div className="mb-1 flex items-center gap-3">
                 <span
-                  className={`inline-block rounded-pill px-3 py-1 text-xs font-bold tracking-wide ${
-                    ev.score >= 0.5
-                      ? "border border-pass-border bg-pass-bg text-pass"
-                      : "border border-fail-border bg-fail-bg text-fail"
-                  }`}
+                  className={`inline-block rounded-pill border px-3 py-1 text-xs font-bold tracking-wide ${pillClasses(scoreTier(ev.score))}`}
                 >
                   {ev.evaluator}
                 </span>

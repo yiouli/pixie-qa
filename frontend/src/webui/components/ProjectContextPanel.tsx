@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { ArtifactEntry } from "../types";
 import { SidebarList } from "./SidebarList";
 import { MarkdownPanel } from "./MarkdownPanel";
+import { JsonPanel } from "./JsonPanel";
 
 interface ProjectContextPanelProps {
   files: ArtifactEntry[];
@@ -16,7 +17,12 @@ function isMarkdown(path: string): boolean {
   return path.endsWith(".md");
 }
 
-/** Code/text viewer for non-markdown files (JSON, JSONL, Python) */
+/** Return true if the file should be rendered as collapsible JSON */
+function isJson(path: string): boolean {
+  return path.endsWith(".json");
+}
+
+/** Code/text viewer for non-markdown, non-JSON files (JSONL, Python) */
 function CodePanel({ path, version }: { path: string; version?: number }) {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -97,6 +103,11 @@ export function ProjectContextPanel({
         {selected ? (
           isMarkdown(selected) ? (
             <MarkdownPanel
+              path={selected}
+              version={mdVersions[selected] ?? 0}
+            />
+          ) : isJson(selected) ? (
+            <JsonPanel
               path={selected}
               version={mdVersions[selected] ?? 0}
             />
