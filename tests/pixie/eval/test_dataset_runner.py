@@ -178,17 +178,14 @@ def _make_entry(
     evaluators: list[str] | None = None,
     entry_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a single dataset entry in the new nested format."""
-    test_case: dict[str, Any] = {
+    """Build a single dataset entry in the flattened format."""
+    entry: dict[str, Any] = {
+        "entry_kwargs": entry_kwargs or {"question": inp},
         "eval_input": [{"name": "input", "value": inp}],
         "description": description,
     }
     if expectation is not None:
-        test_case["expectation"] = expectation
-    entry: dict[str, Any] = {
-        "entry_kwargs": entry_kwargs or {"question": inp},
-        "test_case": test_case,
-    }
+        entry["expectation"] = expectation
     if evaluators is not None:
         entry["evaluators"] = evaluators
     return entry
@@ -330,7 +327,7 @@ class TestLoadDataset:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         entry = _make_entry(evaluators=["ExactMatch"])
-        del entry["test_case"]["description"]
+        del entry["description"]
         fpath = _write_dataset(tmp_path, "bad-desc", [entry])
         with pytest.raises(ValueError, match="description"):
             load_dataset(fpath)

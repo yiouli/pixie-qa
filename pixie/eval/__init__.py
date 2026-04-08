@@ -41,11 +41,9 @@ Dataset JSON Format
       "entries": [
         {
           "entry_kwargs": {"question": "Hello"},
-          "test_case": {
-            "description": "Basic greeting",
-            "eval_input": [{"name": "input", "value": "Hello"}],
-            "expectation": "Hi, how can I help?"
-          }
+          "description": "Basic greeting",
+          "eval_input": [{"name": "input", "value": "Hello"}],
+          "expectation": "Hi, how can I help?"
         }
       ]
     }
@@ -59,10 +57,10 @@ Fields:
 - ``entries[].evaluators`` (optional): Row-level evaluator names. Use ``"..."`` to
   include dataset defaults.
 - ``entries[].entry_kwargs`` (required): Dict of arguments passed to the runnable.
-- ``entries[].test_case.description`` (required): Human-readable label for the test case.
-- ``entries[].test_case.eval_input`` (required): List of ``NamedData`` items
+- ``entries[].description`` (required): Human-readable label for the test case.
+- ``entries[].eval_input`` (required): List of ``NamedData`` items
   (each ``{"name": ..., "value": ...}``).
-- ``entries[].test_case.expectation`` (optional): Reference value for comparison-based
+- ``entries[].expectation`` (optional): Reference value for comparison-based
   evaluators.
 
 Evaluator Name Resolution

@@ -304,49 +304,37 @@ def _clean_evaluator_list(raw: Any, *, allow_ellipsis: bool) -> list[str]:
     return result
 
 
-class DatasetEntry(BaseModel):
+class DatasetEntry(TestCase):
     """A single entry (row) in a dataset.
 
-    Each entry represents one test scenario. The evaluator list is resolved
-    during :class:`Dataset` validation — if the entry omits ``evaluators``,
-    it inherits the dataset-level defaults.  Use ``"..."`` in the entry's
-    evaluators list to include the defaults **plus** additional evaluators.
+    Each entry represents one test scenario.  Inherits all :class:`TestCase`
+    fields (``eval_input``, ``expectation``, ``eval_metadata``,
+    ``description``) and adds ``entry_kwargs`` and ``evaluators``.
 
-    .. important::
-
-       ``evaluators`` is a **top-level field on the entry**, not inside
-       ``test_case``.  This is the most common mistake when building
-       datasets by hand::
-
-           # WRONG — evaluators inside test_case is ignored
-           {"entry_kwargs": {...}, "test_case": {..., "evaluators": ["Factuality"]}}
-
-           # CORRECT — evaluators is a sibling of entry_kwargs and test_case
-           {"entry_kwargs": {...}, "test_case": {...}, "evaluators": ["Factuality"]}
+    The evaluator list is resolved during :class:`Dataset` validation —
+    if the entry omits ``evaluators``, it inherits the dataset-level
+    defaults.  Use ``"..."`` in the entry's evaluators list to include
+    the defaults **plus** additional evaluators.
 
     Example JSON::
 
         {
           "entry_kwargs": {"user_message": "What are your hours?"},
-          "test_case": {
-            "description": "Business hours question",
-            "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
-            "expectation": "Should mention Mon-Fri 9am-5pm"
-          },
+          "description": "Business hours question",
+          "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
+          "expectation": "Should mention Mon-Fri 9am-5pm",
           "evaluators": ["...", "ClosedQA"]
         }
 
     Attributes:
         entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
             as a Pydantic model.  Keys must match the model's field names.
-        test_case: Scenario definition (input, expectation, metadata).
         evaluators: Evaluator names for this entry.  Omit to inherit
             dataset-level defaults.  Use ``"..."`` to include defaults
             plus additional evaluators.
     """
 
     entry_kwargs: dict[str, JsonValue]
-    test_case: TestCase
     evaluators: list[str] = []
 
     @field_validator("evaluators", mode="before")
@@ -358,9 +346,9 @@ class DatasetEntry(BaseModel):
 
     @model_validator(mode="after")
     def _require_description(self) -> DatasetEntry:
-        desc = self.test_case.description
+        desc = self.description
         if not desc or not desc.strip():
-            raise ValueError("test_case.description must be a non-empty string")
+            raise ValueError("description must be a non-empty string")
         return self
 
 
@@ -390,19 +378,15 @@ class Dataset(BaseModel):
           "entries": [
             {
               "entry_kwargs": {"user_message": "Hello"},
-              "test_case": {
-                "description": "Greeting",
-                "eval_input": [{"name": "profile", "value": {}}],
-                "expectation": "Friendly greeting"
-              }
+              "description": "Greeting",
+              "eval_input": [{"name": "profile", "value": {}}],
+              "expectation": "Friendly greeting"
             },
             {
               "entry_kwargs": {"user_message": "Help"},
-              "test_case": {
-                "description": "Help request",
-                "eval_input": [{"name": "profile", "value": {}}],
-                "expectation": "Offer assistance"
-              },
+              "description": "Help request",
+              "eval_input": [{"name": "profile", "value": {}}],
+              "expectation": "Offer assistance",
               "evaluators": ["...", "ClosedQA"]
             }
           ]
@@ -693,13 +677,11 @@ async def run_entry(
     Returns:
         An EntryResult with output and evaluation scores.
     """
-    test_case = entry.test_case
-
     async with semaphore:
         init_eval_output()
 
         dependency_registry: dict[str, JsonValue] = {
-            nd.name: nd.value for nd in test_case.eval_input
+            nd.name: nd.value for nd in entry.eval_input
         }
         set_eval_input(dependency_registry)
 
@@ -716,10 +698,10 @@ async def run_entry(
             clear_eval_input()
             clear_eval_output()
             return EntryResult(
-                input=collapse_named_data(test_case.eval_input),
+                input=collapse_named_data(entry.eval_input),
                 output=None,
                 expected_output=None,
-                description=test_case.description,
+                description=entry.description,
                 evaluations=[
                     EvaluationResult(
                         evaluator="WrapError",
@@ -748,11 +730,11 @@ async def run_entry(
         eval_output = [NamedData(name="output", value=fallback_value)]
 
     evaluable = Evaluable(
-        eval_input=test_case.eval_input,
+        eval_input=entry.eval_input,
         eval_output=eval_output,
-        expectation=test_case.expectation,
-        eval_metadata=test_case.eval_metadata,
-        description=test_case.description,
+        expectation=entry.expectation,
+        eval_metadata=entry.eval_metadata,
+        description=entry.description,
     )
 
     return await evaluate_entry(evaluable, entry.evaluators)

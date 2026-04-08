@@ -237,16 +237,14 @@ def run_server(
     # Check if a server is already running for this root
     running_port = _is_server_running(root, host)
     if running_port is not None:
+        url = build_url(host, running_port, tab=tab, item_id=item_id)
+        print(f"Server already running on port {running_port}: {url}")
         logger.info("Server already running on port %d", running_port)
         if open_browser:
-            active = _probe_server(host, running_port)
-            if active and active > 0:
-                # Existing clients — send navigate event instead of new tab
-                _send_navigate(host, running_port, tab=tab, item_id=item_id)
-            else:
-                webbrowser.open(
-                    build_url(host, running_port, tab=tab, item_id=item_id)
-                )
+            # Send navigate event to update any existing browser tabs…
+            _send_navigate(host, running_port, tab=tab, item_id=item_id)
+            # …and always open the browser so the user sees the UI.
+            webbrowser.open(url)
         return
 
     # If the default port is taken by something else, find another

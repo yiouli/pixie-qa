@@ -186,19 +186,15 @@ Classes
           "entries": [
             {
               "entry_kwargs": {"user_message": "Hello"},
-              "test_case": {
-                "description": "Greeting",
-                "eval_input": [{"name": "profile", "value": {}}],
-                "expectation": "Friendly greeting"
-              }
+              "description": "Greeting",
+              "eval_input": [{"name": "profile", "value": {}}],
+              "expectation": "Friendly greeting"
             },
             {
               "entry_kwargs": {"user_message": "Help"},
-              "test_case": {
-                "description": "Help request",
-                "eval_input": [{"name": "profile", "value": {}}],
-                "expectation": "Offer assistance"
-              },
+              "description": "Help request",
+              "eval_input": [{"name": "profile", "value": {}}],
+              "expectation": "Offer assistance",
               "evaluators": ["...", "ClosedQA"]
             }
           ]
@@ -242,39 +238,28 @@ Classes
 `DatasetEntry(**data: Any)`
 :   A single entry (row) in a dataset.
     
-    Each entry represents one test scenario. The evaluator list is resolved
-    during :class:`Dataset` validation — if the entry omits ``evaluators``,
-    it inherits the dataset-level defaults.  Use ``"..."`` in the entry's
-    evaluators list to include the defaults **plus** additional evaluators.
+    Each entry represents one test scenario.  Inherits all :class:`TestCase`
+    fields (``eval_input``, ``expectation``, ``eval_metadata``,
+    ``description``) and adds ``entry_kwargs`` and ``evaluators``.
     
-    .. important::
-    
-       ``evaluators`` is a **top-level field on the entry**, not inside
-       ``test_case``.  This is the most common mistake when building
-       datasets by hand::
-    
-           # WRONG — evaluators inside test_case is ignored
-           {"entry_kwargs": {...}, "test_case": {..., "evaluators": ["Factuality"]}}
-    
-           # CORRECT — evaluators is a sibling of entry_kwargs and test_case
-           {"entry_kwargs": {...}, "test_case": {...}, "evaluators": ["Factuality"]}
+    The evaluator list is resolved during :class:`Dataset` validation —
+    if the entry omits ``evaluators``, it inherits the dataset-level
+    defaults.  Use ``"..."`` in the entry's evaluators list to include
+    the defaults **plus** additional evaluators.
     
     Example JSON::
     
         {
           "entry_kwargs": {"user_message": "What are your hours?"},
-          "test_case": {
-            "description": "Business hours question",
-            "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
-            "expectation": "Should mention Mon-Fri 9am-5pm"
-          },
+          "description": "Business hours question",
+          "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
+          "expectation": "Should mention Mon-Fri 9am-5pm",
           "evaluators": ["...", "ClosedQA"]
         }
     
     Attributes:
         entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
             as a Pydantic model.  Keys must match the model's field names.
-        test_case: Scenario definition (input, expectation, metadata).
         evaluators: Evaluator names for this entry.  Omit to inherit
             dataset-level defaults.  Use ``"..."`` to include defaults
             plus additional evaluators.
@@ -288,6 +273,7 @@ Classes
 
     ### Ancestors (in MRO)
 
+    * pixie.eval.evaluable.TestCase
     * pydantic.main.BaseModel
 
     ### Class variables
@@ -299,7 +285,4 @@ Classes
     :
 
     `model_config`
-    :
-
-    `test_case: pixie.eval.evaluable.TestCase`
     :

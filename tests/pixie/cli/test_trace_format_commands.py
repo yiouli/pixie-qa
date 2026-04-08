@@ -73,17 +73,16 @@ class TestFormatTraceToEntry:
         assert entry["entry_kwargs"] == {"msg": "hi"}
         assert entry["evaluators"] == ["Factuality"]
 
-        test_case = entry["test_case"]
-        # eval_input should contain 'input' purpose wraps
-        assert len(test_case["eval_input"]) == 1
-        assert test_case["eval_input"][0]["name"] == "user_input"
-        assert test_case["eval_input"][0]["value"] == "hello"
+        # eval_input should contain 'input' purpose wraps (flattened)
+        assert len(entry["eval_input"]) == 1
+        assert entry["eval_input"][0]["name"] == "user_input"
+        assert entry["eval_input"][0]["value"] == "hello"
 
         # expectation should contain output wraps
-        assert test_case["expectation"] is not None
-        assert len(test_case["expectation"]) == 2
+        assert entry["expectation"] is not None
+        assert len(entry["expectation"]) == 2
 
-        assert test_case["description"] == "transformed from trace.jsonl"
+        assert entry["description"] == "transformed from trace.jsonl"
 
     def test_no_input_raises(self, tmp_path: Path) -> None:
         """When no purpose=input wraps exist, raises ValueError."""
@@ -160,7 +159,7 @@ class TestFormatTraceToEntry:
         format_trace_to_entry(trace_file, output_file)
 
         entry = json.loads(output_file.read_text())
-        expectation = entry["test_case"]["expectation"]
+        expectation = entry["expectation"]
         assert len(expectation) == 1
         # Should have LLM span with metadata stripped
         llm_item = expectation[0]

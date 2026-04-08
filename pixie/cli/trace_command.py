@@ -15,7 +15,12 @@ import os
 import sys
 from dataclasses import asdict
 
-from pixie.instrumentation.llm_tracing import InstrumentationHandler, LLMSpan, add_handler
+from pixie.instrumentation.llm_tracing import (
+    InstrumentationHandler,
+    LLMSpan,
+    add_handler,
+)
+from pixie.instrumentation.models import EntryInputLog, LLMSpanLog
 from pixie.instrumentation.wrap import TraceLogProcessor
 
 
@@ -24,15 +29,17 @@ class LLMTraceLogger(InstrumentationHandler):
         self.trace_log_processor = trace_log_processor
 
     async def on_llm(self, span: LLMSpan) -> None:
-        self.trace_log_processor.write_line(
-            {
-                "type": "llm_span",
-                "operation": span.operation,
-                "input_messages": [asdict(msg) for msg in span.input_messages],
-                "output_messages": [asdict(msg) for msg in span.output_messages],
-                "tool_definitions": [asdict(tool) for tool in span.tool_definitions],
-            }
+        log = LLMSpanLog(
+            operation=span.operation,
+            provider=span.provider,
+            request_model=span.request_model,
+            response_model=span.response_model,
+            input_messages=[asdict(msg) for msg in span.input_messages],
+            output_messages=[asdict(msg) for msg in span.output_messages],
+            tool_definitions=[asdict(tool) for tool in span.tool_definitions],
+            finish_reasons=list(span.finish_reasons),
         )
+        self.trace_log_processor.write_line(log.model_dump(mode="json"))
 
 
 def _run_trace(
@@ -69,7 +76,8 @@ def _run_trace(
     add_handler(LLMTraceLogger(trace_logger))
 
     try:
-        trace_logger.write_line({"type": "kwargs", "value": kwargs})
+        entry_log = EntryInputLog(value=kwargs)
+        trace_logger.write_line(entry_log.model_dump(mode="json"))
         asyncio.run(run_runnable(runnable, kwargs))
     except Exception as exc:
         print(f"Error running runnable: {exc}", file=sys.stderr)  # noqa: T201

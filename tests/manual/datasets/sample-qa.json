@@ -6,11 +6,14 @@
             "entry_kwargs": {
                 "question": "What is the capital of France?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is the capital of France?"}],
-                "expectation": "The capital of France is Paris.",
-                "description": "Identify the capital of France"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is the capital of France?"
+                }
+            ],
+            "expectation": "The capital of France is Paris.",
+            "description": "Identify the capital of France",
             "evaluators": [
                 "tests/manual/mock_evaluators.py:SimpleFactualityEval",
                 "tests/manual/mock_evaluators.py:StrictKeywordEval"
@@ -20,11 +23,14 @@
             "entry_kwargs": {
                 "question": "What is 2 + 2?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is 2 + 2?"}],
-                "expectation": "The answer is 4.",
-                "description": "Basic arithmetic addition"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is 2 + 2?"
+                }
+            ],
+            "expectation": "The answer is 4.",
+            "description": "Basic arithmetic addition",
             "evaluators": [
                 "tests/manual/mock_evaluators.py:SimpleFactualityEval",
                 "tests/manual/mock_evaluators.py:StrictKeywordEval"
@@ -34,11 +40,14 @@
             "entry_kwargs": {
                 "question": "Who wrote Hamlet?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "Who wrote Hamlet?"}],
-                "expectation": "Shakespeare authored Hamlet.",
-                "description": "Identify Hamlet's author with varied phrasing"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "Who wrote Hamlet?"
+                }
+            ],
+            "expectation": "Shakespeare authored Hamlet.",
+            "description": "Identify Hamlet's author with varied phrasing",
             "evaluators": [
                 "tests/manual/mock_evaluators.py:SimpleFactualityEval",
                 "tests/manual/mock_evaluators.py:StrictKeywordEval"
@@ -48,11 +57,14 @@
             "entry_kwargs": {
                 "question": "What is the boiling point of water?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is the boiling point of water?"}],
-                "expectation": "Water boils at 100 degrees Celsius.",
-                "description": "State boiling point of water"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is the boiling point of water?"
+                }
+            ],
+            "expectation": "Water boils at 100 degrees Celsius.",
+            "description": "State boiling point of water",
             "evaluators": [
                 "tests/manual/mock_evaluators.py:SimpleFactualityEval"
             ]
@@ -61,11 +73,14 @@
             "entry_kwargs": {
                 "question": "What is the largest planet?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is the largest planet?"}],
-                "expectation": "The largest planet in the solar system is Jupiter.",
-                "description": "Identify the largest planet in the solar system"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is the largest planet?"
+                }
+            ],
+            "expectation": "The largest planet in the solar system is Jupiter.",
+            "description": "Identify the largest planet in the solar system",
             "evaluators": [
                 "tests/manual/mock_evaluators.py:SimpleFactualityEval"
             ]

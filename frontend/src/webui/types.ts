@@ -12,21 +12,26 @@ export interface Manifest {
   results: ArtifactEntry[];
 }
 
+export interface NamedDataItem {
+  name: string;
+  value: unknown;
+}
+
 export interface DatasetItem {
-  eval_input?: unknown;
-  eval_output?: unknown;
-  eval_metadata?: unknown;
-  expected_output?: unknown;
-  input?: unknown;
-  output?: unknown;
-  actual_output?: unknown;
-  metadata?: unknown;
+  entry_kwargs?: Record<string, unknown>;
+  description?: string;
+  eval_input?: NamedDataItem[];
+  expectation?: unknown;
+  eval_metadata?: Record<string, unknown>;
+  evaluators?: string[];
   [key: string]: unknown;
 }
 
 export interface DatasetData {
   name: string;
   items: DatasetItem[];
+  /** Dataset-level default evaluators (from the JSON "evaluators" field). */
+  defaultEvaluators: string[];
 }
 
 export interface FileChangeEvent {

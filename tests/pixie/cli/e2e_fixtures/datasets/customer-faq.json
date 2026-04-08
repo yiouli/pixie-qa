@@ -6,11 +6,14 @@
             "entry_kwargs": {
                 "user_message": "What is the baggage allowance?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is the baggage allowance?"}],
-                "expectation": "You are allowed one bag under 50 pounds and 22 x 14 x 9 inches.",
-                "description": "Verify correct baggage size and weight limits"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is the baggage allowance?"
+                }
+            ],
+            "expectation": "You are allowed one bag under 50 pounds and 22 x 14 x 9 inches.",
+            "description": "Verify correct baggage size and weight limits",
             "evaluators": [
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockFactualityEval",
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockClosedQAEval"
@@ -20,11 +23,14 @@
             "entry_kwargs": {
                 "user_message": "How many seats are on the plane?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "How many seats are on the plane?"}],
-                "expectation": "There are 120 seats: 22 business class and 98 economy.",
-                "description": "Confirm seat count and class breakdown"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "How many seats are on the plane?"
+                }
+            ],
+            "expectation": "There are 120 seats: 22 business class and 98 economy.",
+            "description": "Confirm seat count and class breakdown",
             "evaluators": [
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockFactualityEval"
             ]
@@ -33,11 +39,14 @@
             "entry_kwargs": {
                 "user_message": "Is there wifi on the plane?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "Is there wifi on the plane?"}],
-                "expectation": "We have free wifi on the plane, join Airline-Wifi.",
-                "description": "Verify wifi availability and network name"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "Is there wifi on the plane?"
+                }
+            ],
+            "expectation": "We have free wifi on the plane, join Airline-Wifi.",
+            "description": "Verify wifi availability and network name",
             "evaluators": [
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockHallucinationEval"
             ]
@@ -46,11 +55,14 @@
             "entry_kwargs": {
                 "user_message": "What is the cancellation policy?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "What is the cancellation policy?"}],
-                "expectation": "Full refund for cancellations 24+ hours before departure; $50 fee within 24 hours.",
-                "description": "Check cancellation deadlines and associated fees"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "What is the cancellation policy?"
+                }
+            ],
+            "expectation": "Full refund for cancellations 24+ hours before departure; $50 fee within 24 hours.",
+            "description": "Check cancellation deadlines and associated fees",
             "evaluators": [
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockFactualityEval",
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockFailingEval"
@@ -60,11 +72,14 @@
             "entry_kwargs": {
                 "user_message": "Do you serve meals on the flight?"
             },
-            "test_case": {
-                "eval_input": [{"name": "input", "value": "Do you serve meals on the flight?"}],
-                "expectation": "Complimentary snacks for all; full meals in business class.",
-                "description": "Verify meal service differs by travel class"
-            },
+            "eval_input": [
+                {
+                    "name": "input",
+                    "value": "Do you serve meals on the flight?"
+                }
+            ],
+            "expectation": "Complimentary snacks for all; full meals in business class.",
+            "description": "Verify meal service differs by travel class",
             "evaluators": [
                 "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:MockFactualityEval"
             ]

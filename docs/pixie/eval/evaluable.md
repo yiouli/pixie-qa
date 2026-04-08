@@ -118,6 +118,7 @@ Classes
     ### Descendants
 
     * pixie.eval.evaluable.Evaluable
+    * pixie.harness.runner.DatasetEntry
 
     ### Class variables
 

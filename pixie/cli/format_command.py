@@ -15,26 +15,40 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
-from pixie.eval.evaluable import NamedData, TestCase
+from pydantic import JsonValue
+
+from pixie.eval.evaluable import NamedData
+from pixie.harness.runner import DatasetEntry
+from pixie.instrumentation.models import EntryInputLog, LLMSpanLog
+from pixie.instrumentation.wrap import WrappedData
 
 
 def _load_trace_log(
     input_path: Path,
-) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse a JSONL trace file into kwargs, wrap events, and LLM spans.
+) -> tuple[
+    EntryInputLog | None,
+    list[WrappedData],
+    list[LLMSpanLog],
+    list[tuple[str, WrappedData | LLMSpanLog]],
+]:
+    """Parse a JSONL trace file into typed log records.
+
+    Uses pydantic ``model_validate`` for each record type to ensure
+    consistent deserialization.
 
     Args:
         input_path: Path to the JSONL trace file.
 
     Returns:
-        A tuple of (kwargs_dict, wrap_events, llm_spans) where each
-        wrap_event and llm_span is the raw parsed dict preserving order.
+        A tuple of (entry_input, wrap_events, llm_spans, ordered_non_input)
+        where *ordered_non_input* preserves the original file order for
+        output/state wraps and LLM spans (used for building expectation).
     """
-    kwargs: dict[str, Any] | None = None
-    wrap_events: list[dict[str, Any]] = []
-    llm_spans: list[dict[str, Any]] = []
+    entry_input: EntryInputLog | None = None
+    wrap_events: list[WrappedData] = []
+    llm_spans: list[LLMSpanLog] = []
+    ordered_non_input: list[tuple[str, WrappedData | LLMSpanLog]] = []
 
     with open(input_path, encoding="utf-8") as f:
         for line in f:
@@ -48,49 +62,36 @@ def _load_trace_log(
 
             record_type = record.get("type")
             if record_type == "kwargs":
-                kwargs = record.get("value", {})
+                entry_input = EntryInputLog.model_validate(record)
             elif record_type == "wrap":
-                wrap_events.append(record)
+                wrapped = WrappedData.model_validate(record)
+                wrap_events.append(wrapped)
+                if wrapped.purpose in ("output", "state"):
+                    ordered_non_input.append(("wrap", wrapped))
             elif record_type == "llm_span":
-                llm_spans.append(record)
+                span_log = LLMSpanLog.model_validate(record)
+                llm_spans.append(span_log)
+                ordered_non_input.append(("llm_span", span_log))
 
-    return kwargs, wrap_events, llm_spans
-
-
-def _wrap_to_named_data(event: dict[str, Any]) -> NamedData:
-    """Convert a wrap event dict to a NamedData."""
-    return NamedData(
-        name=event.get("name", "unknown"),
-        value=event.get("data"),
-    )
+    return entry_input, wrap_events, llm_spans, ordered_non_input
 
 
-def _llm_span_to_named_data(span: dict[str, Any]) -> NamedData:
-    """Convert an LLM span dict to a NamedData, stripping metadata-like fields.
+def _wrap_to_named_data(event: WrappedData) -> NamedData:
+    """Convert a :class:`WrappedData` to a :class:`NamedData`."""
+    return NamedData(name=event.name, value=event.data)
 
-    Keeps semantically meaningful fields: model, messages, tool definitions.
-    Removes timing, IDs, token counts, and other metadata.
+
+def _llm_span_log_to_named_data(span: LLMSpanLog) -> NamedData:
+    """Convert an :class:`LLMSpanLog` to a :class:`NamedData`.
+
+    Serialises only non-None semantic fields (excludes ``type``).
     """
-    # Fields to keep for evaluation purposes
-    keep_fields = {
-        "operation",
-        "provider",
-        "request_model",
-        "response_model",
-        "input_messages",
-        "output_messages",
-        "tool_definitions",
-        "finish_reasons",
-        "output_type",
-        "error_type",
-    }
-    filtered: dict[str, Any] = {
-        k: v for k, v in span.items() if k in keep_fields and v is not None
-    }
-    # Use a descriptive name based on model if available
-    model = span.get("request_model") or span.get("response_model") or "llm_call"
+    dumped = span.model_dump(mode="json", exclude={"type"}, exclude_none=True)
+    # Remove empty lists to keep output tidy
+    dumped = {k: v for k, v in dumped.items() if v != []}
+    model = span.request_model or span.response_model or "llm_call"
     name = f"llm_span_{model}"
-    return NamedData(name=name, value=filtered)
+    return NamedData(name=name, value=dumped)
 
 
 def format_trace_to_entry(
@@ -98,6 +99,10 @@ def format_trace_to_entry(
     output_path: Path,
 ) -> None:
     """Convert a trace log file into a dataset entry JSON file.
+
+    The output is guaranteed to be a valid :class:`DatasetEntry` because
+    it is constructed as a pydantic model and serialised with
+    ``model_dump``.
 
     Args:
         input_path: Path to the JSONL trace file.
@@ -110,13 +115,14 @@ def format_trace_to_entry(
     if not input_path.is_file():
         raise FileNotFoundError(f"Input trace file not found: {input_path}")
 
-    kwargs, wrap_events, llm_spans = _load_trace_log(input_path)
+    entry_input, wrap_events, _llm_spans, ordered_non_input = _load_trace_log(
+        input_path
+    )
 
     # Build eval_input from wrap events with purpose='input'
-    eval_input: list[NamedData] = []
-    for event in wrap_events:
-        if event.get("purpose") == "input":
-            eval_input.append(_wrap_to_named_data(event))
+    eval_input: list[NamedData] = [
+        _wrap_to_named_data(w) for w in wrap_events if w.purpose == "input"
+    ]
 
     if not eval_input:
         raise ValueError(
@@ -125,57 +131,32 @@ def format_trace_to_entry(
         )
 
     # Build expectation from output/state wraps and LLM spans, in log order
-    # We track the order by maintaining a combined list
     expectation_items: list[NamedData] = []
-
-    # Build an ordered list of all records that belong in expectation
-    # Re-read the file to preserve original order between wraps and spans
-    ordered_records: list[tuple[str, dict[str, Any]]] = []
-    with open(input_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            record_type = record.get("type")
-            purpose = record.get("purpose")
-            if record_type == "wrap" and purpose in ("output", "state"):
-                ordered_records.append(("wrap", record))
-            elif record_type == "llm_span":
-                ordered_records.append(("llm_span", record))
-
-    for record_type, record in ordered_records:
+    for record_type, record in ordered_non_input:
         if record_type == "wrap":
+            assert isinstance(record, WrappedData)
             expectation_items.append(_wrap_to_named_data(record))
         elif record_type == "llm_span":
-            expectation_items.append(_llm_span_to_named_data(record))
+            assert isinstance(record, LLMSpanLog)
+            expectation_items.append(_llm_span_log_to_named_data(record))
 
-    # Build the expectation value
-    expectation: Any = None
+    expectation: JsonValue = None
     if expectation_items:
         expectation = [item.model_dump() for item in expectation_items]
 
-    # Build test_case
-    test_case = TestCase(
+    # Build the DatasetEntry pydantic model and serialise
+    kwargs = entry_input.value if entry_input is not None else {}
+    dataset_entry = DatasetEntry(
+        entry_kwargs=kwargs,
         eval_input=eval_input,
         expectation=expectation,
         description=f"transformed from {input_path.name}",
+        evaluators=["Factuality"],
     )
 
-    # Build the dataset entry
-    entry: dict[str, Any] = {
-        "entry_kwargs": kwargs if kwargs is not None else {},
-        "test_case": test_case.model_dump(mode="json"),
-        "evaluators": ["Factuality"],
-    }
-
-    # Write output
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(entry, f, indent=2, default=str)
+        json.dump(dataset_entry.model_dump(mode="json"), f, indent=2, default=str)
         f.write("\n")
 
 

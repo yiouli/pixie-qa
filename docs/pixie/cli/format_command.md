@@ -16,6 +16,10 @@ Functions
 `def format_trace_to_entry(input_path: Path, output_path: Path) ‑> None`
 :   Convert a trace log file into a dataset entry JSON file.
     
+    The output is guaranteed to be a valid :class:`DatasetEntry` because
+    it is constructed as a pydantic model and serialised with
+    ``model_dump``.
+    
     Args:
         input_path: Path to the JSONL trace file.
         output_path: Path to write the dataset entry JSON.

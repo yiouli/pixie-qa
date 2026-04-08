@@ -30,6 +30,7 @@ Wrap support:
 Sub-modules
 -----------
 * pixie.instrumentation.llm_tracing
+* pixie.instrumentation.models
 
 Functions
 ---------

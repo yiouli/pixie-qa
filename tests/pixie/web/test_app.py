@@ -556,13 +556,9 @@ class TestPixieTestOpensWebUI:
                     "entries": [
                         {
                             "entry_kwargs": {"question": "What is 1+1?"},
-                            "test_case": {
-                                "eval_input": [
-                                    {"name": "input", "value": "What is 1+1?"}
-                                ],
-                                "expectation": "2",
-                                "description": "Simple arithmetic",
-                            },
+                            "eval_input": [{"name": "input", "value": "What is 1+1?"}],
+                            "expectation": "2",
+                            "description": "Simple arithmetic",
                             "evaluators": ["ExactMatch"],
                         }
                     ],
@@ -602,13 +598,9 @@ class TestPixieTestOpensWebUI:
                     "entries": [
                         {
                             "entry_kwargs": {"question": "What is 1+1?"},
-                            "test_case": {
-                                "eval_input": [
-                                    {"name": "input", "value": "What is 1+1?"}
-                                ],
-                                "expectation": "2",
-                                "description": "Simple arithmetic",
-                            },
+                            "eval_input": [{"name": "input", "value": "What is 1+1?"}],
+                            "expectation": "2",
+                            "description": "Simple arithmetic",
                             "evaluators": ["ExactMatch"],
                         }
                     ],
