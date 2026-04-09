@@ -31,15 +31,13 @@ fi
 
 echo ""
 echo "=== Starting web UI server (background) ==="
-PIXIE_ROOT="${PIXIE_ROOT:-pixie_qa}"
 if [ -f uv.lock ]; then
-  nohup uv run pixie start > "${PIXIE_ROOT}/server.log" 2>&1 &
+  uv run pixie start
 elif [ -f poetry.lock ]; then
-  nohup poetry run pixie start > "${PIXIE_ROOT}/server.log" 2>&1 &
+  poetry run pixie start
 else
-  nohup pixie start > "${PIXIE_ROOT}/server.log" 2>&1 &
+  pixie start
 fi
-echo "Web UI server started (PID $!, log: ${PIXIE_ROOT}/server.log)"
 
 echo ""
 echo "=== Setup complete ==="

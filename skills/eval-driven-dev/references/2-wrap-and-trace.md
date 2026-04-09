@@ -241,7 +241,7 @@ The JSONL trace file will contain one line per `wrap()` event and one line per L
 Run `pixie format` on the trace file to see the data in dataset-entry format. This shows you both the data shapes and what a real app output looks like:
 
 ```bash
-uv run pixie format pixie_qa/reference-trace.jsonl
+uv run pixie format --input reference-trace.jsonl --output dataset-sample.json
 ```
 
 The output is a formatted dataset entry template — it contains:

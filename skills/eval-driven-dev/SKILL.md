@@ -8,8 +8,8 @@ description: >
 license: MIT
 compatibility: Python 3.11+
 metadata:
-  version: 0.6.0
-  pixie-qa-version: ">=0.6.0,<0.7.0"
+  version: 0.6.1
+  pixie-qa-version: ">=0.6.1,<0.7.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -19,7 +19,7 @@ You're building an **automated QA pipeline** that tests a Python application end
 
 **What you're testing is the app itself** — its request handling, context assembly (how it gathers data, builds prompts, manages conversation state), routing, and response formatting. The app uses an LLM, which makes outputs non-deterministic — that's why you use evaluators (LLM-as-judge, similarity scores) instead of `assertEqual` — but the thing under test is the app's code, not the LLM.
 
-**What's in scope**: the app's entire code path from entry point to response — never mock or skip any part of it. **What's out of scope**: external data sources the app reads from (databases, caches, third-party APIs, voice streams) — these are handled automatically by `wrap(purpose="input")` at test time.
+During evaluation, the app's own code runs for real — routing, prompt assembly, LLM calls, response formatting — nothing is mocked or stubbed. But the data the app reads from external sources (databases, caches, third-party APIs, voice streams) is replaced with test-specified values via instrumentations. This means each test case controls exactly what data the app sees, while still exercising the full application code path.
 
 **The deliverable is a working `pixie test` run with real scores** — not a plan, not just instrumentation, not just a dataset.
 
@@ -29,13 +29,8 @@ This skill is about doing the work, not describing it. Read code, edit files, ru
 
 ## Before you start
 
-**First, activate the virtual environment**. Identify the correct virtual environment for the project and activate it. After the virtual environment is active, run setup:
-
-```bash
-bash resources/setup.sh
-```
-
-The script updates the `eval-driven-dev` skill and `pixie-qa` python package to latest version, and initialize the pixie working directory if it's not already initialized. If the skill or package update fails, continue — do not let these failures block the rest of the workflow.
+**First, activate the virtual environment**. Identify the correct virtual environment for the project and activate it. After the virtual environment is active, the run the setup.sh included in the skill's resources.
+The script updates the `eval-driven-dev` skill and `pixie-qa` python package to latest version, initialize the pixie working directory if it's not already initialized, and start a web server in the background to show user updates. If the skill or package update fails, continue — do not let these failures block the rest of the workflow.
 
 ---
 
@@ -78,19 +73,17 @@ Read the source code to understand how the app starts and how a real user invoke
 
 > **Reference**: Read `references/1-b-eval-criteria.md` now.
 
-Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). For each criterion, determine whether it applies to all scenarios or only a subset — this drives whether it becomes a dataset-level default evaluator or an item-level evaluator. Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
+Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
 
-> **Checkpoint**: `pixie_qa/02-eval-criteria.md` written with use cases (each with a one-liner conveying input + expected behavior), eval criteria with applicability scope, and a note on what data needs to be captured to evaluate each criterion. Do NOT read Step 2 instructions yet.
+> **Checkpoint**: `pixie_qa/02-eval-criteria.md` written with use cases, eval criteria, and their applicability scope. Do NOT read Step 2 instructions yet.
 
 ---
 
 ### Step 2: Instrument with `wrap` and capture a reference trace
 
-> **Reference**: Read `references/2-wrap-and-trace.md` now — it has the sub-steps for data-flow analysis, adding `wrap()` calls, implementing the Runnable class, running `pixie trace` to capture a reference trace, and verifying coverage.
+> **Reference**: Read `references/2-wrap-and-trace.md` now for the detailed sub-steps.
 
-Add `wrap()` calls at data boundaries in the application code. Implement a `Runnable` class with `setup`, `run`, and `teardown` methods. **Note**: `run()` is called concurrently for all dataset entries — if the app uses shared mutable state (SQLite, global caches), add concurrency protection (see the reference doc for patterns). Imports from project modules work automatically — no `sys.path` manipulation needed.
-
-Run `pixie trace` to capture a reference trace. Verify all eval criteria have corresponding wrap coverage.
+**Goal**: Make the app testable by controlling its external data and capturing its outputs. `wrap()` calls at data boundaries let the test harness inject controlled inputs (replacing real DB/API calls) and capture outputs for scoring. The `Runnable` class provides the lifecycle interface that `pixie test` uses to set up, invoke, and tear down the app. A reference trace captured with `pixie trace` proves the instrumentation works and provides the exact data shapes needed for dataset creation in Step 4.
 
 > **Checkpoint**: `pixie_qa/scripts/run_app.py` written and verified. `pixie_qa/reference-trace.jsonl` exists and all expected data points appear when formatted with `pixie format`. Do NOT read Step 3 instructions yet.
 
@@ -98,41 +91,33 @@ Run `pixie trace` to capture a reference trace. Verify all eval criteria have co
 
 ### Step 3: Define evaluators
 
-> **Reference**: Read `references/3-define-evaluators.md` now — it has the sub-steps for mapping criteria to evaluators, implementing custom evaluators, verifying discoverability, and producing the evaluator mapping artifact.
+> **Reference**: Read `references/3-define-evaluators.md` now for the detailed sub-steps.
 
-Map each eval criterion from Step 1b to a concrete evaluator — implement custom ones where needed. Then produce the evaluator mapping artifact.
+**Goal**: Turn the qualitative eval criteria from Step 1b into concrete, runnable scoring functions. Each criterion maps to either a built-in evaluator or a custom one you implement. The evaluator mapping artifact bridges between criteria and the dataset, ensuring every quality dimension has a scorer.
 
-> **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` written with criterion-to-evaluator mapping using exact evaluator names (built-in names from `evaluators.md`, custom names in `filepath:callable_name` format). Do NOT read Step 4 instructions yet.
+> **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` written with criterion-to-evaluator mapping. Do NOT read Step 4 instructions yet.
 
 ---
 
 ### Step 4: Build the dataset
 
-> **Reference**: Read `references/4-build-dataset.md` now — it has the sub-steps for using `pixie format` for data shapes, generating dataset entries with `entry_kwargs` and `eval_input`, building the dataset JSON, and understanding the `expectation` vs `eval_output` distinction.
+> **Reference**: Read `references/4-build-dataset.md` now for the detailed sub-steps.
 
-Use `pixie format` on the reference trace to get exact data shapes. Create a dataset JSON with entries containing:
+**Goal**: Create the test scenarios that tie everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1b). Each dataset entry defines what to send to the app, what data the app should see from external services, and how to score the result. Use the reference trace from Step 2 as the source of truth for data shapes and field names.
 
-- **`entry_kwargs`** — runnable arguments
-- **`eval_input`** — list of `{"name": ..., "value": ...}` objects for wrap inputs
-- **`description`** — human-readable label for the test case
-- **`expectation`** — optional reference for comparison-based evaluators
-- **`evaluators`** — optional per-entry evaluator list
-
-All fields are top-level on each entry (no nesting). Set the `runnable` to the `filepath:ClassName` reference from Step 2. Assign evaluators from Step 3 — dataset-level defaults in the top-level `evaluators` array, per-entry overrides in each entry's `evaluators` field.
-
-> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries, `entry_kwargs`, `eval_input`, `runnable`, evaluators, and descriptions. Do NOT read Step 5 instructions yet.
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries covering all use cases. Do NOT read Step 5 instructions yet.
 
 ---
 
 ### Step 5: Run evaluation-based tests
 
-> **Reference**: Read `references/5-run-tests.md` now — it has the sub-steps for running tests, fixing dataset quality issues, and running analysis.
+> **Reference**: Read `references/5-run-tests.md` now for the detailed sub-steps.
 
-Run `pixie test` to execute the full evaluation pipeline. Fix any data validation errors (`WrapRegistryMissError`, `WrapTypeMismatchError`, import failures). Once tests run cleanly, run `pixie analyze`.
+**Goal**: Execute the full pipeline end-to-end and verify it produces real scores. This step is about getting the machinery running — fixing any setup or data issues until every dataset entry runs and gets scored. Once tests produce results, run `pixie analyze` for pattern analysis.
 
 > **Checkpoint**: Tests run and produce real scores. Analysis generated.
 >
-> If the test errors out (import failures, missing keys, runnable resolution errors), that's a setup bug — fix and re-run. But if tests produce real pass/fail scores, that's the deliverable.
+> If the test errors out, that's a setup bug — fix and re-run. But if tests produce real pass/fail scores, that's the deliverable.
 >
 > **STOP GATE — read this before doing anything else after tests produce scores:**
 >
@@ -149,16 +134,14 @@ Run `pixie test` to execute the full evaluation pipeline. Fix any data validatio
 
 ## Web Server Management
 
-pixie-qa runs a web server in the background for displaying context, traces, and eval results to the user. It's automatically started by the setup script, and needs to be explicitly cleaned up when display is no longer needed.
+pixie-qa runs a web server in the background for displaying context, traces, and eval results to the user. It's automatically started by the setup script (via `pixie start`, which launches a detached background process and returns immediately).
 
-When the user is done with the eval-driven-dev workflow, inform them the web server is still running and you can clean it up with the following command:
-
-```bash
-bash resources/stop-server.sh
-```
-
-And whenever you restart the workflow, always run the setup script again to ensure the web server is running:
+When the user is done with the eval-driven-dev workflow, inform them the web server is still running and you can clean it up with:
 
 ```bash
-bash resources/setup.sh
+pixie stop
 ```
+
+IMPORTANT: after the web server is stopped, the web UI becomes inaccessible. So only stop the server if the user confirms they're done with all web UI features. If they want to keep using the web UI, do NOT stop the server.
+
+And whenever you restart the workflow, always run the setup.sh script in resources again to ensure the web server is running:

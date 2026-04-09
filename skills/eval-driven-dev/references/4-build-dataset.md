@@ -46,7 +46,7 @@ The eval criteria artifact (`pixie_qa/02-eval-criteria.md`) maps each criterion 
 Use `pixie format` on the reference trace to see the exact data shapes **and** the real app output in dataset-entry format:
 
 ```bash
-uv run pixie format pixie_qa/reference-trace.jsonl
+uv run pixie format --input reference-trace.jsonl --output dataset-sample.json
 ```
 
 The output looks like:
