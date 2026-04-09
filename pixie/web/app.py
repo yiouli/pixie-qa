@@ -11,7 +11,7 @@ import asyncio
 import contextlib
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 
 from starlette.applications import Starlette
@@ -39,11 +39,12 @@ def _list_md_files(root: Path) -> list[dict[str, str]]:
     for p in sorted(root.iterdir()):
         if not p.is_file():
             continue
-        if p.suffix == ".md":
-            files.append({"name": p.name, "path": p.name})
-        elif p.suffix in (".json", ".jsonl"):
-            files.append({"name": p.name, "path": p.name})
-        elif p.suffix == ".py" and p.name != "__init__.py":
+        if (
+            p.suffix == ".md"
+            or p.suffix in (".json", ".jsonl")
+            or p.suffix == ".py"
+            and p.name != "__init__.py"
+        ):
             files.append({"name": p.name, "path": p.name})
     return files
 
@@ -135,12 +136,18 @@ def _load_webui_html() -> str:
     return webui_file.read_text(encoding="utf-8")
 
 
-def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
+def create_app(
+    root: str,
+    sse_manager: SSEManager | None = None,
+    shutdown_callback: Callable[[], None] | None = None,
+) -> Starlette:
     """Create the Starlette web UI application.
 
     Args:
         root: Path to the pixie artifact root directory.
         sse_manager: Optional SSE manager instance (created if not provided).
+        shutdown_callback: Optional callback invoked by the ``/api/shutdown``
+            endpoint to request a graceful server shutdown.
 
     Returns:
         A configured Starlette application.
@@ -253,6 +260,12 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
 
         return JSONResponse(data)
 
+    async def api_shutdown(request: Request) -> JSONResponse:
+        """Initiate a graceful server shutdown."""
+        if shutdown_callback is not None:
+            shutdown_callback()
+        return JSONResponse({"ok": True})
+
     routes = [
         Route("/", index),
         Route("/api/manifest", api_manifest),
@@ -261,6 +274,7 @@ def create_app(root: str, sse_manager: SSEManager | None = None) -> Starlette:
         Route("/api/events", api_events),
         Route("/api/status", api_status),
         Route("/api/navigate", api_navigate),
+        Route("/api/shutdown", api_shutdown, methods=["POST"]),
     ]
 
     return Starlette(routes=routes)

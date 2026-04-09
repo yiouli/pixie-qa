@@ -18,5 +18,6 @@ Sub-modules
 * pixie.cli.init_command
 * pixie.cli.main
 * pixie.cli.start_command
+* pixie.cli.stop_command
 * pixie.cli.test_command
 * pixie.cli.trace_command

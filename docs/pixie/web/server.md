@@ -25,6 +25,14 @@ Functions
     Returns:
         Full URL string.
 
+`def ensure_server(root: str, host: str = '127.0.0.1') ‑> int | None`
+:   Ensure a server is running for *root*, starting one if needed.
+    
+    Unlike :func:`start_detached`, this never opens the browser.
+    
+    Returns:
+        The port number if a server is running, otherwise *None*.
+
 `def get_server_status(root: str, host: str = '127.0.0.1') ‑> pixie.web.server.ServerStatus`
 :   Return the status of the pixie web server for *root*.
     
@@ -61,6 +69,33 @@ Functions
         open_browser: Whether to open the browser on startup.
         tab: Optional tab to pre-select in the web UI.
         item_id: Optional item path to pre-select within the tab.
+
+`def start_detached(root: str, *, host: str = '127.0.0.1', port: int = 7118, open_browser: bool = True, tab: str | None = None, item_id: str | None = None) ‑> int | None`
+:   Start the server in a detached subprocess and return immediately.
+    
+    If a server is already running for *root*, reuses it (optionally
+    opening the browser / sending a navigate event).
+    
+    Args:
+        root: Pixie artifact root directory.
+        host: Host to bind to.
+        port: Preferred port.
+        open_browser: Whether to open the browser after the server starts.
+        tab: Optional tab to pre-select.
+        item_id: Optional item path to pre-select.
+    
+    Returns:
+        The port the server is listening on, or *None* if it failed to
+        start within the timeout window.
+
+`def stop_server(root: str, host: str = '127.0.0.1') ‑> bool`
+:   Stop a running server for *root* by requesting graceful shutdown.
+    
+    Sends a POST to ``/api/shutdown`` and waits briefly for the process
+    to exit and the lock file to disappear.
+    
+    Returns:
+        *True* if the server was stopped (or was not running).
 
 Classes
 -------

@@ -347,22 +347,28 @@ class TestAppEndpoints:
 
 
 class TestStartCommand:
-    def test_start_calls_init_and_run_server(self) -> None:
+    def test_start_calls_init_and_start_detached(self) -> None:
         with (
             patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
-            patch("pixie.cli.start_command.run_server") as mock_run,
+            patch(
+                "pixie.cli.start_command.start_detached", return_value=7118
+            ) as mock_detach,
         ):
             from pixie.cli.start_command import start
 
             result = start(root="/tmp/test-root")
             assert result == 0
             mock_init.assert_called_once_with(root="/tmp/test-root")
-            mock_run.assert_called_once_with("/tmp/test-root", tab=None, item_id=None)
+            mock_detach.assert_called_once_with(
+                "/tmp/test-root", tab=None, item_id=None
+            )
 
     def test_start_uses_config_default(self) -> None:
         with (
             patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
-            patch("pixie.cli.start_command.run_server") as mock_run,
+            patch(
+                "pixie.cli.start_command.start_detached", return_value=7118
+            ) as mock_detach,
             patch("pixie.cli.start_command.get_config") as mock_config,
         ):
             mock_config.return_value.root = "pixie_qa"
@@ -370,20 +376,32 @@ class TestStartCommand:
 
             start(root=None)
             mock_init.assert_called_once_with(root="pixie_qa")
-            mock_run.assert_called_once_with("pixie_qa", tab=None, item_id=None)
+            mock_detach.assert_called_once_with("pixie_qa", tab=None, item_id=None)
 
     def test_start_passes_tab_and_item_id(self) -> None:
         with (
             patch("pixie.cli.start_command.init_pixie_dir") as mock_init,
-            patch("pixie.cli.start_command.run_server") as mock_run,
+            patch(
+                "pixie.cli.start_command.start_detached", return_value=7118
+            ) as mock_detach,
         ):
             from pixie.cli.start_command import start
 
             start(root="/tmp/r", tab="scorecards", item_id="scorecards/sc.html")
             mock_init.assert_called_once_with(root="/tmp/r")
-            mock_run.assert_called_once_with(
+            mock_detach.assert_called_once_with(
                 "/tmp/r", tab="scorecards", item_id="scorecards/sc.html"
             )
+
+    def test_start_returns_1_when_server_fails(self) -> None:
+        with (
+            patch("pixie.cli.start_command.init_pixie_dir"),
+            patch("pixie.cli.start_command.start_detached", return_value=None),
+        ):
+            from pixie.cli.start_command import start
+
+            result = start(root="/tmp/r")
+            assert result == 1
 
 
 # ── CLI Main Integration ────────────────────────────────────────────
@@ -425,6 +443,96 @@ class TestMainInitSubcommand:
             result = main(["init", "/tmp/my-root"])
             assert result == 0
             mock_init.assert_called_once_with(root="/tmp/my-root")
+
+
+class TestMainStopSubcommand:
+    def test_pixie_stop_routes_to_stop_command(self) -> None:
+        with patch("pixie.cli.stop_command.stop", return_value=0) as mock_stop:
+            from pixie.cli.main import main
+
+            result = main(["stop"])
+            assert result == 0
+            mock_stop.assert_called_once_with(root=None)
+
+    def test_pixie_stop_with_root_arg(self) -> None:
+        with patch("pixie.cli.stop_command.stop", return_value=0) as mock_stop:
+            from pixie.cli.main import main
+
+            result = main(["stop", "/tmp/my-root"])
+            assert result == 0
+            mock_stop.assert_called_once_with(root="/tmp/my-root")
+
+
+class TestMainAutoStart:
+    """Commands other than init/start/stop auto-start the server."""
+
+    def test_analyze_auto_starts_server(self) -> None:
+        with (
+            patch("pixie.web.server.ensure_server") as mock_ensure,
+            patch("pixie.cli.analyze_command.analyze", return_value=0),
+            patch("pixie.config.get_config") as mock_config,
+        ):
+            mock_config.return_value.root = "pixie_qa"
+            from pixie.cli.main import main
+
+            main(["analyze", "20260101-120000"])
+            mock_ensure.assert_called_once_with("pixie_qa")
+
+    def test_init_does_not_auto_start(self) -> None:
+        with (
+            patch("pixie.web.server.ensure_server") as mock_ensure,
+            patch(
+                "pixie.cli.init_command.init_pixie_dir", return_value=Path("pixie_qa")
+            ),
+        ):
+            from pixie.cli.main import main
+
+            main(["init"])
+            mock_ensure.assert_not_called()
+
+    def test_stop_does_not_auto_start(self) -> None:
+        with (
+            patch("pixie.web.server.ensure_server") as mock_ensure,
+            patch("pixie.cli.stop_command.stop", return_value=0),
+        ):
+            from pixie.cli.main import main
+
+            main(["stop"])
+            mock_ensure.assert_not_called()
+
+
+# ── Stop Command ─────────────────────────────────────────────────────
+
+
+class TestStopCommand:
+    def test_stop_calls_stop_server(self) -> None:
+        with (
+            patch("pixie.cli.stop_command.stop_server", return_value=True) as mock_stop,
+            patch("pixie.cli.stop_command.get_config") as mock_config,
+        ):
+            mock_config.return_value.root = "pixie_qa"
+            from pixie.cli.stop_command import stop
+
+            result = stop(root=None)
+            assert result == 0
+            mock_stop.assert_called_once_with("pixie_qa")
+
+    def test_stop_with_explicit_root(self) -> None:
+        with patch(
+            "pixie.cli.stop_command.stop_server", return_value=True
+        ) as mock_stop:
+            from pixie.cli.stop_command import stop
+
+            result = stop(root="/tmp/my-root")
+            assert result == 0
+            mock_stop.assert_called_once_with("/tmp/my-root")
+
+    def test_stop_returns_1_on_failure(self) -> None:
+        with patch("pixie.cli.stop_command.stop_server", return_value=False):
+            from pixie.cli.stop_command import stop
+
+            result = stop(root="/tmp/r")
+            assert result == 1
 
 
 # ── build_url ────────────────────────────────────────────────────────
@@ -745,3 +853,177 @@ class TestGetServerStatus:
         with patch("pixie.web.server._probe_server", return_value=5):
             status = get_server_status(root)
         assert status == ServerStatus(running=True, port=9999, active_clients=5)
+
+
+# ── Shutdown endpoint ────────────────────────────────────────────────
+
+
+class TestShutdownEndpoint:
+    def test_shutdown_returns_ok(self, tmp_path: Path) -> None:
+        callback_called = False
+
+        def on_shutdown() -> None:
+            nonlocal callback_called
+            callback_called = True
+
+        app = create_app(str(tmp_path), shutdown_callback=on_shutdown)
+        client = TestClient(app)
+        resp = client.post("/api/shutdown")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        assert callback_called
+
+    def test_shutdown_without_callback(self, tmp_path: Path) -> None:
+        app = create_app(str(tmp_path))
+        client = TestClient(app)
+        resp = client.post("/api/shutdown")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+    def test_shutdown_rejects_get(self, tmp_path: Path) -> None:
+        app = create_app(str(tmp_path))
+        client = TestClient(app)
+        resp = client.get("/api/shutdown")
+        assert resp.status_code == 405
+
+
+# ── _send_shutdown ───────────────────────────────────────────────────
+
+
+class TestSendShutdown:
+    def test_returns_true_on_success(self) -> None:
+        from pixie.web.server import _send_shutdown
+
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = unittest.mock.MagicMock(return_value=False)
+
+        with patch("pixie.web.server.urllib.request.urlopen", return_value=mock_resp):
+            assert _send_shutdown("127.0.0.1", 7118) is True
+
+    def test_returns_false_on_error(self) -> None:
+        from pixie.web.server import _send_shutdown
+
+        with patch(
+            "pixie.web.server.urllib.request.urlopen",
+            side_effect=urllib.error.URLError("refused"),
+        ):
+            assert _send_shutdown("127.0.0.1", 7118) is False
+
+
+# ── stop_server ──────────────────────────────────────────────────────
+
+
+class TestStopServer:
+    def test_returns_true_when_not_running(self, tmp_path: Path) -> None:
+        from pixie.web.server import stop_server
+
+        assert stop_server(str(tmp_path)) is True
+
+    def test_sends_shutdown_and_waits(self, tmp_path: Path) -> None:
+        from pixie.web.server import _write_lock, stop_server
+
+        root = str(tmp_path)
+        _write_lock(root, 7118)
+        call_count = 0
+
+        def mock_is_running(r: str, h: str = "127.0.0.1") -> int | None:
+            nonlocal call_count
+            call_count += 1
+            # First call: running, second call: not running
+            return 7118 if call_count <= 1 else None
+
+        with (
+            patch("pixie.web.server._is_server_running", side_effect=mock_is_running),
+            patch("pixie.web.server._send_shutdown", return_value=True) as mock_shut,
+            patch("time.sleep"),
+        ):
+            assert stop_server(root) is True
+            mock_shut.assert_called_once_with("127.0.0.1", 7118)
+
+
+# ── start_detached ───────────────────────────────────────────────────
+
+
+class TestStartDetached:
+    def test_reuses_existing_server(self, tmp_path: Path) -> None:
+        from pixie.web.server import start_detached
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=7118),
+            patch("pixie.web.server.webbrowser.open") as mock_open,
+            patch("pixie.web.server._send_navigate") as mock_nav,
+        ):
+            port = start_detached(str(tmp_path), open_browser=True, tab="scorecards")
+            assert port == 7118
+            mock_nav.assert_called_once()
+            mock_open.assert_called_once()
+
+    def test_spawns_subprocess(self, tmp_path: Path) -> None:
+        from pixie.web.server import start_detached
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=None),
+            patch("subprocess.Popen") as mock_popen,
+            patch("pixie.web.server._wait_for_server", return_value=7118),
+            patch("pixie.web.server.webbrowser.open"),
+        ):
+            port = start_detached(str(tmp_path))
+            assert port == 7118
+            mock_popen.assert_called_once()
+            # Verify detached flags
+            call_kwargs = mock_popen.call_args[1]
+            assert call_kwargs["start_new_session"] is True
+
+    def test_returns_none_on_timeout(self, tmp_path: Path) -> None:
+        from pixie.web.server import start_detached
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=None),
+            patch("subprocess.Popen"),
+            patch("pixie.web.server._wait_for_server", return_value=None),
+        ):
+            port = start_detached(str(tmp_path), open_browser=False)
+            assert port is None
+
+    def test_no_browser_when_disabled(self, tmp_path: Path) -> None:
+        from pixie.web.server import start_detached
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=None),
+            patch("subprocess.Popen"),
+            patch("pixie.web.server._wait_for_server", return_value=7118),
+            patch("pixie.web.server.webbrowser.open") as mock_open,
+        ):
+            start_detached(str(tmp_path), open_browser=False)
+            mock_open.assert_not_called()
+
+
+# ── ensure_server ────────────────────────────────────────────────────
+
+
+class TestEnsureServer:
+    def test_noop_when_running(self, tmp_path: Path) -> None:
+        from pixie.web.server import ensure_server
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=7118),
+            patch("pixie.web.server.start_detached") as mock_detach,
+        ):
+            port = ensure_server(str(tmp_path))
+            assert port == 7118
+            mock_detach.assert_not_called()
+
+    def test_starts_when_not_running(self, tmp_path: Path) -> None:
+        from pixie.web.server import ensure_server
+
+        with (
+            patch("pixie.web.server._is_server_running", return_value=None),
+            patch("pixie.web.server.start_detached", return_value=7118) as mock_detach,
+        ):
+            port = ensure_server(str(tmp_path))
+            assert port == 7118
+            mock_detach.assert_called_once_with(
+                str(tmp_path), host="127.0.0.1", open_browser=False
+            )

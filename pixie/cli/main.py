@@ -80,6 +80,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Artifact root directory (default: from PIXIE_ROOT or pixie_qa)",
     )
 
+    # -- pixie stop ---------------------------------------------------------
+    stop_parser = subparsers.add_parser("stop", help="Stop the running web UI server")
+    stop_parser.add_argument(
+        "root",
+        nargs="?",
+        default=None,
+        help="Artifact root directory (default: from PIXIE_ROOT or pixie_qa)",
+    )
+
     # -- pixie trace --------------------------------------------------------
     trace_parser = subparsers.add_parser(
         "trace",
@@ -142,6 +151,16 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv()
 
+    # Auto-start the web server for every command except init and stop.
+    # This is a silent, non-blocking operation — it spawns the server in the
+    # background without opening a browser.
+    if args.command not in ("init", "start", "stop"):
+        from pixie.config import get_config
+        from pixie.web.server import ensure_server
+
+        config = get_config()
+        ensure_server(config.root)
+
     if args.command == "test":
         from pixie.cli.test_command import main as test_main
 
@@ -170,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
         from pixie.cli.start_command import start
 
         return start(root=args.root)
+
+    elif args.command == "stop":
+        from pixie.cli.stop_command import stop
+
+        return stop(root=args.root)
 
     elif args.command == "trace":
         from pixie.cli.trace_command import main as trace_main

@@ -252,7 +252,14 @@ def run_server(
         port = _find_open_port(host, port + 1)
 
     sse_manager = SSEManager()
-    app = create_app(root, sse_manager=sse_manager)
+
+    _server_ref: uvicorn.Server | None = None
+
+    def _request_shutdown() -> None:
+        if _server_ref is not None:
+            _server_ref.should_exit = True
+
+    app = create_app(root, sse_manager=sse_manager, shutdown_callback=_request_shutdown)
 
     config = uvicorn.Config(
         app,
@@ -261,6 +268,7 @@ def run_server(
         log_level="info",
     )
     server = uvicorn.Server(config)
+    _server_ref = server
 
     _write_lock(root, port)
 
@@ -365,3 +373,147 @@ def open_webui(
     url = build_url(host, actual_port, tab=tab, item_id=item_id)
     logger.info("Opening browser at %s", url)
     webbrowser.open(url)
+
+
+def _send_shutdown(host: str, port: int) -> bool:
+    """Send a POST request to the server's ``/api/shutdown`` endpoint.
+
+    Returns *True* if the server acknowledged the request.
+    """
+    url = f"http://{host}:{port}/api/shutdown"
+    try:
+        req = urllib.request.Request(url, method="POST", data=b"")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return int(resp.status) == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _wait_for_server(root: str, host: str, timeout: float = 5.0) -> int | None:
+    """Poll until the server is reachable or *timeout* seconds elapse.
+
+    Returns:
+        The port number if the server becomes reachable, otherwise *None*.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        port = _is_server_running(root, host)
+        if port is not None:
+            return port
+        time.sleep(0.2)
+    return None
+
+
+def start_detached(
+    root: str,
+    *,
+    host: str = _DEFAULT_HOST,
+    port: int = _DEFAULT_PORT,
+    open_browser: bool = True,
+    tab: str | None = None,
+    item_id: str | None = None,
+) -> int | None:
+    """Start the server in a detached subprocess and return immediately.
+
+    If a server is already running for *root*, reuses it (optionally
+    opening the browser / sending a navigate event).
+
+    Args:
+        root: Pixie artifact root directory.
+        host: Host to bind to.
+        port: Preferred port.
+        open_browser: Whether to open the browser after the server starts.
+        tab: Optional tab to pre-select.
+        item_id: Optional item path to pre-select.
+
+    Returns:
+        The port the server is listening on, or *None* if it failed to
+        start within the timeout window.
+    """
+    import subprocess
+    import sys
+
+    # Re-use an existing server
+    running_port = _is_server_running(root, host)
+    if running_port is not None:
+        logger.info("Server already running on port %d", running_port)
+        if open_browser:
+            _send_navigate(host, running_port, tab=tab, item_id=item_id)
+            webbrowser.open(build_url(host, running_port, tab=tab, item_id=item_id))
+        return running_port
+
+    # Spawn a new detached process running `python -m pixie.web._serve`
+    cmd = [
+        sys.executable,
+        "-m",
+        "pixie.web._serve",
+        root,
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
+
+    # Detach: new session, redirect stdio to devnull
+    subprocess.Popen(
+        cmd,
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+    )
+
+    # Wait for the server to become reachable
+    actual_port = _wait_for_server(root, host, timeout=5.0)
+    if actual_port is None:
+        logger.warning("Server did not start within timeout")
+        return None
+
+    if open_browser:
+        webbrowser.open(build_url(host, actual_port, tab=tab, item_id=item_id))
+
+    return actual_port
+
+
+def stop_server(root: str, host: str = _DEFAULT_HOST) -> bool:
+    """Stop a running server for *root* by requesting graceful shutdown.
+
+    Sends a POST to ``/api/shutdown`` and waits briefly for the process
+    to exit and the lock file to disappear.
+
+    Returns:
+        *True* if the server was stopped (or was not running).
+    """
+    import time
+
+    port = _is_server_running(root, host)
+    if port is None:
+        return True  # nothing to stop
+
+    _send_shutdown(host, port)
+
+    # Wait for lock file to disappear (server cleans up on exit)
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if _is_server_running(root, host) is None:
+            return True
+        time.sleep(0.2)
+
+    logger.warning("Server on port %d did not stop within timeout", port)
+    return False
+
+
+def ensure_server(root: str, host: str = _DEFAULT_HOST) -> int | None:
+    """Ensure a server is running for *root*, starting one if needed.
+
+    Unlike :func:`start_detached`, this never opens the browser.
+
+    Returns:
+        The port number if a server is running, otherwise *None*.
+    """
+    running_port = _is_server_running(root, host)
+    if running_port is not None:
+        return running_port
+    return start_detached(root, host=host, open_browser=False)
