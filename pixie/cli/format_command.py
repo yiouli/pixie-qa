@@ -20,7 +20,7 @@ from pydantic import JsonValue
 
 from pixie.eval.evaluable import NamedData
 from pixie.harness.runner import DatasetEntry
-from pixie.instrumentation.models import EntryInputLog, LLMSpanLog
+from pixie.instrumentation.models import ENTRY_KWARGS_KEY, EntryInputLog, LLMSpanLog
 from pixie.instrumentation.wrap import WrappedData
 
 
@@ -124,11 +124,12 @@ def format_trace_to_entry(
         _wrap_to_named_data(w) for w in wrap_events if w.purpose == "input"
     ]
 
-    if not eval_input:
-        raise ValueError(
-            "No input data found in trace log. "
-            "Expected wrap events with purpose='input'."
-        )
+    # Always include entry_kwargs in eval_input so the dataset entry is
+    # valid even when the app has no wrap(purpose='input') calls.
+    kwargs: dict[str, JsonValue] = (
+        entry_input.value if entry_input is not None else {}
+    )
+    eval_input.insert(0, NamedData(name=ENTRY_KWARGS_KEY, value=kwargs))
 
     # Build expectation from output/state wraps and LLM spans, in log order
     expectation_items: list[NamedData] = []
@@ -145,7 +146,6 @@ def format_trace_to_entry(
         expectation = [item.model_dump() for item in expectation_items]
 
     # Build the DatasetEntry pydantic model and serialise
-    kwargs = entry_input.value if entry_input is not None else {}
     dataset_entry = DatasetEntry(
         entry_kwargs=kwargs,
         eval_input=eval_input,

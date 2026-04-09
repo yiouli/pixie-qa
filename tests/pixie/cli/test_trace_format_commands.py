@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from pixie.cli.format_command import format_trace_to_entry
-from pixie.instrumentation.wrap import TraceLogProcessor
+from pixie.instrumentation.models import ENTRY_KWARGS_KEY
+from pixie.instrumentation.wrap import TraceLogProcessor, WrapNameCollisionError
 
 
 class TestTraceLogProcessorWriteLine:
@@ -73,10 +75,12 @@ class TestFormatTraceToEntry:
         assert entry["entry_kwargs"] == {"msg": "hi"}
         assert entry["evaluators"] == ["Factuality"]
 
-        # eval_input should contain 'input' purpose wraps (flattened)
-        assert len(entry["eval_input"]) == 1
-        assert entry["eval_input"][0]["name"] == "user_input"
-        assert entry["eval_input"][0]["value"] == "hello"
+        # eval_input should contain entry_kwargs first, then 'input' purpose wraps
+        assert len(entry["eval_input"]) == 2
+        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
+        assert entry["eval_input"][0]["value"] == {"msg": "hi"}
+        assert entry["eval_input"][1]["name"] == "user_input"
+        assert entry["eval_input"][1]["value"] == "hello"
 
         # expectation should contain output wraps
         assert entry["expectation"] is not None
@@ -84,8 +88,8 @@ class TestFormatTraceToEntry:
 
         assert entry["description"] == "transformed from trace.jsonl"
 
-    def test_no_input_raises(self, tmp_path: Path) -> None:
-        """When no purpose=input wraps exist, raises ValueError."""
+    def test_kwargs_only_produces_valid_entry(self, tmp_path: Path) -> None:
+        """When no purpose=input wraps exist, kwargs alone produce a valid entry."""
         trace_file = tmp_path / "trace.jsonl"
         lines = [
             json.dumps({"type": "kwargs", "value": {"a": 1}}),
@@ -102,17 +106,29 @@ class TestFormatTraceToEntry:
         trace_file.write_text("\n".join(lines) + "\n")
 
         output_file = tmp_path / "entry.json"
-        with pytest.raises(ValueError, match="No input data"):
-            format_trace_to_entry(trace_file, output_file)
+        format_trace_to_entry(trace_file, output_file)
 
-    def test_no_data_raises(self, tmp_path: Path) -> None:
-        """Raises when trace has no usable input data."""
+        entry = json.loads(output_file.read_text())
+        assert entry["entry_kwargs"] == {"a": 1}
+        # eval_input has only the kwargs item
+        assert len(entry["eval_input"]) == 1
+        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
+        assert entry["eval_input"][0]["value"] == {"a": 1}
+        # expectation has output wraps
+        assert entry["expectation"] is not None
+
+    def test_empty_kwargs_produces_valid_entry(self, tmp_path: Path) -> None:
+        """Even with empty kwargs and no wraps, entry is valid (kwargs value is {})."""
         trace_file = tmp_path / "trace.jsonl"
         trace_file.write_text(json.dumps({"type": "kwargs", "value": {}}) + "\n")
 
         output_file = tmp_path / "entry.json"
-        with pytest.raises(ValueError, match="No input data"):
-            format_trace_to_entry(trace_file, output_file)
+        format_trace_to_entry(trace_file, output_file)
+
+        entry = json.loads(output_file.read_text())
+        assert len(entry["eval_input"]) == 1
+        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
+        assert entry["eval_input"][0]["value"] == {}
 
     def test_file_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
@@ -197,3 +213,56 @@ class TestRunUtilsLoadInput:
         f.write_text("[1, 2, 3]")
         with pytest.raises(ValueError, match="JSON object"):
             load_input_kwargs(f)
+
+
+class TestTraceLogProcessorNameValidation:
+    """Tests for wrap name collision detection in TraceLogProcessor."""
+
+    def _make_log_record(self, body: dict[str, object]) -> MagicMock:
+        """Create a mock ReadWriteLogRecord with the given body."""
+        mock = MagicMock()
+        mock.log_record.body = body
+        return mock
+
+    def test_reserved_key_collision_raises(self, tmp_path: Path) -> None:
+        """Using the reserved ENTRY_KWARGS_KEY as a wrap name raises."""
+        processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
+        record = self._make_log_record(
+            {"type": "wrap", "name": ENTRY_KWARGS_KEY, "purpose": "input", "data": "x"}
+        )
+        with pytest.raises(WrapNameCollisionError, match="reserved key"):
+            processor.on_emit(record)
+
+    def test_duplicate_name_raises(self, tmp_path: Path) -> None:
+        """Using the same wrap name twice raises."""
+        processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
+        record1 = self._make_log_record(
+            {"type": "wrap", "name": "my_data", "purpose": "input", "data": "a"}
+        )
+        record2 = self._make_log_record(
+            {"type": "wrap", "name": "my_data", "purpose": "output", "data": "b"}
+        )
+        processor.on_emit(record1)
+        with pytest.raises(WrapNameCollisionError, match="already used"):
+            processor.on_emit(record2)
+
+    def test_distinct_names_accepted(self, tmp_path: Path) -> None:
+        """Different wrap names are accepted without error."""
+        processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
+        for name in ("alpha", "beta", "gamma"):
+            record = self._make_log_record(
+                {"type": "wrap", "name": name, "purpose": "input", "data": "x"}
+            )
+            processor.on_emit(record)
+        # All three lines should be written
+        lines = (tmp_path / "trace.jsonl").read_text().strip().split("\n")
+        assert len(lines) == 3
+
+    def test_non_wrap_records_not_validated(self, tmp_path: Path) -> None:
+        """Non-wrap records (kwargs, llm_span) skip name validation."""
+        processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
+        for record_type in ("kwargs", "llm_span"):
+            record = self._make_log_record(
+                {"type": record_type, "name": ENTRY_KWARGS_KEY}
+            )
+            processor.on_emit(record)  # should not raise

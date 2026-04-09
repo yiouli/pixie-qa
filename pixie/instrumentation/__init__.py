@@ -47,9 +47,11 @@ from .llm_tracing import (
     flush,
     remove_handler,
 )
+from .models import ENTRY_KWARGS_KEY
 from .wrap import (
     EvalCaptureLogProcessor,
     TraceLogProcessor,
+    WrapNameCollisionError,
     WrappedData,
     WrapRegistryMissError,
     WrapTypeMismatchError,
@@ -66,6 +68,7 @@ from .wrap import (
 
 __all__ = [
     "AssistantMessage",
+    "ENTRY_KWARGS_KEY",
     "EvalCaptureLogProcessor",
     "ImageContent",
     "InstrumentationHandler",
@@ -80,6 +83,7 @@ __all__ = [
     "ToolResultMessage",
     "TraceLogProcessor",
     "UserMessage",
+    "WrapNameCollisionError",
     "WrapRegistryMissError",
     "WrapTypeMismatchError",
     "WrappedData",

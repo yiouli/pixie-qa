@@ -376,6 +376,10 @@ Classes
 `TraceLogProcessor(output_path: str)`
 :   Write wrap event bodies as JSON lines to a file.
     
+    Validates wrap names during tracing: raises :class:`WrapNameCollisionError`
+    when a wrap name collides with the reserved ``ENTRY_KWARGS_KEY`` or with
+    a name already seen in the current trace.
+    
     Args:
         output_path: Path to the JSONL trace file.  Parent directories
             are created if missing; the file is truncated on init.
@@ -426,6 +430,15 @@ Classes
 
     `role: Literal['user']`
     :
+
+`WrapNameCollisionError(*args, **kwargs)`
+:   Raised when a wrap name collides with a reserved key or duplicate.
+
+    ### Ancestors (in MRO)
+
+    * builtins.ValueError
+    * builtins.Exception
+    * builtins.BaseException
 
 `WrapRegistryMissError(name: str)`
 :   Raised when a wrap(purpose="input") name is not found in the eval registry.

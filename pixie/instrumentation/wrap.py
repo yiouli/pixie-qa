@@ -22,6 +22,8 @@ import jsonpickle
 from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor, ReadWriteLogRecord
 from pydantic import BaseModel, ConfigDict, JsonValue
 
+from pixie.instrumentation.models import ENTRY_KWARGS_KEY
+
 T = TypeVar("T")
 
 
@@ -164,8 +166,16 @@ def set_trace_log_processor(processor: TraceLogProcessor | None) -> None:
     _trace_log_processor = processor
 
 
+class WrapNameCollisionError(ValueError):
+    """Raised when a wrap name collides with a reserved key or duplicate."""
+
+
 class TraceLogProcessor(LogRecordProcessor):
     """Write wrap event bodies as JSON lines to a file.
+
+    Validates wrap names during tracing: raises :class:`WrapNameCollisionError`
+    when a wrap name collides with the reserved ``ENTRY_KWARGS_KEY`` or with
+    a name already seen in the current trace.
 
     Args:
         output_path: Path to the JSONL trace file.  Parent directories
@@ -177,11 +187,32 @@ class TraceLogProcessor(LogRecordProcessor):
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._path.write_text("")
+        self._seen_names: set[str] = set()
+
+    def _validate_wrap_name(self, name: str) -> None:
+        """Raise :class:`WrapNameCollisionError` on name conflicts."""
+        if name == ENTRY_KWARGS_KEY:
+            raise WrapNameCollisionError(
+                f"wrap(name={name!r}) collides with the reserved key "
+                f"{ENTRY_KWARGS_KEY!r} used for entry kwargs in eval_input. "
+                f"Choose a different name for this wrap point."
+            )
+        if name in self._seen_names:
+            raise WrapNameCollisionError(
+                f"wrap(name={name!r}) was already used in this trace. "
+                f"Each wrap point must have a unique name."
+            )
+        self._seen_names.add(name)
 
     def on_emit(self, log_record: ReadWriteLogRecord) -> None:  # noqa: D102
         body = log_record.log_record.body
         if not isinstance(body, dict):
             return
+        # Validate wrap names before writing
+        if body.get("type") == "wrap":
+            name = body.get("name")
+            if isinstance(name, str):
+                self._validate_wrap_name(name)
         line = json.dumps(body, default=str)
         with self._lock, open(self._path, "a", encoding="utf-8") as f:
             f.write(line + "\n")

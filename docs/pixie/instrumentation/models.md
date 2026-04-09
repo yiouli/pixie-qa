@@ -11,6 +11,18 @@ and consumed by ``pixie format``:
 :class:`WrappedData` (from :mod:`pixie.instrumentation.wrap`) is the
 model for wrap records (``type="wrap"``).
 
+Variables
+---------
+
+`ENTRY_KWARGS_KEY: str`
+:   Reserved eval_input name for the runnable kwargs.
+    
+    ``pixie format`` always adds an :class:`~pixie.eval.evaluable.NamedData`
+    item with this name to ``eval_input`` so that the dataset entry is valid
+    even when the app has no ``wrap(purpose='input')`` calls.  Wrap names
+    must not collide with this key — ``pixie trace`` validates this at write
+    time.
+
 Classes
 -------
 
