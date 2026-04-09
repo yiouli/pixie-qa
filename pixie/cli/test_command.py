@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from pixie.config import get_config
@@ -23,6 +25,11 @@ from pixie.harness.run_result import (
     save_test_result,
 )
 from pixie.harness.runner import discover_dataset_files, run_dataset
+from pixie.harness.trace_capture import (
+    EntryTraceCollector,
+    EntryTraceLogProcessor,
+    set_active_collector,
+)
 from pixie.web import server as web_server
 
 
@@ -60,6 +67,29 @@ async def _run_datasets(
     all_passed = True
     dataset_results: list[DatasetResult] = []
 
+    config = get_config()
+    result_dir = os.path.join(config.root, "results", test_id)
+
+    # Initialize trace capture so LLM spans and wrap events are collected
+    # per entry via EntryTraceCollector.
+    collector = EntryTraceCollector()
+    set_active_collector(collector)
+    try:
+        from pixie.instrumentation.llm_tracing import add_handler, enable_llm_tracing
+
+        enable_llm_tracing()
+        add_handler(collector)
+    except Exception:
+        pass  # Tracing setup is best-effort; proceed without it.
+
+    # Register the log processor so wrap() emissions route to the collector.
+    try:
+        from pixie.instrumentation.wrap import logger_provider
+
+        logger_provider.add_log_record_processor(EntryTraceLogProcessor())
+    except Exception:
+        pass  # Best-effort registration.
+
     for ds_path in dataset_files:
         try:
             dataset_name, entry_results = await run_dataset(str(ds_path))
@@ -67,7 +97,15 @@ async def _run_datasets(
             print(str(exc))  # noqa: T201
             return 1
 
-        ds_result = DatasetResult(dataset=dataset_name, entries=entry_results)
+        # Write per-entry trace files and annotate EntryResults.
+        annotated_entries = []
+        for i, entry in enumerate(entry_results):
+            trace_rel = f"traces/entry-{i}.jsonl"
+            trace_abs = os.path.join(result_dir, trace_rel)
+            collector.write_entry_trace(i, trace_abs)
+            annotated_entries.append(replace(entry, trace_file=trace_rel))
+
+        ds_result = DatasetResult(dataset=dataset_name, entries=annotated_entries)
         dataset_results.append(ds_result)
 
         # Print results
@@ -95,6 +133,14 @@ async def _run_datasets(
                             print(f"      {ev.evaluator}: {ev.reasoning}")  # noqa: T201
 
         print(f"  {passed_count}/{total_count} passed")  # noqa: T201
+
+    # Flush any remaining LLM spans before saving results.
+    try:
+        from pixie.instrumentation.llm_tracing import flush
+
+        flush()
+    except Exception:
+        pass  # Best-effort flush.
 
     ended_at = datetime.now(timezone.utc).isoformat()
     run_result = RunResult(

@@ -66,7 +66,7 @@ Classes
     `entries: list[pixie.harness.run_result.EntryResult]`
     :
 
-`EntryResult(input: JsonValue, output: JsonValue, expected_output: JsonValue | None, description: str | None, evaluations: list[EvaluationResult])`
+`EntryResult(input: JsonValue, output: JsonValue, expected_output: JsonValue | None, description: str | None, evaluations: list[EvaluationResult], trace_file: str | None = None)`
 :   Results for a single dataset entry.
     
     Attributes:
@@ -75,6 +75,7 @@ Classes
         expected_output: The expected output (None if not provided).
         description: One-sentence scenario description (None if not provided).
         evaluations: List of evaluator results for this entry.
+        trace_file: Relative path to per-entry JSONL trace file (None if not captured).
 
     ### Instance variables
 
@@ -91,6 +92,9 @@ Classes
     :
 
     `output: JsonValue`
+    :
+
+    `trace_file: str | None`
     :
 
 `EvaluationResult(evaluator: str, score: float, reasoning: str)`

@@ -175,6 +175,7 @@ Classes
     ### Descendants
 
     * pixie.cli.trace_command.LLMTraceLogger
+    * pixie.harness.trace_capture.EntryTraceCollector
     * pixie.instrumentation.llm_tracing._HandlerRegistry
 
     ### Methods

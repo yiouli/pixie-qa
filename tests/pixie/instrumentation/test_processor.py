@@ -9,16 +9,16 @@ from unittest.mock import MagicMock
 from opentelemetry.trace import SpanContext, StatusCode
 from opentelemetry.trace.status import Status
 
-from pixie.instrumentation.llm_tracing import LLMSpanProcessor
-from pixie.instrumentation.llm_tracing import _DeliveryQueue
 from pixie.instrumentation.llm_tracing import (
     AssistantMessage,
     ImageContent,
+    LLMSpanProcessor,
     SystemMessage,
     TextContent,
     ToolDefinition,
     ToolResultMessage,
     UserMessage,
+    _DeliveryQueue,
 )
 
 from .conftest import RecordingHandler

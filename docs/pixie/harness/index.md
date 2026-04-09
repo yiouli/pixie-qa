@@ -13,3 +13,4 @@ Sub-modules
 * pixie.harness.run_result
 * pixie.harness.runnable
 * pixie.harness.runner
+* pixie.harness.trace_capture

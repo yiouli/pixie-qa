@@ -70,3 +70,26 @@ class LLMSpanLog(BaseModel):
     finish_reasons: list[str] = []
     output_type: str | None = None
     error_type: str | None = None
+
+
+class LLMSpanTrace(LLMSpanLog):
+    """Full LLM span record including timing and token data for trace analysis.
+
+    Extends :class:`LLMSpanLog` with fields needed for trace-based analysis:
+    token counts, duration, and timestamps.
+
+    Attributes:
+        type: Always ``"llm_span_trace"``.
+        input_tokens: Number of input tokens.
+        output_tokens: Number of output tokens.
+        duration_ms: Call duration in milliseconds.
+        started_at: ISO 8601 start timestamp.
+        ended_at: ISO 8601 end timestamp.
+    """
+
+    type: Literal["llm_span_trace"] = "llm_span_trace"  # type: ignore[assignment]
+    input_tokens: int = 0
+    output_tokens: int = 0
+    duration_ms: float = 0.0
+    started_at: str | None = None
+    ended_at: str | None = None

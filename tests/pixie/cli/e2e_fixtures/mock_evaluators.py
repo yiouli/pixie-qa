@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from difflib import SequenceMatcher
 
-from pixie.eval.evaluation import Evaluation
 from pixie.eval.evaluable import Evaluable, _Unset
+from pixie.eval.evaluation import Evaluation
 
 
 def customer_faq_runnable(eval_input: object) -> str:

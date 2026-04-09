@@ -125,26 +125,6 @@ Functions
         FileNotFoundError: If the dataset file does not exist.
         ValueError: If the dataset fails validation.
 
-`async def run_entry(entry: DatasetEntry, runnable: Callable[..., Any], semaphore: asyncio.Semaphore, *, args_type: type[BaseModel] | None = None) ‑> pixie.harness.run_result.EntryResult`
-:   Process a single dataset entry: call runnable, then evaluate.
-    
-    Sets up ``eval_input`` (for ``wrap(purpose="input")`` injection) and
-    ``eval_output`` (populated by ``EvalCaptureLogProcessor``) before
-    calling the runnable. After the call, captured bodies are validated
-    into :class:`WrappedData` and converted to :class:`NamedData`.
-    
-    When *args_type* is provided (Runnable protocol), kwargs are validated
-    into the Pydantic model before calling the runnable.
-    
-    Args:
-        entry: The dataset entry to process.
-        runnable: The runnable function or instance to execute.
-        semaphore: Concurrency semaphore to limit parallel execution.
-        args_type: Optional Pydantic model for runnable argument validation.
-    
-    Returns:
-        An EntryResult with output and evaluation scores.
-
 `async def run_runnable(reference: str, kwargs: dict[str, Any]) ‑> None`
 :   Resolve, create, and run a Runnable with the given kwargs.
     

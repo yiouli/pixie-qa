@@ -94,7 +94,7 @@ def serialize_wrap_data(data: Any) -> JsonValue:
     :func:`deserialize_wrap_data` can reconstruct the original Python
     object from the returned value.
     """
-    encoded: str = jsonpickle.encode(data, unpicklable=True)  # type: ignore[no-any-return]
+    encoded: str = jsonpickle.encode(data, unpicklable=True)  # pyright: ignore[reportAssignmentType]
     return json.loads(encoded)  # type: ignore[no-any-return]
 
 
@@ -329,14 +329,29 @@ def wrap(
         if name not in input_registry:
             raise WrapRegistryMissError(name)
         deserialized = deserialize_wrap_data(input_registry[name])
+        serialized_value = input_registry[name]
+
+        def _emit_injected() -> None:
+            """Emit the injected value so trace log processors see it."""
+            _logger.emit(
+                body=WrappedData(
+                    name=name,
+                    purpose=purpose,
+                    data=serialized_value,
+                    description=description,
+                ).model_dump(mode="json")
+            )
+
         if is_callable:
-            # Return a callable that always returns the injected value.
+            # Return a callable that emits and returns the injected value.
             # Parameters are intentionally ignored — eval mode replaces
             # the original function's computation with the registry value.
             def _injected_callable(*args: Any, **kwargs: Any) -> Any:
+                _emit_injected()
                 return deserialized
 
             return _injected_callable  # type: ignore[return-value]
+        _emit_injected()
         return deserialized  # type: ignore[no-any-return]
     else:
         return _emit_and_return(data, name, purpose, description)

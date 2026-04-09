@@ -1,0 +1,58 @@
+{
+    "name": "chatbot",
+    "runnable": "tests/manual/chatbot.py:chat",
+    "entries": [
+        {
+            "entry_kwargs": {
+                "user_message": "What are your business hours?",
+                "customer_id": "C001"
+            },
+            "eval_input": [
+                {
+                    "name": "customer_profile",
+                    "value": {
+                        "id": "C001",
+                        "name": "Alice Johnson",
+                        "tier": "premium",
+                        "email": "alice@example.com"
+                    }
+                },
+                {
+                    "name": "faq_result",
+                    "value": "We are open Monday to Friday, 9am to 5pm."
+                }
+            ],
+            "expectation": "A helpful response about business hours for a premium customer",
+            "description": "Premium customer asks about business hours",
+            "evaluators": [
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval"
+            ]
+        },
+        {
+            "entry_kwargs": {
+                "user_message": "I want a refund",
+                "customer_id": "C002"
+            },
+            "eval_input": [
+                {
+                    "name": "customer_profile",
+                    "value": {
+                        "id": "C002",
+                        "name": "Bob Smith",
+                        "tier": "basic",
+                        "email": "bob@example.com"
+                    }
+                },
+                {
+                    "name": "faq_result",
+                    "value": "Items can be returned within 30 days of purchase."
+                }
+            ],
+            "expectation": "An escalation response connecting the customer with a specialist",
+            "description": "Basic customer requests a refund (escalation)",
+            "evaluators": [
+                "tests/manual/mock_evaluators.py:SimpleFactualityEval"
+            ]
+        }
+    ]
+}

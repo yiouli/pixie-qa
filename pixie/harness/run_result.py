@@ -55,6 +55,7 @@ class EntryResult:
         expected_output: The expected output (None if not provided).
         description: One-sentence scenario description (None if not provided).
         evaluations: List of evaluator results for this entry.
+        trace_file: Relative path to per-entry JSONL trace file (None if not captured).
     """
 
     input: JsonValue
@@ -62,6 +63,7 @@ class EntryResult:
     expected_output: JsonValue | None
     description: str | None
     evaluations: list[EvaluationResult]
+    trace_file: str | None = None
 
 
 @dataclass
@@ -125,6 +127,8 @@ def _result_to_dict(result: RunResult) -> list[dict[str, Any]]:
                 entry_dict["expectedOutput"] = entry.expected_output
             if entry.description is not None:
                 entry_dict["description"] = entry.description
+            if entry.trace_file is not None:
+                entry_dict["traceFile"] = entry.trace_file
             entry_dicts.append(entry_dict)
         ds_dict: dict[str, Any] = {
             "dataset": ds.dataset,
@@ -214,6 +218,7 @@ def load_test_result(test_id: str) -> RunResult:
                     expected_output=entry_data.get("expectedOutput"),
                     description=entry_data.get("description"),
                     evaluations=evaluations,
+                    trace_file=entry_data.get("traceFile"),
                 )
             )
 

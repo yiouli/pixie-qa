@@ -5,8 +5,12 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 
-from pixie.instrumentation.llm_tracing import InstrumentationHandler, _HandlerRegistry
-from pixie.instrumentation.llm_tracing import LLMSpan, ObserveSpan
+from pixie.instrumentation.llm_tracing import (
+    InstrumentationHandler,
+    LLMSpan,
+    ObserveSpan,
+    _HandlerRegistry,
+)
 
 
 def _make_observe_span(name: str = "test") -> ObserveSpan:

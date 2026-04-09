@@ -85,6 +85,10 @@ Classes
 
     * pydantic.main.BaseModel
 
+    ### Descendants
+
+    * pixie.instrumentation.models.LLMSpanTrace
+
     ### Class variables
 
     `error_type: str | None`
@@ -121,4 +125,53 @@ Classes
     :
 
     `type: Literal['llm_span']`
+    :
+
+`LLMSpanTrace(**data: Any)`
+:   Full LLM span record including timing and token data for trace analysis.
+    
+    Extends :class:`LLMSpanLog` with fields needed for trace-based analysis:
+    token counts, duration, and timestamps.
+    
+    Attributes:
+        type: Always ``"llm_span_trace"``.
+        input_tokens: Number of input tokens.
+        output_tokens: Number of output tokens.
+        duration_ms: Call duration in milliseconds.
+        started_at: ISO 8601 start timestamp.
+        ended_at: ISO 8601 end timestamp.
+    
+    Create a new model by parsing and validating input data from keyword arguments.
+    
+    Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+    validated to form a valid model.
+    
+    `self` is explicitly positional-only to allow `self` as a field name.
+
+    ### Ancestors (in MRO)
+
+    * pixie.instrumentation.models.LLMSpanLog
+    * pydantic.main.BaseModel
+
+    ### Class variables
+
+    `duration_ms: float`
+    :
+
+    `ended_at: str | None`
+    :
+
+    `input_tokens: int`
+    :
+
+    `model_config`
+    :
+
+    `output_tokens: int`
+    :
+
+    `started_at: str | None`
+    :
+
+    `type: Literal['llm_span_trace']`
     :

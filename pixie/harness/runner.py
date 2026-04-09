@@ -46,6 +46,7 @@ from pixie.eval.evaluable import (
 from pixie.eval.evaluation import Evaluation, evaluate
 from pixie.harness.run_result import EntryResult, EvaluationResult
 from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
+from pixie.harness.trace_capture import current_entry_index, record_entry_kwargs
 from pixie.instrumentation.wrap import (
     WrappedData,
     WrapRegistryMissError,
@@ -651,11 +652,12 @@ async def evaluate_entry(
     )
 
 
-async def run_entry(
+async def _run_entry(
     entry: DatasetEntry,
     runnable: Callable[..., Any],
     semaphore: asyncio.Semaphore,
     *,
+    entry_index: int,
     args_type: type[BaseModel] | None = None,
 ) -> EntryResult:
     """Process a single dataset entry: call runnable, then evaluate.
@@ -668,16 +670,23 @@ async def run_entry(
     When *args_type* is provided (Runnable protocol), kwargs are validated
     into the Pydantic model before calling the runnable.
 
+    Sets the ``current_entry_index`` context variable and records entry
+    kwargs so that :class:`EntryTraceCollector` can build a full
+    per-entry trace.
+
     Args:
         entry: The dataset entry to process.
         runnable: The runnable function or instance to execute.
         semaphore: Concurrency semaphore to limit parallel execution.
         args_type: Optional Pydantic model for runnable argument validation.
+        entry_index: Entry index for trace capture association.
 
     Returns:
         An EntryResult with output and evaluation scores.
     """
     async with semaphore:
+        current_entry_index.set(entry_index)
+        record_entry_kwargs(entry_index, entry.entry_kwargs)
         init_eval_output()
 
         dependency_registry: dict[str, JsonValue] = {
@@ -775,20 +784,22 @@ async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
         try:
             await runnable_instance.setup()
             entry_tasks = [
-                run_entry(
+                _run_entry(
                     entry,
                     runnable_instance.run,
                     semaphore,
                     args_type=args_type,
+                    entry_index=i,
                 )
-                for entry in dataset.entries
+                for i, entry in enumerate(dataset.entries)
             ]
             entry_results: list[EntryResult] = list(await asyncio.gather(*entry_tasks))
         finally:
             await runnable_instance.teardown()
     else:
         entry_tasks = [
-            run_entry(entry, resolved, semaphore) for entry in dataset.entries
+            _run_entry(entry, resolved, semaphore, entry_index=i)
+            for i, entry in enumerate(dataset.entries)
         ]
         entry_results = list(await asyncio.gather(*entry_tasks))
 
