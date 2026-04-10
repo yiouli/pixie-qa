@@ -19,7 +19,7 @@ from pathlib import Path
 from pixie.config import get_config
 
 #: Subdirectories to create under the pixie root.
-_SUBDIRS = ("datasets", "tests", "scripts")
+_SUBDIRS = ("datasets", "results")
 
 
 def init_pixie_dir(root: str | None = None) -> Path:
@@ -46,10 +46,5 @@ def init_pixie_dir(root: str | None = None) -> Path:
     root_init_py = root_path / "__init__.py"
     if not root_init_py.exists():
         root_init_py.write_text("")
-
-    # Ensure scripts/ is importable as a Python package.
-    init_py = root_path / "scripts" / "__init__.py"
-    if not init_py.exists():
-        init_py.write_text("")
 
     return root_path
