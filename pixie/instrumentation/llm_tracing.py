@@ -12,6 +12,7 @@ Combines all LLM tracing functionality:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import importlib
 import json
 import logging
@@ -268,9 +269,13 @@ class _DeliveryQueue:
     waits for all in-flight async processing to complete.
     """
 
+    _QueueItem = tuple["LLMSpan | ObserveSpan", contextvars.Context]
+
     def __init__(self, handler: InstrumentationHandler, maxsize: int = 1000) -> None:
         self._handler = handler
-        self._queue: queue.Queue[LLMSpan | ObserveSpan] = queue.Queue(maxsize=maxsize)
+        self._queue: queue.Queue[_DeliveryQueue._QueueItem] = queue.Queue(
+            maxsize=maxsize
+        )
         self._dropped_count = 0
 
         # Dedicated event loop running on its own daemon thread.
@@ -289,9 +294,14 @@ class _DeliveryQueue:
         self._thread.start()
 
     def submit(self, item: LLMSpan | ObserveSpan) -> None:
-        """Submit a span for delivery. Drops silently on full queue."""
+        """Submit a span for delivery. Drops silently on full queue.
+
+        Captures a snapshot of the current :mod:`contextvars` context so
+        that handler coroutines can read ContextVars (e.g.
+        ``current_entry_index``) that were set on the submitting thread.
+        """
         try:
-            self._queue.put_nowait(item)
+            self._queue.put_nowait((item, contextvars.copy_context()))
         except queue.Full:
             self._dropped_count += 1
 
@@ -306,10 +316,10 @@ class _DeliveryQueue:
     def _worker(self) -> None:
         """Queue-consumer: fire-and-forget async dispatch for each span."""
         while True:
-            item = self._queue.get()
+            item, ctx = self._queue.get()
             try:
                 future: Future[None] = asyncio.run_coroutine_threadsafe(
-                    self._dispatch(item), self._loop
+                    self._dispatch(item, ctx), self._loop
                 )
                 # task_done() is deferred until the coroutine finishes so
                 # that flush() / queue.join() waits for async handlers too.
@@ -318,13 +328,24 @@ class _DeliveryQueue:
                 # Scheduling failed — mark done immediately to avoid deadlock.
                 self._queue.task_done()
 
-    async def _dispatch(self, item: LLMSpan | ObserveSpan) -> None:
-        """Async dispatch: route span to the appropriate handler method."""
+    async def _dispatch(
+        self, item: LLMSpan | ObserveSpan, ctx: contextvars.Context
+    ) -> None:
+        """Async dispatch: route span to the appropriate handler method.
+
+        The handler coroutine runs in a child task whose context is *ctx*
+        (captured at submit time), so ContextVars such as
+        ``current_entry_index`` are visible to the handler.
+        """
         try:
             if isinstance(item, LLMSpan):
-                await self._handler.on_llm(item)
+                coro = self._handler.on_llm(item)
             elif isinstance(item, ObserveSpan):
-                await self._handler.on_observe(item)
+                coro = self._handler.on_observe(item)
+            else:
+                return
+            task = asyncio.get_running_loop().create_task(coro, context=ctx)
+            await task
         except Exception:
             pass  # Handler exceptions are silently swallowed
 

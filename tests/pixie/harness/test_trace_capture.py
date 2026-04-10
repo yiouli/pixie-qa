@@ -15,7 +15,11 @@ from pixie.harness.trace_capture import (
     record_entry_kwargs,
     set_active_collector,
 )
-from pixie.instrumentation.llm_tracing import LLMSpan
+from pixie.instrumentation.llm_tracing import (
+    LLMSpan,
+    _DeliveryQueue,
+    _HandlerRegistry,
+)
 
 
 def _make_span(*, model: str = "gpt-4o", started_at: datetime | None = None) -> LLMSpan:
@@ -321,3 +325,101 @@ class TestEntryTraceLogProcessor:
             assert count == 0
         finally:
             set_active_collector(None)
+
+
+class TestDeliveryQueueContextPropagation:
+    """Integration test: LLM spans submitted through _DeliveryQueue preserve
+    the current_entry_index ContextVar so EntryTraceCollector receives them."""
+
+    def test_llm_span_routed_to_correct_entry_via_queue(self, tmp_path: Path) -> None:
+        """Submit an LLMSpan through the real _DeliveryQueue pipeline and
+        verify EntryTraceCollector captures it under the correct entry index."""
+        collector = EntryTraceCollector()
+        collector.set_entry_kwargs(0, {"q": "hello"})
+
+        registry = _HandlerRegistry()
+        registry.add(collector)
+        dq = _DeliveryQueue(registry)
+
+        span = _make_span(model="gpt-4o")
+
+        # Set entry index on *this* thread (simulates the runner setting it
+        # before the app calls the LLM).
+        token = current_entry_index.set(0)
+        try:
+            dq.submit(span)
+            dq.flush()
+        finally:
+            current_entry_index.reset(token)
+
+        out = tmp_path / "entry-0.jsonl"
+        count = collector.write_entry_trace(0, str(out))
+        lines = _read_jsonl(out)
+
+        # Should contain kwargs + the LLM span
+        assert count == 2
+        assert lines[0]["type"] == "kwargs"
+        llm_records = [r for r in lines if r.get("type") == "llm_span_trace"]
+        assert len(llm_records) == 1
+        assert llm_records[0]["request_model"] == "gpt-4o"
+
+    def test_llm_span_dropped_when_no_entry_context(self, tmp_path: Path) -> None:
+        """An LLMSpan submitted without current_entry_index is silently dropped."""
+        collector = EntryTraceCollector()
+
+        registry = _HandlerRegistry()
+        registry.add(collector)
+        dq = _DeliveryQueue(registry)
+
+        token = current_entry_index.set(None)
+        try:
+            dq.submit(_make_span())
+            dq.flush()
+        finally:
+            current_entry_index.reset(token)
+
+        out = tmp_path / "entry-0.jsonl"
+        count = collector.write_entry_trace(0, str(out))
+        assert count == 0
+
+    def test_concurrent_entries_routed_correctly(self, tmp_path: Path) -> None:
+        """Two spans submitted with different entry indices land in the
+        correct per-entry buckets."""
+        collector = EntryTraceCollector()
+        collector.set_entry_kwargs(0, {"q": "first"})
+        collector.set_entry_kwargs(1, {"q": "second"})
+
+        registry = _HandlerRegistry()
+        registry.add(collector)
+        dq = _DeliveryQueue(registry)
+
+        span_a = _make_span(model="gpt-4o")
+        span_b = _make_span(model="claude-3")
+
+        token = current_entry_index.set(0)
+        try:
+            dq.submit(span_a)
+        finally:
+            current_entry_index.reset(token)
+
+        token = current_entry_index.set(1)
+        try:
+            dq.submit(span_b)
+        finally:
+            current_entry_index.reset(token)
+
+        dq.flush()
+
+        out0 = tmp_path / "entry-0.jsonl"
+        collector.write_entry_trace(0, str(out0))
+        lines0 = _read_jsonl(out0)
+        llm0 = [r for r in lines0 if r.get("type") == "llm_span_trace"]
+        assert len(llm0) == 1
+        assert llm0[0]["request_model"] == "gpt-4o"
+
+        out1 = tmp_path / "entry-1.jsonl"
+        collector.write_entry_trace(1, str(out1))
+        lines1 = _read_jsonl(out1)
+        llm1 = [r for r in lines1 if r.get("type") == "llm_span_trace"]
+        assert len(llm1) == 1
+        assert llm1[0]["request_model"] == "claude-3"
