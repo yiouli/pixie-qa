@@ -11,6 +11,7 @@ from pixie.harness.run_result import (
     DatasetResult,
     EntryResult,
     EvaluationResult,
+    PendingEvaluation,
     RunResult,
     generate_test_id,
     load_test_result,
@@ -145,8 +146,12 @@ class TestSaveAndLoadTestResult:
         assert len(ds.entries) == 2
         assert ds.entries[0].description == "Basic arithmetic check"
         assert ds.entries[0].evaluations[0].evaluator == "Factuality"
-        assert ds.entries[0].evaluations[0].score == 1.0
-        assert ds.entries[1].evaluations[0].score == 0.2
+        ev0 = ds.entries[0].evaluations[0]
+        assert isinstance(ev0, EvaluationResult)
+        assert ev0.score == 1.0
+        ev1 = ds.entries[1].evaluations[0]
+        assert isinstance(ev1, EvaluationResult)
+        assert ev1.score == 0.2
 
     def test_load_with_analysis(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -168,6 +173,95 @@ class TestSaveAndLoadTestResult:
         monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
         with pytest.raises(FileNotFoundError):
             load_test_result("nonexistent")
+
+
+class TestPendingEvaluation:
+    """Tests for PendingEvaluation dataclass."""
+
+    def test_frozen(self) -> None:
+        ev = PendingEvaluation(evaluator="ResponseQuality", criteria="Be helpful")
+        with pytest.raises(AttributeError):
+            ev.evaluator = "changed"  # type: ignore[misc]
+
+    def test_fields(self) -> None:
+        ev = PendingEvaluation(evaluator="ResponseQuality", criteria="Be helpful")
+        assert ev.evaluator == "ResponseQuality"
+        assert ev.criteria == "Be helpful"
+
+
+class TestPendingEvaluationRoundTrip:
+    """Tests for PendingEvaluation serialization and deserialization."""
+
+    def _make_result_with_pending(self) -> RunResult:
+        return RunResult(
+            test_id="20260403-130000",
+            command="pixie test tests/manual/datasets/sample-qa.json",
+            started_at="2026-04-03T13:00:00Z",
+            ended_at="2026-04-03T13:00:05Z",
+            datasets=[
+                DatasetResult(
+                    dataset="sample-qa",
+                    entries=[
+                        EntryResult(
+                            input={"question": "What is 2+2?"},
+                            output="4",
+                            expected_output="4",
+                            description="Mixed evaluations",
+                            evaluations=[
+                                EvaluationResult(
+                                    evaluator="ExactMatch",
+                                    score=1.0,
+                                    reasoning="Exact match",
+                                ),
+                                PendingEvaluation(
+                                    evaluator="ResponseQuality",
+                                    criteria="Rate the response quality.",
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+    def test_save_pending_has_status_field(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
+        result = self._make_result_with_pending()
+        filepath = save_test_result(result)
+
+        with open(filepath, encoding="utf-8") as f:
+            data = json.load(f)
+
+        evals = data["datasets"][0]["entries"][0]["evaluations"]
+        assert len(evals) == 2
+        assert evals[0]["evaluator"] == "ExactMatch"
+        assert evals[0].get("status") is None
+        assert evals[1]["evaluator"] == "ResponseQuality"
+        assert evals[1]["status"] == "pending"
+        assert evals[1]["criteria"] == "Rate the response quality."
+
+    def test_load_round_trip_preserves_pending(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
+        result = self._make_result_with_pending()
+        save_test_result(result)
+
+        loaded = load_test_result("20260403-130000")
+        entry = loaded.datasets[0].entries[0]
+        assert len(entry.evaluations) == 2
+
+        ev0 = entry.evaluations[0]
+        assert isinstance(ev0, EvaluationResult)
+        assert ev0.evaluator == "ExactMatch"
+        assert ev0.score == 1.0
+
+        ev1 = entry.evaluations[1]
+        assert isinstance(ev1, PendingEvaluation)
+        assert ev1.evaluator == "ResponseQuality"
+        assert ev1.criteria == "Rate the response quality."
 
     def test_optional_fields_omitted(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -201,3 +295,86 @@ class TestSaveAndLoadTestResult:
         entry = data["datasets"][0]["entries"][0]
         assert "expectedOutput" not in entry
         assert "description" not in entry
+
+
+class TestPerEntryFiles:
+    """Tests for per-entry JSON files written by save_test_result."""
+
+    def test_per_entry_json_files_created(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
+        result = _make_test_result()
+        save_test_result(result)
+
+        result_dir = tmp_path / "results" / "20260403-120000"
+        entry_0 = result_dir / "entry-0" / "entry.json"
+        entry_1 = result_dir / "entry-1" / "entry.json"
+        assert entry_0.is_file()
+        assert entry_1.is_file()
+
+    def test_per_entry_json_content(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
+        result = _make_test_result()
+        save_test_result(result)
+
+        result_dir = tmp_path / "results" / "20260403-120000"
+        with open(result_dir / "entry-0" / "entry.json", encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert data["input"] == {"question": "What is 2+2?"}
+        assert data["output"] == "4"
+        assert data["expectedOutput"] == "4"
+        assert data["description"] == "Basic arithmetic check"
+        assert data["dataset"] == "sample-qa"
+        assert data["entryIndex"] == 0
+        assert len(data["evaluations"]) == 2
+
+    def test_per_entry_json_with_pending(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PIXIE_ROOT", str(tmp_path))
+        result = RunResult(
+            test_id="20260403-140000",
+            command="pixie test foo.json",
+            started_at="2026-04-03T14:00:00Z",
+            ended_at="2026-04-03T14:00:05Z",
+            datasets=[
+                DatasetResult(
+                    dataset="mixed",
+                    entries=[
+                        EntryResult(
+                            input="q",
+                            output="a",
+                            expected_output=None,
+                            description="Mixed entry",
+                            evaluations=[
+                                EvaluationResult(
+                                    evaluator="ExactMatch",
+                                    score=1.0,
+                                    reasoning="OK",
+                                ),
+                                PendingEvaluation(
+                                    evaluator="Quality",
+                                    criteria="Is it good?",
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+        save_test_result(result)
+
+        result_dir = tmp_path / "results" / "20260403-140000"
+        with open(result_dir / "entry-0" / "entry.json", encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert len(data["evaluations"]) == 2
+        assert data["evaluations"][0]["evaluator"] == "ExactMatch"
+        assert data["evaluations"][0]["score"] == 1.0
+        assert data["evaluations"][1]["evaluator"] == "Quality"
+        assert data["evaluations"][1]["status"] == "pending"
+        assert data["evaluations"][1]["criteria"] == "Is it good?"

@@ -89,6 +89,7 @@ CLI Commands
 
 Sub-modules
 -----------
+* pixie.eval.agent_evaluator
 * pixie.eval.evaluable
 * pixie.eval.evaluation
 * pixie.eval.llm_evaluator

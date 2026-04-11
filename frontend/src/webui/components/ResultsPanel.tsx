@@ -7,7 +7,9 @@ import type {
   DatasetResultData,
   EntryResultData,
   EvaluationResultData,
+  AnyEvaluationData,
 } from "../types";
+import { isPendingEvaluation } from "../types";
 import { SidebarList } from "./SidebarList";
 
 interface ResultsPanelProps {
@@ -148,10 +150,17 @@ function ResultView({ data }: { data: TestResultData }) {
 // ── Per-Dataset Section ──────────────────────────────────────────────
 
 function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
-  const passed = dataset.entries.filter((e) =>
-    e.evaluations.every((ev) => ev.score >= SCORE_FAIL_THRESHOLD),
-  ).length;
+  const passed = dataset.entries.filter((e) => {
+    const completed = e.evaluations.filter((ev) => !isPendingEvaluation(ev));
+    return completed.every(
+      (ev) => !isPendingEvaluation(ev) && ev.score >= SCORE_FAIL_THRESHOLD,
+    );
+  }).length;
   const total = dataset.entries.length;
+  const pendingCount = dataset.entries.reduce(
+    (acc, e) => acc + e.evaluations.filter(isPendingEvaluation).length,
+    0,
+  );
   const allPass = passed === total;
 
   return (
@@ -162,6 +171,11 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
           className={`text-xl font-bold ${allPass ? "text-pass" : "text-fail"}`}
         >
           {passed}/{total} passed
+          {pendingCount > 0 && (
+            <span className="ml-2 text-sm font-normal text-ink-muted">
+              | {pendingCount} pending
+            </span>
+          )}
         </span>
       </div>
 
@@ -276,7 +290,7 @@ function badgeClasses(tier: ScoreTier): string {
 
 // ── Evaluator Pill with Popover ──────────────────────────────────────
 
-function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
+function EvalPill({ evaluation }: { evaluation: AnyEvaluationData }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -297,6 +311,36 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [open]);
+
+  if (isPendingEvaluation(evaluation)) {
+    return (
+      <div className="relative" ref={ref}>
+        <button
+          type="button"
+          className={`inline-block cursor-pointer rounded-pill border border-border px-3 py-1 text-xs font-bold tracking-wide text-ink-muted transition-colors hover:border-border-strong hover:bg-border/12`}
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+        >
+          \u23f3 {evaluation.evaluator}
+        </button>
+        {open && (
+          <div className="absolute left-0 top-full z-20 mt-1.5 w-72 rounded-md border border-border bg-surface p-4 shadow-lg animate-fade-in">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-ink">
+                {evaluation.evaluator}
+              </span>
+              <span className="rounded-pill bg-border px-2 py-0.5 text-xs font-bold text-ink-muted">
+                Pending
+              </span>
+            </div>
+            <p className="m-0 text-xs leading-relaxed text-ink-secondary">
+              {evaluation.criteria}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const tier = scoreTier(evaluation.score);
 
@@ -337,11 +381,12 @@ function EvalPill({ evaluation }: { evaluation: EvaluationResultData }) {
 
 function EntryRow({ entry }: { entry: EntryResultData }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const allPass = entry.evaluations.every(
-    (ev) => ev.score >= SCORE_FAIL_THRESHOLD,
+  const completed = entry.evaluations.filter(
+    (ev): ev is EvaluationResultData => !isPendingEvaluation(ev),
   );
+  const allPass = completed.every((ev) => ev.score >= SCORE_FAIL_THRESHOLD);
   const hasWarning =
-    allPass && entry.evaluations.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
+    allPass && completed.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
 
   const description = entry.description || summarizeInput(entry.input);
 
@@ -455,27 +500,63 @@ function EvalDetailModal({
           <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
             Evaluations
           </h3>
-          {entry.evaluations.map((ev, i) => (
-            <div
-              key={i}
-              className="mb-3 rounded-sm border-l-3 border-border px-3 py-2"
-            >
-              <div className="mb-1 flex items-center gap-3">
-                <span
-                  className={`inline-block rounded-pill border px-3 py-1 text-xs font-bold tracking-wide ${pillBaseClasses(scoreTier(ev.score))} ${pillOpenFillClasses(scoreTier(ev.score))}`}
+          {entry.evaluations.map((ev, i) => {
+            if (isPendingEvaluation(ev)) {
+              return (
+                <div
+                  key={i}
+                  className="mb-3 rounded-sm border-l-3 border-border px-3 py-2"
                 >
-                  {ev.evaluator}
-                </span>
-                <span className="font-mono text-sm font-semibold">
-                  {ev.score.toFixed(2)}
-                </span>
+                  <div className="mb-1 flex items-center gap-3">
+                    <span className="inline-block rounded-pill border border-border bg-border px-3 py-1 text-xs font-bold tracking-wide text-ink-muted">
+                      \u23f3 {ev.evaluator}
+                    </span>
+                    <span className="rounded-pill bg-border px-2 py-0.5 text-xs font-bold text-ink-muted">
+                      Pending
+                    </span>
+                  </div>
+                  <p className="m-0 text-sm leading-relaxed text-ink-secondary">
+                    {ev.criteria}
+                  </p>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={i}
+                className="mb-3 rounded-sm border-l-3 border-border px-3 py-2"
+              >
+                <div className="mb-1 flex items-center gap-3">
+                  <span
+                    className={`inline-block rounded-pill border px-3 py-1 text-xs font-bold tracking-wide ${pillBaseClasses(scoreTier(ev.score))} ${pillOpenFillClasses(scoreTier(ev.score))}`}
+                  >
+                    {ev.evaluator}
+                  </span>
+                  <span className="font-mono text-sm font-semibold">
+                    {ev.score.toFixed(2)}
+                  </span>
+                </div>
+                <p className="m-0 text-sm leading-relaxed text-ink-secondary">
+                  {ev.reasoning}
+                </p>
               </div>
-              <p className="m-0 text-sm leading-relaxed text-ink-secondary">
-                {ev.reasoning}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {entry.analysis && (
+          <div className="mb-5">
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
+              Entry Analysis
+            </h3>
+            <div
+              className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4 text-sm leading-relaxed analysis-content"
+              dangerouslySetInnerHTML={{
+                __html: simpleMarkdown(entry.analysis),
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

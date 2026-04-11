@@ -4,6 +4,7 @@ Re-exports the full public API so users can ``from pixie import ...``
 for every commonly used symbol without needing submodule paths.
 """
 
+from pixie.eval.agent_evaluator import create_agent_evaluator
 from pixie.eval.evaluable import Evaluable, TestCase
 from pixie.eval.evaluation import Evaluation, Evaluator, evaluate
 from pixie.eval.llm_evaluator import create_llm_evaluator
@@ -63,6 +64,7 @@ __all__ = [
     "Evaluation",
     "Evaluator",
     "evaluate",
+    "create_agent_evaluator",
     "create_llm_evaluator",
     # Pre-made evaluators (autoevals adapters)
     "AnswerCorrectness",

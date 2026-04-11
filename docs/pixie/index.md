@@ -337,6 +337,21 @@ Functions
     Must be called after :func:`enable_llm_tracing`.  Multiple handlers can
     be registered; each receives every span.
 
+`def create_agent_evaluator(name: str, criteria: str) ‑> pixie.eval.agent_evaluator._AgentEvaluator`
+:   Create an evaluator whose grading is deferred to a coding agent.
+    
+    The returned evaluator satisfies the ``Evaluator`` protocol but
+    always raises :class:`AgentEvaluationPending` when called.  The
+    test runner catches this and records a pending evaluation.
+    
+    Args:
+        name: Display name (shown in the scorecard).
+        criteria: What to evaluate — the grading instructions the agent
+            will follow when reviewing test results and traces.
+    
+    Returns:
+        An evaluator callable that raises ``AgentEvaluationPending``.
+
 `def create_llm_evaluator(name: str, prompt_template: str, *, model: str = 'gpt-4o-mini', client: Any | None = None) ‑> pixie.eval.llm_evaluator._LLMEvaluator`
 :   Create a custom LLM-as-judge evaluator from a prompt template.
     

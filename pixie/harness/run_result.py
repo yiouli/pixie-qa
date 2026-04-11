@@ -46,6 +46,19 @@ class EvaluationResult:
 
 
 @dataclass(frozen=True)
+class PendingEvaluation:
+    """An evaluation awaiting agent grading.
+
+    Attributes:
+        evaluator: Display name of the agent evaluator.
+        criteria: Grading instructions for the agent.
+    """
+
+    evaluator: str
+    criteria: str
+
+
+@dataclass(frozen=True)
 class EntryResult:
     """Results for a single dataset entry.
 
@@ -54,16 +67,18 @@ class EntryResult:
         output: The eval output value.
         expected_output: The expected output (None if not provided).
         description: One-sentence scenario description (None if not provided).
-        evaluations: List of evaluator results for this entry.
+        evaluations: Completed and pending evaluator results for this entry.
         trace_file: Relative path to per-entry JSONL trace file (None if not captured).
+        analysis: Per-entry analysis markdown (None until agent fills it in).
     """
 
     input: JsonValue
     output: JsonValue
     expected_output: JsonValue | None
     description: str | None
-    evaluations: list[EvaluationResult]
+    evaluations: list[EvaluationResult | PendingEvaluation]
     trace_file: str | None = None
+    analysis: str | None = None
 
 
 @dataclass
@@ -100,6 +115,42 @@ class RunResult:
     datasets: list[DatasetResult] = field(default_factory=list)
 
 
+def _entry_to_dict(entry: EntryResult) -> dict[str, Any]:
+    """Serialize a single :class:`EntryResult` to a JSON-ready dict."""
+    eval_dicts: list[dict[str, Any]] = []
+    for ev in entry.evaluations:
+        if isinstance(ev, PendingEvaluation):
+            eval_dicts.append(
+                {
+                    "evaluator": ev.evaluator,
+                    "status": "pending",
+                    "criteria": ev.criteria,
+                }
+            )
+        else:
+            eval_dicts.append(
+                {
+                    "evaluator": ev.evaluator,
+                    "score": ev.score,
+                    "reasoning": ev.reasoning,
+                }
+            )
+    entry_dict: dict[str, Any] = {
+        "input": entry.input,
+        "output": entry.output,
+        "evaluations": eval_dicts,
+    }
+    if entry.expected_output is not None:
+        entry_dict["expectedOutput"] = entry.expected_output
+    if entry.description is not None:
+        entry_dict["description"] = entry.description
+    if entry.trace_file is not None:
+        entry_dict["traceFile"] = entry.trace_file
+    if entry.analysis is not None:
+        entry_dict["analysis"] = entry.analysis
+    return entry_dict
+
+
 def _result_to_dict(result: RunResult) -> list[dict[str, Any]]:
     """Serialize a :class:`RunResult` to the spec JSON shape.
 
@@ -110,26 +161,7 @@ def _result_to_dict(result: RunResult) -> list[dict[str, Any]]:
     for ds in result.datasets:
         entry_dicts: list[dict[str, Any]] = []
         for entry in ds.entries:
-            eval_dicts = [
-                {
-                    "evaluator": ev.evaluator,
-                    "score": ev.score,
-                    "reasoning": ev.reasoning,
-                }
-                for ev in entry.evaluations
-            ]
-            entry_dict: dict[str, Any] = {
-                "input": entry.input,
-                "output": entry.output,
-                "evaluations": eval_dicts,
-            }
-            if entry.expected_output is not None:
-                entry_dict["expectedOutput"] = entry.expected_output
-            if entry.description is not None:
-                entry_dict["description"] = entry.description
-            if entry.trace_file is not None:
-                entry_dict["traceFile"] = entry.trace_file
-            entry_dicts.append(entry_dict)
+            entry_dicts.append(_entry_to_dict(entry))
         ds_dict: dict[str, Any] = {
             "dataset": ds.dataset,
             "entries": entry_dicts,
@@ -151,6 +183,10 @@ def _metadata_to_dict(result: RunResult) -> dict[str, Any]:
 def save_test_result(result: RunResult) -> str:
     """Write test result JSON to ``<pixie_root>/results/<test_id>/result.json``.
 
+    Also writes per-entry ``entry-{i}/entry.json`` files so that each
+    entry's data (input, output, evaluations, trace path) is accessible
+    individually — e.g. for agent-driven grading of pending evaluations.
+
     Args:
         result: The test run result to persist.
 
@@ -170,6 +206,20 @@ def save_test_result(result: RunResult) -> str:
     }
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    # Write per-entry JSON files for agent-driven entry-by-entry processing.
+    entry_index = 0
+    for ds in result.datasets:
+        for entry in ds.entries:
+            entry_dir = os.path.join(result_dir, f"entry-{entry_index}")
+            os.makedirs(entry_dir, exist_ok=True)
+            entry_path = os.path.join(entry_dir, "entry.json")
+            entry_payload = _entry_to_dict(entry)
+            entry_payload["dataset"] = ds.dataset
+            entry_payload["entryIndex"] = entry_index
+            with open(entry_path, "w", encoding="utf-8") as ef:
+                json.dump(entry_payload, ef, indent=2, ensure_ascii=False)
+            entry_index += 1
 
     return os.path.abspath(filepath)
 
@@ -203,14 +253,23 @@ def load_test_result(test_id: str) -> RunResult:
     for i, ds_data in enumerate(data["datasets"]):
         entries: list[EntryResult] = []
         for entry_data in ds_data["entries"]:
-            evaluations = [
-                EvaluationResult(
-                    evaluator=ev["evaluator"],
-                    score=ev["score"],
-                    reasoning=ev["reasoning"],
-                )
-                for ev in entry_data["evaluations"]
-            ]
+            evaluations: list[EvaluationResult | PendingEvaluation] = []
+            for ev in entry_data["evaluations"]:
+                if ev.get("status") == "pending":
+                    evaluations.append(
+                        PendingEvaluation(
+                            evaluator=ev["evaluator"],
+                            criteria=ev.get("criteria", ""),
+                        )
+                    )
+                else:
+                    evaluations.append(
+                        EvaluationResult(
+                            evaluator=ev["evaluator"],
+                            score=ev["score"],
+                            reasoning=ev["reasoning"],
+                        )
+                    )
             entries.append(
                 EntryResult(
                     input=entry_data["input"],
@@ -219,6 +278,7 @@ def load_test_result(test_id: str) -> RunResult:
                     description=entry_data.get("description"),
                     evaluations=evaluations,
                     trace_file=entry_data.get("traceFile"),
+                    analysis=entry_data.get("analysis"),
                 )
             )
 

@@ -43,8 +43,8 @@ from pixie.eval.evaluable import (
     _Unset,
     collapse_named_data,
 )
-from pixie.eval.evaluation import Evaluation, evaluate
-from pixie.harness.run_result import EntryResult, EvaluationResult
+from pixie.eval.evaluation import evaluate
+from pixie.harness.run_result import EntryResult, EvaluationResult, PendingEvaluation
 from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
 from pixie.harness.trace_capture import current_entry_index, record_entry_kwargs
 from pixie.instrumentation.wrap import (
@@ -617,6 +617,9 @@ async def evaluate_entry(
 ) -> EntryResult:
     """Run evaluators on a fully-populated evaluable and return an EntryResult.
 
+    Evaluators that raise :class:`AgentEvaluationPending` are recorded as
+    :class:`PendingEvaluation` entries instead of :class:`EvaluationResult`.
+
     Args:
         evaluable: The evaluation scenario with input, output, and metadata.
         evaluator_names: List of evaluator names to run.
@@ -624,24 +627,34 @@ async def evaluate_entry(
     Returns:
         An EntryResult with evaluation scores and reasoning.
     """
+    from pixie.eval.agent_evaluator import AgentEvaluationPending
+
     evaluators = [_resolve_evaluator(name) for name in evaluator_names]
     short_names = [_short_name(n) for n in evaluator_names]
 
-    evals: list[Evaluation] = list(
-        await asyncio.gather(*(evaluate(ev, evaluable) for ev in evaluators))
+    eval_results: list[EvaluationResult | PendingEvaluation] = []
+
+    async def _run_one(
+        ev: Callable[..., Any], name: str
+    ) -> EvaluationResult | PendingEvaluation:
+        try:
+            result = await evaluate(ev, evaluable)
+            return EvaluationResult(
+                evaluator=name, score=result.score, reasoning=result.reasoning
+            )
+        except AgentEvaluationPending as pending:
+            return PendingEvaluation(
+                evaluator=pending.evaluator_name,
+                criteria=pending.criteria,
+            )
+
+    results = await asyncio.gather(
+        *(_run_one(ev, name) for ev, name in zip(evaluators, short_names, strict=True))
     )
+    eval_results = list(results)
 
     exp_out = evaluable.expectation
     expectation = None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
-
-    eval_results = [
-        EvaluationResult(
-            evaluator=name,
-            score=ev.score,
-            reasoning=ev.reasoning,
-        )
-        for name, ev in zip(short_names, evals, strict=True)
-    ]
 
     return EntryResult(
         input=collapse_named_data(evaluable.eval_input),

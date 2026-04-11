@@ -52,12 +52,27 @@ export interface EvaluationResultData {
   reasoning: string;
 }
 
+export interface PendingEvaluationData {
+  evaluator: string;
+  status: "pending";
+  criteria: string;
+}
+
+export type AnyEvaluationData = EvaluationResultData | PendingEvaluationData;
+
+export function isPendingEvaluation(
+  ev: AnyEvaluationData,
+): ev is PendingEvaluationData {
+  return "status" in ev && (ev as PendingEvaluationData).status === "pending";
+}
+
 export interface EntryResultData {
   input: unknown;
   output: unknown;
   expectedOutput?: unknown;
   description?: string;
-  evaluations: EvaluationResultData[];
+  evaluations: AnyEvaluationData[];
+  analysis?: string;
 }
 
 export interface DatasetResultData {

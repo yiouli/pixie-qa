@@ -24,6 +24,7 @@ from typing import Any
 from pixie.harness.run_result import (
     DatasetResult,
     EntryResult,
+    EvaluationResult,
     RunResult,
     load_test_result,
 )
@@ -32,9 +33,7 @@ from pixie.instrumentation.models import LLMSpanTrace
 # ── Trace loading ─────────────────────────────────────────────────────────────
 
 
-def _load_full_trace(
-    result_dir: str, entry: EntryResult
-) -> list[dict[str, Any]]:
+def _load_full_trace(result_dir: str, entry: EntryResult) -> list[dict[str, Any]]:
     """Load all trace records for an entry from its JSONL file.
 
     Returns a list of raw dicts preserving the original chronological
@@ -78,6 +77,11 @@ def _load_entry_traces(result_dir: str, entry: EntryResult) -> list[LLMSpanTrace
     return traces
 
 
+def _completed_evals(entry: EntryResult) -> list[EvaluationResult]:
+    """Return only completed evaluations, filtering out pending ones."""
+    return [ev for ev in entry.evaluations if isinstance(ev, EvaluationResult)]
+
+
 # ── Statistics helpers ────────────────────────────────────────────────────────
 
 
@@ -91,7 +95,7 @@ def _evaluator_stats(
     """
     scores_by_evaluator: dict[str, list[float]] = defaultdict(list)
     for entry in ds.entries:
-        for ev in entry.evaluations:
+        for ev in _completed_evals(entry):
             scores_by_evaluator[ev.evaluator].append(ev.score)
 
     result: dict[str, dict[str, float | str]] = {}
@@ -121,7 +125,7 @@ def _failure_clusters(
     clusters: dict[str, list[tuple[int, EntryResult]]] = defaultdict(list)
     for i, entry in enumerate(ds.entries):
         failed_evals = sorted(
-            ev.evaluator for ev in entry.evaluations if ev.score < 0.5
+            ev.evaluator for ev in _completed_evals(entry) if ev.score < 0.5
         )
         if failed_evals:
             key = ", ".join(failed_evals)
@@ -144,7 +148,7 @@ def _build_dataset_summary(
     lines: list[str] = []
     total = len(ds.entries)
     passed = sum(
-        1 for e in ds.entries if all(ev.score >= 0.5 for ev in e.evaluations)
+        1 for e in ds.entries if all(ev.score >= 0.5 for ev in _completed_evals(e))
     )
     failed = total - passed
     rate = passed / total * 100 if total else 0.0
@@ -162,12 +166,8 @@ def _build_dataset_summary(
     if stats:
         lines.append("## Per-Evaluator Statistics")
         lines.append("")
-        lines.append(
-            "| Evaluator | Pass Rate | Min | Max | Mean | Stddev |"
-        )
-        lines.append(
-            "|-----------|-----------|-----|-----|------|--------|"
-        )
+        lines.append("| Evaluator | Pass Rate | Min | Max | Mean | Stddev |")
+        lines.append("|-----------|-----------|-----|-----|------|--------|")
         for name, s in stats.items():
             lines.append(
                 f"| {name} | {s['pass_rate']}% | {s['min']} | {s['max']} "
@@ -191,16 +191,14 @@ def _build_dataset_summary(
                 if len(desc) > 60:
                     desc = desc[:60] + "…"
                 scores_str = ", ".join(
-                    f"{ev.evaluator}={ev.score:.2f}" for ev in entry.evaluations
+                    f"{ev.evaluator}={ev.score:.2f}" for ev in _completed_evals(entry)
                 )
                 reasoning_str = "; ".join(
                     f"{ev.evaluator}: {ev.reasoning}"
-                    for ev in entry.evaluations
+                    for ev in _completed_evals(entry)
                     if ev.score < 0.5
                 )
-                lines.append(
-                    f"| {idx} | {desc} | {scores_str} | {reasoning_str} |"
-                )
+                lines.append(f"| {idx} | {desc} | {scores_str} | {reasoning_str} |")
             lines.append("")
 
     # Trace Summary
@@ -238,7 +236,7 @@ def _build_dataset_summary(
     lines.append("")
     for i, entry in enumerate(ds.entries):
         desc = entry.description or str(entry.input)
-        all_pass = all(ev.score >= 0.5 for ev in entry.evaluations)
+        all_pass = all(ev.score >= 0.5 for ev in _completed_evals(entry))
         status = "PASS" if all_pass else "FAIL"
         lines.append(f"### Entry {i}: {desc}")
         lines.append(f"- **Status**: {status}")
@@ -249,7 +247,7 @@ def _build_dataset_summary(
         lines.append("")
         lines.append("| Evaluator | Score | Pass | Reasoning |")
         lines.append("|-----------|-------|------|-----------|")
-        for ev in entry.evaluations:
+        for ev in _completed_evals(entry):
             pass_str = "PASS" if ev.score >= 0.5 else "FAIL"
             lines.append(
                 f"| {ev.evaluator} | {ev.score:.2f} | {pass_str} | {ev.reasoning} |"
@@ -260,12 +258,9 @@ def _build_dataset_summary(
         if has_traces:
             full_trace = _load_full_trace(result_dir, entry)
             llm_records = [
-                r for r in full_trace
-                if r.get("type") in ("llm_span_trace", "llm_span")
+                r for r in full_trace if r.get("type") in ("llm_span_trace", "llm_span")
             ]
-            wrap_events = [
-                r for r in full_trace if r.get("type") == "wrap"
-            ]
+            wrap_events = [r for r in full_trace if r.get("type") == "wrap"]
             event_count = len(wrap_events) + len(llm_records)
             if full_trace:
                 lines.append(
@@ -273,12 +268,8 @@ def _build_dataset_summary(
                     f"{len(wrap_events)} wrap, {len(llm_records)} LLM):"
                 )
                 lines.append("")
-                lines.append(
-                    "| # | Type | Name / Model | Detail |"
-                )
-                lines.append(
-                    "|---|------|-------------|--------|"
-                )
+                lines.append("| # | Type | Name / Model | Detail |")
+                lines.append("|---|------|-------------|--------|")
                 step = 0
                 for rec in full_trace:
                     rtype = rec.get("type", "")
@@ -287,9 +278,7 @@ def _build_dataset_summary(
                     if rtype == "wrap":
                         name = rec.get("name", "?")
                         purpose = rec.get("purpose", "?")
-                        lines.append(
-                            f"| {step} | wrap({purpose}) | {name} | — |"
-                        )
+                        lines.append(f"| {step} | wrap({purpose}) | {name} | — |")
                         step += 1
                     elif rtype in ("llm_span_trace", "llm_span"):
                         model = rec.get("request_model") or "?"
@@ -320,7 +309,7 @@ def _build_cross_dataset_summary(result: RunResult, result_dir: str) -> str:
         1
         for ds in result.datasets
         for e in ds.entries
-        if all(ev.score >= 0.5 for ev in e.evaluations)
+        if all(ev.score >= 0.5 for ev in _completed_evals(e))
     )
     overall_rate = total_passed / total_entries * 100 if total_entries else 0.0
 
@@ -375,9 +364,7 @@ def _build_cross_dataset_summary(result: RunResult, result_dir: str) -> str:
     if all_clusters:
         lines.append("## Common Failure Patterns")
         lines.append("")
-        for eval_set, count in sorted(
-            all_clusters.items(), key=lambda x: -x[1]
-        ):
+        for eval_set, count in sorted(all_clusters.items(), key=lambda x: -x[1]):
             lines.append(f"- **{eval_set}**: {count} entries across datasets")
         lines.append("")
 
@@ -409,9 +396,7 @@ def _build_cross_dataset_summary(result: RunResult, result_dir: str) -> str:
         lines.append(f"- **Total latency**: {total_latency:.0f} ms")
         lines.append("")
     elif len(result.datasets) == 1:
-        lines.append(
-            "*1 dataset — no cross-dataset patterns to report.*"
-        )
+        lines.append("*1 dataset — no cross-dataset patterns to report.*")
         lines.append("")
 
     return "\n".join(lines)

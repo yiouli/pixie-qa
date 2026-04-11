@@ -20,6 +20,8 @@ from pixie.config import get_config
 from pixie.eval.rate_limiter import configure_rate_limits_from_config
 from pixie.harness.run_result import (
     DatasetResult,
+    EvaluationResult,
+    PendingEvaluation,
     RunResult,
     generate_test_id,
     save_test_result,
@@ -100,7 +102,7 @@ async def _run_datasets(
         # Write per-entry trace files and annotate EntryResults.
         annotated_entries = []
         for i, entry in enumerate(entry_results):
-            trace_rel = f"traces/entry-{i}.jsonl"
+            trace_rel = f"entry-{i}/trace.jsonl"
             trace_abs = os.path.join(result_dir, trace_rel)
             collector.write_entry_trace(i, trace_abs)
             annotated_entries.append(replace(entry, trace_file=trace_rel))
@@ -109,15 +111,31 @@ async def _run_datasets(
         dataset_results.append(ds_result)
 
         # Print results
+        pending_total = 0
         passed_count = sum(
-            1 for entry in ds_result.entries if all(ev.score >= 0.5 for ev in entry.evaluations)
+            1
+            for entry in ds_result.entries
+            if all(
+                ev.score >= 0.5
+                for ev in entry.evaluations
+                if isinstance(ev, EvaluationResult)
+            )
         )
         total_count = len(ds_result.entries)
         print(f"\n{'=' * 52} {ds_result.dataset} {'=' * 52}")  # noqa: T201
         for i, entry in enumerate(ds_result.entries):
             evals_str = ", ".join(ev.evaluator for ev in entry.evaluations)
-            scores = [f"{ev.score:.2f}" for ev in entry.evaluations]
-            all_pass = all(ev.score >= 0.5 for ev in entry.evaluations)
+            scores: list[str] = []
+            for ev in entry.evaluations:
+                if isinstance(ev, PendingEvaluation):
+                    scores.append("\u23f3")
+                    pending_total += 1
+                else:
+                    scores.append(f"{ev.score:.2f}")
+            completed = [
+                ev for ev in entry.evaluations if isinstance(ev, EvaluationResult)
+            ]
+            all_pass = all(ev.score >= 0.5 for ev in completed)
             mark = "\u2713" if all_pass else "\u2717"
             desc = entry.description or str(entry.input)
             if len(desc) > 80:
@@ -129,10 +147,13 @@ async def _run_datasets(
                 all_passed = False
                 if verbose:
                     for ev in entry.evaluations:
-                        if ev.score < 0.5:
+                        if isinstance(ev, EvaluationResult) and ev.score < 0.5:
                             print(f"      {ev.evaluator}: {ev.reasoning}")  # noqa: T201
 
-        print(f"  {passed_count}/{total_count} passed")  # noqa: T201
+        summary = f"  {passed_count}/{total_count} passed"
+        if pending_total:
+            summary += f" | {pending_total} pending agent evaluation(s)"
+        print(summary)  # noqa: T201
 
     # Flush any remaining LLM spans before saving results.
     try:

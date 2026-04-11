@@ -38,6 +38,9 @@ Functions
 `async def evaluate_entry(evaluable: Evaluable, evaluator_names: list[str]) ‑> pixie.harness.run_result.EntryResult`
 :   Run evaluators on a fully-populated evaluable and return an EntryResult.
     
+    Evaluators that raise :class:`AgentEvaluationPending` are recorded as
+    :class:`PendingEvaluation` entries instead of :class:`EvaluationResult`.
+    
     Args:
         evaluable: The evaluation scenario with input, output, and metadata.
         evaluator_names: List of evaluator names to run.
