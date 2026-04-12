@@ -40,7 +40,7 @@ Dataset JSON Format
       "evaluators": ["Factuality"],
       "entries": [
         {
-          "entry_kwargs": {"question": "Hello"},
+          "input_data": {"question": "Hello"},
           "description": "Basic greeting",
           "eval_input": [{"name": "input", "value": "Hello"}],
           "expectation": "Hi, how can I help?"
@@ -51,12 +51,12 @@ Dataset JSON Format
 Fields:
 
 - ``runnable`` (required): ``filepath:callable_name`` reference to the function
-  that produces ``eval_output`` from ``entry_kwargs``.
+  that produces ``eval_output`` from ``input_data``.
 - ``evaluators`` (optional): Dataset-level default evaluator names. Applied to
   entries without row-level evaluators.
 - ``entries[].evaluators`` (optional): Row-level evaluator names. Use ``"..."`` to
   include dataset defaults.
-- ``entries[].entry_kwargs`` (required): Dict of arguments passed to the runnable.
+- ``entries[].input_data`` (required): Dict of arguments passed to the runnable.
 - ``entries[].description`` (required): Human-readable label for the test case.
 - ``entries[].eval_input`` (required): List of ``NamedData`` items
   (each ``{"name": ..., "value": ...}``).

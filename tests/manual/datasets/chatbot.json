@@ -3,7 +3,7 @@
     "runnable": "tests/manual/chatbot.py:chat",
     "entries": [
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "What are your business hours?",
                 "customer_id": "C001"
             },
@@ -29,7 +29,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "I want a refund",
                 "customer_id": "C002"
             },

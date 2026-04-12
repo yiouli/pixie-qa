@@ -3,7 +3,7 @@
 ## What changed
 
 Refactored the `pixie test` trace capture system to produce **unified
-per-entry trace files** that contain the full execution flow — entry kwargs,
+per-entry trace files** that contain the full execution flow — input data,
 all `wrap()` events (input, output, state), and LLM spans — in
 chronological order.
 
@@ -16,7 +16,7 @@ chronological order.
   The `type` Literal is overridden to `"llm_span_trace"`.
 
 - **`TraceCaptureHandler` replaced by `EntryTraceCollector`** — the new
-  class collects entry kwargs, wrap events, and LLM spans per entry.
+  class collects input data, wrap events, and LLM spans per entry.
   A backward-compat alias `TraceCaptureHandler = EntryTraceCollector`
   is provided.
 
@@ -25,7 +25,7 @@ chronological order.
   `EntryTraceCollector`, stamping each with `captured_at`.
 
 - **Module-level active collector** — `set_active_collector()`,
-  `get_active_collector()`, and `record_entry_kwargs()` enable
+  `get_active_collector()`, and `record_input_data()` enable
   cross-module access from `runner.py` without direct coupling.
 
 - **`wrap(purpose="input")` now emits in eval mode** — previously,
@@ -56,7 +56,7 @@ Each `{result_dir}/traces/entry-{i}.jsonl` now contains, in order:
 - `pixie/instrumentation/models.py` — `LLMSpanTrace` subclasses `LLMSpanLog`
 - `pixie/instrumentation/wrap.py` — eval input injection now emits
 - `pixie/harness/trace_capture.py` — complete rewrite (EntryTraceCollector, EntryTraceLogProcessor)
-- `pixie/harness/runner.py` — calls `record_entry_kwargs()`
+- `pixie/harness/runner.py` — calls `record_input_data()`
 - `pixie/cli/test_command.py` — uses new collector + log processor API
 - `pixie/cli/analyze_command.py` — full trace loading and rendering
 - `tests/pixie/harness/test_trace_capture.py` — rewritten (13 tests)

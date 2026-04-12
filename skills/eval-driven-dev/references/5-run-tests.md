@@ -18,15 +18,15 @@ uv run pixie test -v
 
 `pixie test` automatically loads the `.env` file before running tests.
 
-The test runner now:
+The evaluation harness now:
 
 1. Resolves the `Runnable` class from the dataset's `runnable` field
 2. Calls `Runnable.create()` to construct an instance, then `setup()` once
 3. Runs all dataset entries **concurrently** (up to 4 in parallel):
-   a. Reads `entry_kwargs` and `eval_input` from the entry
+   a. Reads `input_data` and `eval_input` from the entry
    b. Populates the wrap input registry with `eval_input` data
    c. Initialises the capture registry
-   d. Validates `entry_kwargs` into the Pydantic model and calls `Runnable.run(args)`
+   d. Validates `input_data` into the Pydantic model and calls `Runnable.run(args)`
    e. `wrap(purpose="input")` calls in the app return registry values instead of calling external services
    f. `wrap(purpose="output"/"state")` calls capture data for evaluation
    g. Builds `Evaluable` from captured data

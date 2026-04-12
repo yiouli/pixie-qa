@@ -1,7 +1,7 @@
 """Per-entry unified trace capture for ``pixie test``.
 
 Provides :class:`EntryTraceCollector`, which collects **all** events for
-each dataset entry — entry kwargs, ``wrap()`` emissions (input, output,
+each dataset entry — input data, ``wrap()`` emissions (input, output,
 state), and ``LLMSpan`` objects — preserving chronological order.
 
 A context variable (:data:`current_entry_index`) identifies which entry
@@ -22,7 +22,7 @@ Usage::
     logger_provider.add_log_record_processor(log_processor)
 
     current_entry_index.set(0)
-    record_entry_kwargs(0, {"user_message": "hi"})
+    record_input_data(0, {"user_message": "hi"})
     # …run entry… (wrap events and LLM spans are captured automatically)
     count = collector.write_entry_trace(0, "/path/to/traces/entry-0.jsonl")
 """
@@ -41,7 +41,7 @@ from typing import Any
 from opentelemetry.sdk._logs import LogRecordProcessor, ReadWriteLogRecord
 
 from pixie.instrumentation.llm_tracing import InstrumentationHandler, LLMSpan
-from pixie.instrumentation.models import EntryInputLog, LLMSpanTrace
+from pixie.instrumentation.models import InputDataLog, LLMSpanTrace
 
 current_entry_index: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "current_entry_index", default=None
@@ -65,20 +65,20 @@ def get_active_collector() -> EntryTraceCollector | None:
     return _active_collector
 
 
-def record_entry_kwargs(entry_index: int, kwargs: dict[str, Any]) -> None:
-    """Store entry kwargs in the active collector for later trace writing.
+def record_input_data(entry_index: int, kwargs: dict[str, Any]) -> None:
+    """Store input data in the active collector for later trace writing.
 
     No-op if no collector is active.
     """
     if _active_collector is not None:
-        _active_collector.set_entry_kwargs(entry_index, kwargs)
+        _active_collector.set_input_data(entry_index, kwargs)
 
 
 # ── EntryTraceCollector ──────────────────────────────────────────────────────
 
 
 class EntryTraceCollector(InstrumentationHandler):
-    """Collects entry kwargs, wrap events, and LLM spans per entry.
+    """Collects input data, wrap events, and LLM spans per entry.
 
     Thread-safe: LLM spans arrive from the OTel delivery thread while
     wrap events arrive from the event loop thread.  The entry index is
@@ -87,15 +87,15 @@ class EntryTraceCollector(InstrumentationHandler):
     """
 
     def __init__(self) -> None:
-        self._entry_kwargs: dict[int, dict[str, Any]] = {}
+        self._input_data: dict[int, dict[str, Any]] = {}
         self._wrap_events: dict[int, list[dict[str, Any]]] = defaultdict(list)
         self._llm_spans: dict[int, list[LLMSpan]] = defaultdict(list)
         self._lock = threading.Lock()
 
-    def set_entry_kwargs(self, entry_index: int, kwargs: dict[str, Any]) -> None:
-        """Store the runnable kwargs for an entry."""
+    def set_input_data(self, entry_index: int, kwargs: dict[str, Any]) -> None:
+        """Store the runnable input data for an entry."""
         with self._lock:
-            self._entry_kwargs[entry_index] = kwargs
+            self._input_data[entry_index] = kwargs
 
     def add_wrap_event(self, entry_index: int, body: dict[str, Any]) -> None:
         """Add a wrap event for an entry (called by :class:`EntryTraceLogProcessor`)."""
@@ -115,7 +115,7 @@ class EntryTraceCollector(InstrumentationHandler):
 
         The output contains, in chronological order:
 
-        1. An ``EntryInputLog`` record with the entry kwargs.
+        1. An ``InputDataLog`` record with the input data.
         2. Interleaved wrap events and LLM span records, sorted by
            timestamp (``captured_at`` for wraps, ``started_at`` for spans).
 
@@ -126,10 +126,10 @@ class EntryTraceCollector(InstrumentationHandler):
             output_path: Absolute path to the JSONL output file.
 
         Returns:
-            The total number of records written (including kwargs).
+            The total number of records written (including input data).
         """
         with self._lock:
-            kwargs = self._entry_kwargs.pop(entry_index, None)
+            kwargs = self._input_data.pop(entry_index, None)
             wrap_events = self._wrap_events.pop(entry_index, [])
             llm_spans = self._llm_spans.pop(entry_index, [])
 
@@ -137,9 +137,9 @@ class EntryTraceCollector(InstrumentationHandler):
 
         count = 0
         with open(output_path, "w", encoding="utf-8") as f:
-            # 1. Write entry kwargs
+            # 1. Write input data
             if kwargs is not None:
-                entry_log = EntryInputLog(value=kwargs)
+                entry_log = InputDataLog(value=kwargs)
                 f.write(json.dumps(entry_log.model_dump(mode="json")) + "\n")
                 count += 1
 
@@ -162,12 +162,8 @@ class EntryTraceCollector(InstrumentationHandler):
                     started_at=span.started_at.isoformat(),
                     ended_at=span.ended_at.isoformat(),
                     input_messages=[asdict(msg) for msg in span.input_messages],
-                    output_messages=[
-                        asdict(msg) for msg in span.output_messages
-                    ],
-                    tool_definitions=[
-                        asdict(tool) for tool in span.tool_definitions
-                    ],
+                    output_messages=[asdict(msg) for msg in span.output_messages],
+                    tool_definitions=[asdict(tool) for tool in span.tool_definitions],
                     finish_reasons=list(span.finish_reasons),
                     error_type=span.error_type,
                 )

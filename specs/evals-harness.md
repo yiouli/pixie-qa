@@ -532,7 +532,7 @@ def capture_traces():
         unregister_handler(handler)
 ```
 
-This is used internally by `run_and_evaluate` and by the test runner. It can also be used directly in test functions for manual trace inspection:
+This is used internally by `run_and_evaluate` and by the evaluation harness. It can also be used directly in test functions for manual trace inspection:
 
 ```python
 async def test_trace_inspection():

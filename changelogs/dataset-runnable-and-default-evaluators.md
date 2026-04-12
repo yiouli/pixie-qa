@@ -6,7 +6,7 @@ Restored two capabilities that were lost when the test harness was simplified to
 
 ### 1. Dataset-level `runnable`
 
-Datasets can now specify a top-level `"runnable"` field with a fully qualified function name (e.g. `"myapp.chat.ask_question"`). The test runner resolves and calls this function with each item's `eval_input` to produce the `eval_output`, rather than using a static `eval_output` from the dataset. Both sync and async runnables are supported.
+Datasets can now specify a top-level `"runnable"` field with a fully qualified function name (e.g. `"myapp.chat.ask_question"`). The evaluation harness resolves and calls this function with each item's `eval_input` to produce the `eval_output`, rather than using a static `eval_output` from the dataset. Both sync and async runnables are supported.
 
 ### 2. Dataset-level default evaluators
 

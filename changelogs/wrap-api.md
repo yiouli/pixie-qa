@@ -48,7 +48,7 @@ mechanism to:
 ## `PIXIE_TRACING` environment variable
 
 Set `PIXIE_TRACING=1` to enable tracing mode for `wrap()`. When unset or `0`,
-`wrap()` is a no-op at runtime (eval mode is controlled by the test runner via
+`wrap()` is a no-op at runtime (eval mode is controlled by the evaluation harness via
 the wrap registry, independent of this flag).
 
 ## Migration notes

@@ -47,7 +47,7 @@ from .llm_tracing import (
     flush,
     remove_handler,
 )
-from .models import ENTRY_KWARGS_KEY
+from .models import INPUT_DATA_KEY
 from .wrap import (
     EvalCaptureLogProcessor,
     TraceLogProcessor,
@@ -68,7 +68,7 @@ from .wrap import (
 
 __all__ = [
     "AssistantMessage",
-    "ENTRY_KWARGS_KEY",
+    "INPUT_DATA_KEY",
     "EvalCaptureLogProcessor",
     "ImageContent",
     "InstrumentationHandler",

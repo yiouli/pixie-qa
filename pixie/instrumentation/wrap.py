@@ -19,10 +19,14 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 import jsonpickle
-from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor, ReadWriteLogRecord
+from opentelemetry.sdk._logs import (
+    LoggerProvider,
+    LogRecordProcessor,
+    ReadWriteLogRecord,
+)
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from pixie.instrumentation.models import ENTRY_KWARGS_KEY
+from pixie.instrumentation.models import INPUT_DATA_KEY
 
 T = TypeVar("T")
 
@@ -94,7 +98,9 @@ def serialize_wrap_data(data: Any) -> JsonValue:
     :func:`deserialize_wrap_data` can reconstruct the original Python
     object from the returned value.
     """
-    encoded: str = jsonpickle.encode(data, unpicklable=True)  # pyright: ignore[reportAssignmentType]
+    encoded: str = jsonpickle.encode(
+        data, unpicklable=True
+    )  # pyright: ignore[reportAssignmentType]
     return json.loads(encoded)  # type: ignore[no-any-return]
 
 
@@ -106,12 +112,16 @@ def deserialize_wrap_data(data: JsonValue) -> Any:
 # ── Context-variable registries ──────────────────────────────────────────────
 
 
-# Input registry: populated by test runner before each eval run.
+# Input registry: populated by evaluation harness before each eval run.
 # Keys are wrap names, values are JSON-compatible objects.
-_eval_input: ContextVar[Mapping[str, JsonValue] | None] = ContextVar("_eval_input", default=None)
+_eval_input: ContextVar[Mapping[str, JsonValue] | None] = ContextVar(
+    "_eval_input", default=None
+)
 
 # Output list: each dict is the body of a wrap event (output/state).
-_eval_output: ContextVar[list[dict[str, Any]] | None] = ContextVar("_eval_output", default=None)
+_eval_output: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "_eval_output", default=None
+)
 
 
 def set_eval_input(registry: Mapping[str, JsonValue]) -> None:
@@ -174,7 +184,7 @@ class TraceLogProcessor(LogRecordProcessor):
     """Write wrap event bodies as JSON lines to a file.
 
     Validates wrap names during tracing: raises :class:`WrapNameCollisionError`
-    when a wrap name collides with the reserved ``ENTRY_KWARGS_KEY`` or with
+    when a wrap name collides with the reserved ``INPUT_DATA_KEY`` or with
     a name already seen in the current trace.
 
     Args:
@@ -191,10 +201,10 @@ class TraceLogProcessor(LogRecordProcessor):
 
     def _validate_wrap_name(self, name: str) -> None:
         """Raise :class:`WrapNameCollisionError` on name conflicts."""
-        if name == ENTRY_KWARGS_KEY:
+        if name == INPUT_DATA_KEY:
             raise WrapNameCollisionError(
                 f"wrap(name={name!r}) collides with the reserved key "
-                f"{ENTRY_KWARGS_KEY!r} used for entry kwargs in eval_input. "
+                f"{INPUT_DATA_KEY!r} used for input data in eval_input. "
                 f"Choose a different name for this wrap point."
             )
         if name in self._seen_names:
@@ -286,7 +296,9 @@ class WrapTypeMismatchError(TypeError):
         self.name = name
 
 
-def _emit_and_return(data: T, name: str, purpose: Purpose, description: str | None) -> T:
+def _emit_and_return(
+    data: T, name: str, purpose: Purpose, description: str | None
+) -> T:
 
     def _emit(val: Any) -> None:
         _logger.emit(

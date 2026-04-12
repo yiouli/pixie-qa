@@ -3,7 +3,7 @@ Module pixie.harness.trace_capture
 Per-entry unified trace capture for ``pixie test``.
 
 Provides :class:`EntryTraceCollector`, which collects **all** events for
-each dataset entry — entry kwargs, ``wrap()`` emissions (input, output,
+each dataset entry — input data, ``wrap()`` emissions (input, output,
 state), and ``LLMSpan`` objects — preserving chronological order.
 
 A context variable (:data:`current_entry_index`) identifies which entry
@@ -24,7 +24,7 @@ Usage::
     logger_provider.add_log_record_processor(log_processor)
 
     current_entry_index.set(0)
-    record_entry_kwargs(0, {"user_message": "hi"})
+    record_input_data(0, {"user_message": "hi"})
     # …run entry… (wrap events and LLM spans are captured automatically)
     count = collector.write_entry_trace(0, "/path/to/traces/entry-0.jsonl")
 
@@ -40,8 +40,8 @@ Functions
 `def get_active_collector() ‑> pixie.harness.trace_capture.EntryTraceCollector | None`
 :   Return the active :class:`EntryTraceCollector`, or ``None``.
 
-`def record_entry_kwargs(entry_index: int, kwargs: dict[str, Any]) ‑> None`
-:   Store entry kwargs in the active collector for later trace writing.
+`def record_input_data(entry_index: int, kwargs: dict[str, Any]) ‑> None`
+:   Store input data in the active collector for later trace writing.
     
     No-op if no collector is active.
 
@@ -52,7 +52,7 @@ Classes
 -------
 
 `EntryTraceCollector()`
-:   Collects entry kwargs, wrap events, and LLM spans per entry.
+:   Collects input data, wrap events, and LLM spans per entry.
     
     Thread-safe: LLM spans arrive from the OTel delivery thread while
     wrap events arrive from the event loop thread.  The entry index is
@@ -71,15 +71,15 @@ Classes
     `async def on_llm(self, span: LLMSpan) ‑> None`
     :   Accumulate *span* under the current entry index.
 
-    `def set_entry_kwargs(self, entry_index: int, kwargs: dict[str, Any]) ‑> None`
-    :   Store the runnable kwargs for an entry.
+    `def set_input_data(self, entry_index: int, kwargs: dict[str, Any]) ‑> None`
+    :   Store the runnable input data for an entry.
 
     `def write_entry_trace(self, entry_index: int, output_path: str) ‑> int`
     :   Write the full trace for *entry_index* to a JSONL file.
         
         The output contains, in chronological order:
         
-        1. An ``EntryInputLog`` record with the entry kwargs.
+        1. An ``InputDataLog`` record with the input data.
         2. Interleaved wrap events and LLM span records, sorted by
            timestamp (``captured_at`` for wraps, ``started_at`` for spans).
         
@@ -90,10 +90,10 @@ Classes
             output_path: Absolute path to the JSONL output file.
         
         Returns:
-            The total number of records written (including kwargs).
+            The total number of records written (including input data).
 
 `TraceCaptureHandler()`
-:   Collects entry kwargs, wrap events, and LLM spans per entry.
+:   Collects input data, wrap events, and LLM spans per entry.
     
     Thread-safe: LLM spans arrive from the OTel delivery thread while
     wrap events arrive from the event loop thread.  The entry index is
@@ -112,15 +112,15 @@ Classes
     `async def on_llm(self, span: LLMSpan) ‑> None`
     :   Accumulate *span* under the current entry index.
 
-    `def set_entry_kwargs(self, entry_index: int, kwargs: dict[str, Any]) ‑> None`
-    :   Store the runnable kwargs for an entry.
+    `def set_input_data(self, entry_index: int, kwargs: dict[str, Any]) ‑> None`
+    :   Store the runnable input data for an entry.
 
     `def write_entry_trace(self, entry_index: int, output_path: str) ‑> int`
     :   Write the full trace for *entry_index* to a JSONL file.
         
         The output contains, in chronological order:
         
-        1. An ``EntryInputLog`` record with the entry kwargs.
+        1. An ``InputDataLog`` record with the input data.
         2. Interleaved wrap events and LLM span records, sorted by
            timestamp (``captured_at`` for wraps, ``started_at`` for spans).
         
@@ -131,7 +131,7 @@ Classes
             output_path: Absolute path to the JSONL output file.
         
         Returns:
-            The total number of records written (including kwargs).
+            The total number of records written (including input data).
 
 `EntryTraceLogProcessor()`
 :   Route ``wrap()`` emissions to the active :class:`EntryTraceCollector`.

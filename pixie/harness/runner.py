@@ -1,4 +1,4 @@
-"""Dataset-driven test runner for ``pixie test`` and ``pixie trace``.
+"""Evaluation harness for ``pixie test`` and ``pixie trace``.
 
 Handles all non-CLI harness logic:
 
@@ -46,7 +46,8 @@ from pixie.eval.evaluable import (
 from pixie.eval.evaluation import evaluate
 from pixie.harness.run_result import EntryResult, EvaluationResult, PendingEvaluation
 from pixie.harness.runnable import get_runnable_args_type, is_runnable_class
-from pixie.harness.trace_capture import current_entry_index, record_entry_kwargs
+from pixie.harness.trace_capture import current_entry_index, record_input_data
+from pixie.instrumentation.models import INPUT_DATA_KEY
 from pixie.instrumentation.wrap import (
     WrappedData,
     WrapRegistryMissError,
@@ -310,7 +311,7 @@ class DatasetEntry(TestCase):
 
     Each entry represents one test scenario.  Inherits all :class:`TestCase`
     fields (``eval_input``, ``expectation``, ``eval_metadata``,
-    ``description``) and adds ``entry_kwargs`` and ``evaluators``.
+    ``description``) and adds ``input_data`` and ``evaluators``.
 
     The evaluator list is resolved during :class:`Dataset` validation —
     if the entry omits ``evaluators``, it inherits the dataset-level
@@ -320,7 +321,7 @@ class DatasetEntry(TestCase):
     Example JSON::
 
         {
-          "entry_kwargs": {"user_message": "What are your hours?"},
+          "input_data": {"user_message": "What are your hours?"},
           "description": "Business hours question",
           "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
           "expectation": "Should mention Mon-Fri 9am-5pm",
@@ -328,14 +329,14 @@ class DatasetEntry(TestCase):
         }
 
     Attributes:
-        entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
+        input_data: Arguments fed to the runnable's ``run(args)`` method
             as a Pydantic model.  Keys must match the model's field names.
         evaluators: Evaluator names for this entry.  Omit to inherit
             dataset-level defaults.  Use ``"..."`` to include defaults
             plus additional evaluators.
     """
 
-    entry_kwargs: dict[str, JsonValue]
+    input_data: dict[str, JsonValue]
     evaluators: list[str] = []
 
     @field_validator("evaluators", mode="before")
@@ -378,13 +379,13 @@ class Dataset(BaseModel):
           "evaluators": ["Factuality"],
           "entries": [
             {
-              "entry_kwargs": {"user_message": "Hello"},
+              "input_data": {"user_message": "Hello"},
               "description": "Greeting",
               "eval_input": [{"name": "profile", "value": {}}],
               "expectation": "Friendly greeting"
             },
             {
-              "entry_kwargs": {"user_message": "Help"},
+              "input_data": {"user_message": "Help"},
               "description": "Help request",
               "eval_input": [{"name": "profile", "value": {}}],
               "expectation": "Offer assistance",
@@ -680,11 +681,11 @@ async def _run_entry(
     calling the runnable. After the call, captured bodies are validated
     into :class:`WrappedData` and converted to :class:`NamedData`.
 
-    When *args_type* is provided (Runnable protocol), kwargs are validated
+    When *args_type* is provided (Runnable protocol), input data is validated
     into the Pydantic model before calling the runnable.
 
-    Sets the ``current_entry_index`` context variable and records entry
-    kwargs so that :class:`EntryTraceCollector` can build a full
+    Sets the ``current_entry_index`` context variable and records input
+    data so that :class:`EntryTraceCollector` can build a full
     per-entry trace.
 
     Args:
@@ -699,28 +700,34 @@ async def _run_entry(
     """
     async with semaphore:
         current_entry_index.set(entry_index)
-        record_entry_kwargs(entry_index, entry.entry_kwargs)
+        record_input_data(entry_index, entry.input_data)
         init_eval_output()
 
+        # Prepend input_data so evaluators always see the runnable kwargs
+        full_eval_input = [
+            NamedData(name=INPUT_DATA_KEY, value=entry.input_data),
+            *entry.eval_input,
+        ]
+
         dependency_registry: dict[str, JsonValue] = {
-            nd.name: nd.value for nd in entry.eval_input
+            nd.name: nd.value for nd in full_eval_input
         }
         set_eval_input(dependency_registry)
 
         runnable_result: Any = None
         try:
             if args_type is not None:
-                args = args_type.model_validate(entry.entry_kwargs)
+                args = args_type.model_validate(entry.input_data)
                 runnable_result = await runnable(args)
             elif inspect.iscoroutinefunction(runnable):
-                runnable_result = await runnable(entry.entry_kwargs)
+                runnable_result = await runnable(entry.input_data)
             else:
-                runnable_result = runnable(entry.entry_kwargs)
+                runnable_result = runnable(entry.input_data)
         except (WrapRegistryMissError, WrapTypeMismatchError) as exc:
             clear_eval_input()
             clear_eval_output()
             return EntryResult(
-                input=collapse_named_data(entry.eval_input),
+                input=collapse_named_data(full_eval_input),
                 output=None,
                 expected_output=None,
                 description=entry.description,
@@ -752,7 +759,7 @@ async def _run_entry(
         eval_output = [NamedData(name="output", value=fallback_value)]
 
     evaluable = Evaluable(
-        eval_input=entry.eval_input,
+        eval_input=full_eval_input,
         eval_output=eval_output,
         expectation=entry.expectation,
         eval_metadata=entry.eval_metadata,

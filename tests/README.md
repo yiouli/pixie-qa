@@ -173,6 +173,6 @@ uv run mypy pixie/               # Zero type errors
 uv run ruff check .              # No linting errors
 ```
 
-If you changed `pixie test`, scorecard, dataset runner, or eval code, also run the
+If you changed `pixie test`, scorecard, evaluation harness, or eval code, also run the
 **agent verification protocol** (see Manual Testing section above) — run `pixie test`
 on the manual fixture and inspect console output + scorecard HTML with Playwright.

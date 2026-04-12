@@ -37,6 +37,9 @@ Classes
     
     Inherits all ``TestCase`` fields and adds ``eval_output``.
     
+    The runner guarantees ``eval_input`` is non-empty by prepending
+    ``input_data`` before constructing an ``Evaluable``.
+    
     Attributes:
         eval_output: Named output data items from the observed operation
             (non-empty).
@@ -97,7 +100,9 @@ Classes
     Does not include the actual output — use ``Evaluable`` for that.
     
     Attributes:
-        eval_input: Named input data items (non-empty).
+        eval_input: Named input data items.  May be empty in
+            ``DatasetEntry`` — the runner prepends ``input_data``
+            when building the ``Evaluable``.
         expectation: Expected/reference output for evaluation.
             Defaults to ``UNSET`` (not provided). May be explicitly
             set to ``None`` to indicate "no expectation".

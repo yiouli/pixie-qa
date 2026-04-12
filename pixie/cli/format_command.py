@@ -20,14 +20,14 @@ from pydantic import JsonValue
 
 from pixie.eval.evaluable import NamedData
 from pixie.harness.runner import DatasetEntry
-from pixie.instrumentation.models import ENTRY_KWARGS_KEY, EntryInputLog, LLMSpanLog
+from pixie.instrumentation.models import InputDataLog, LLMSpanLog
 from pixie.instrumentation.wrap import WrappedData
 
 
 def _load_trace_log(
     input_path: Path,
 ) -> tuple[
-    EntryInputLog | None,
+    InputDataLog | None,
     list[WrappedData],
     list[LLMSpanLog],
     list[tuple[str, WrappedData | LLMSpanLog]],
@@ -45,7 +45,7 @@ def _load_trace_log(
         where *ordered_non_input* preserves the original file order for
         output/state wraps and LLM spans (used for building expectation).
     """
-    entry_input: EntryInputLog | None = None
+    entry_input: InputDataLog | None = None
     wrap_events: list[WrappedData] = []
     llm_spans: list[LLMSpanLog] = []
     ordered_non_input: list[tuple[str, WrappedData | LLMSpanLog]] = []
@@ -62,7 +62,7 @@ def _load_trace_log(
 
             record_type = record.get("type")
             if record_type == "kwargs":
-                entry_input = EntryInputLog.model_validate(record)
+                entry_input = InputDataLog.model_validate(record)
             elif record_type == "wrap":
                 wrapped = WrappedData.model_validate(record)
                 wrap_events.append(wrapped)
@@ -124,12 +124,9 @@ def format_trace_to_entry(
         _wrap_to_named_data(w) for w in wrap_events if w.purpose == "input"
     ]
 
-    # Always include entry_kwargs in eval_input so the dataset entry is
-    # valid even when the app has no wrap(purpose='input') calls.
-    kwargs: dict[str, JsonValue] = (
-        entry_input.value if entry_input is not None else {}
-    )
-    eval_input.insert(0, NamedData(name=ENTRY_KWARGS_KEY, value=kwargs))
+    # input_data is injected into eval_input at evaluation time by the
+    # runner, so we don't duplicate it here.
+    kwargs: dict[str, JsonValue] = entry_input.value if entry_input is not None else {}
 
     # Build expectation from output/state wraps and LLM spans, in log order
     expectation_items: list[NamedData] = []
@@ -147,7 +144,7 @@ def format_trace_to_entry(
 
     # Build the DatasetEntry pydantic model and serialise
     dataset_entry = DatasetEntry(
-        entry_kwargs=kwargs,
+        input_data=kwargs,
         eval_input=eval_input,
         expectation=expectation,
         description=f"transformed from {input_path.name}",

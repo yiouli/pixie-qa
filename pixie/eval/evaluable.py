@@ -45,7 +45,9 @@ class TestCase(BaseModel):
     Does not include the actual output — use ``Evaluable`` for that.
 
     Attributes:
-        eval_input: Named input data items (non-empty).
+        eval_input: Named input data items.  May be empty in
+            ``DatasetEntry`` — the runner prepends ``input_data``
+            when building the ``Evaluable``.
         expectation: Expected/reference output for evaluation.
             Defaults to ``UNSET`` (not provided). May be explicitly
             set to ``None`` to indicate "no expectation".
@@ -53,7 +55,7 @@ class TestCase(BaseModel):
         description: Human-readable description.
     """
 
-    eval_input: list[NamedData] = Field(min_length=1)
+    eval_input: list[NamedData] = []
     expectation: JsonValue | _Unset = Field(default=UNSET)
     eval_metadata: dict[str, JsonValue] | None = None
     description: str | None = None
@@ -74,12 +76,22 @@ class Evaluable(TestCase):
 
     Inherits all ``TestCase`` fields and adds ``eval_output``.
 
+    The runner guarantees ``eval_input`` is non-empty by prepending
+    ``input_data`` before constructing an ``Evaluable``.
+
     Attributes:
         eval_output: Named output data items from the observed operation
             (non-empty).
     """
 
     eval_output: list[NamedData] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _require_eval_input(self) -> Evaluable:
+        """Evaluators always need at least one input item."""
+        if not self.eval_input:
+            raise ValueError("eval_input must be non-empty for Evaluable")
+        return self
 
 
 def collapse_named_data(items: list[NamedData]) -> JsonValue:

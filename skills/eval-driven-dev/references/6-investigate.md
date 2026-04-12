@@ -34,7 +34,7 @@ uv run pixie test -v    # shows score and reasoning per case
 
 Capture the full verbose output. For each failing case, note:
 
-- The `entry_kwargs` (what was sent)
+- The `input_data` (what was sent)
 - The `the captured output` (what the app produced)
 - The `expected_output` (what was expected, if applicable)
 - The evaluator score and reasoning
@@ -103,7 +103,7 @@ For non-LLM failures: note them in the investigation log and recommend the code 
 
 #### Failing case 1: "What rows have extra legroom?"
 
-- **entry_kwargs**: `{"user_message": "What rows have extra legroom?"}`
+- **input_data**: `{"user_message": "What rows have extra legroom?"}`
 - **the captured output**: "I'm sorry, I don't have the exact row numbers for extra legroom..."
 - **expected_output**: "rows 5-8 Economy Plus with extra legroom"
 - **Evaluator score**: 0.1 (Factuality)

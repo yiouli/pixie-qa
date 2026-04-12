@@ -5,7 +5,7 @@ Pydantic models for trace log records.
 Defines the structured log record types written by ``pixie trace``
 and consumed by ``pixie format``:
 
-- :class:`EntryInputLog` — the kwargs record (``type="kwargs"``).
+- :class:`InputDataLog` — the input data record (``type="kwargs"``).
 - :class:`LLMSpanLog` — an LLM span record (``type="llm_span"``).
 
 :class:`WrappedData` (from :mod:`pixie.instrumentation.wrap`) is the
@@ -14,24 +14,24 @@ model for wrap records (``type="wrap"``).
 Variables
 ---------
 
-`ENTRY_KWARGS_KEY: str`
-:   Reserved eval_input name for the runnable kwargs.
+`INPUT_DATA_KEY: str`
+:   Reserved eval_input name for the runnable input data.
     
-    ``pixie format`` always adds an :class:`~pixie.eval.evaluable.NamedData`
-    item with this name to ``eval_input`` so that the dataset entry is valid
-    even when the app has no ``wrap(purpose='input')`` calls.  Wrap names
-    must not collide with this key — ``pixie trace`` validates this at write
-    time.
+    The evaluation runner prepends an :class:`~pixie.eval.evaluable.NamedData`
+    item with this name to ``eval_input`` when building the ``Evaluable``,
+    so that evaluators always have access to the original input kwargs.
+    Wrap names must not collide with this key — ``pixie trace`` validates
+    this at write time.
 
 Classes
 -------
 
-`EntryInputLog(**data: Any)`
-:   Kwargs record written at the start of a trace.
+`InputDataLog(**data: Any)`
+:   Input data record written at the start of a trace.
     
     Attributes:
         type: Always ``"kwargs"``.
-        value: The runnable kwargs dictionary.
+        value: The runnable input data dictionary.
     
     Create a new model by parsing and validating input data from keyword arguments.
     

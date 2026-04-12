@@ -69,7 +69,7 @@ After adding `wrap()` calls, go through each eval criterion from `pixie_qa/02-ev
 The `Runnable` class replaces the plain function from older versions of the skill. It exposes three lifecycle methods:
 
 - **`setup()`** — async, called once before any `run()` call; initialize shared resources here (e.g., an async HTTP client, a DB connection, pre-loaded configuration). Optional — has a default no-op.
-- **`run(args)`** — async, called **concurrently** for each dataset entry (up to 4 in parallel); invoke the app's real entry point with `args` (a validated Pydantic model built from `entry_kwargs`). **Must be concurrency-safe** — see below.
+- **`run(args)`** — async, called **concurrently** for each dataset entry (up to 4 in parallel); invoke the app's real entry point with `args` (a validated Pydantic model built from `input_data`). **Must be concurrency-safe** — see below.
 - **`teardown()`** — async, called once after all `run()` calls; clean up resources. Optional — has a default no-op.
 
 **Import resolution**: The project root is automatically added to `sys.path` when your runnable is loaded, so you can use normal `import` statements (e.g., `from app import service`) — no `sys.path` manipulation needed.
@@ -179,7 +179,7 @@ Choose the right pattern:
 
 **Rules**:
 
-- The `run()` method receives a Pydantic model whose fields are populated from the dataset's `entry_kwargs`. Define a `BaseModel` subclass with the fields your app needs.
+- The `run()` method receives a Pydantic model whose fields are populated from the dataset's `input_data`. Define a `BaseModel` subclass with the fields your app needs.
 - All lifecycle methods (`setup`, `run`, `teardown`) are **async**.
 - `run()` must call the app through its real entry point — never bypass request handling.
 - Place the file at `pixie_qa/scripts/run_app.py` — name the class `AppRunnable` (or anything descriptive).
@@ -212,10 +212,10 @@ Common concurrency pitfalls:
 
 ## 2c. Capture the reference trace with `pixie trace`
 
-Use the `pixie trace` CLI command to run your `Runnable` and capture a trace file. Pass the entry input as a JSON file:
+Use the `pixie trace` CLI command to run your `Runnable` and capture a trace file. Pass the input data as a JSON file:
 
 ```bash
-# Create a JSON file with entry kwargs
+# Create a JSON file with input data
 echo '{"user_message": "a realistic sample input"}' > pixie_qa/sample-input.json
 
 uv run pixie trace --runnable pixie_qa/scripts/run_app.py:AppRunnable \
@@ -246,7 +246,7 @@ uv run pixie format --input reference-trace.jsonl --output dataset-sample.json
 
 The output is a formatted dataset entry template — it contains:
 
-- `entry_kwargs`: the exact keys/values for the runnable arguments
+- `input_data`: the exact keys/values for the runnable arguments
 - `eval_input`: the data for all dependencies (from `wrap(purpose="input")` calls)
 - `eval_output`: the **actual app output** captured from the trace (this is the real output — use it to understand what the app produces, not as a dataset `eval_output` field)
 

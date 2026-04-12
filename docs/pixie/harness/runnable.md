@@ -35,7 +35,7 @@ Classes
 -------
 
 `Runnable(*args, **kwargs)`
-:   Protocol for structured runnables used by the dataset runner.
+:   Protocol for structured runnables used by the evaluation harness.
     
     Lifecycle:
     

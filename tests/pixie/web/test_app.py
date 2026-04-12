@@ -663,7 +663,7 @@ class TestPixieTestOpensWebUI:
                     "runnable": "_run.py:run",
                     "entries": [
                         {
-                            "entry_kwargs": {"question": "What is 1+1?"},
+                            "input_data": {"question": "What is 1+1?"},
                             "eval_input": [{"name": "input", "value": "What is 1+1?"}],
                             "expectation": "2",
                             "description": "Simple arithmetic",
@@ -705,7 +705,7 @@ class TestPixieTestOpensWebUI:
                     "runnable": "_run.py:run",
                     "entries": [
                         {
-                            "entry_kwargs": {"question": "What is 1+1?"},
+                            "input_data": {"question": "What is 1+1?"},
                             "eval_input": [{"name": "input", "value": "What is 1+1?"}],
                             "expectation": "2",
                             "description": "Simple arithmetic",

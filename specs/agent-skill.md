@@ -59,7 +59,7 @@ depending on the evaluation criteria, expected outputs might be needed. If so, t
 - depending on the complexity of the criteria, multiple tests with different evaluators, datasets and/or pass criteria might be needed
 - test files live in `pixie_qa/tests/` (e.g. `pixie_qa/tests/test_customer_service.py`)
 - run them with `pixie test pixie_qa/tests/` or `pixie test pixie_qa/tests/test_customer_service.py`
-- the test runner automatically finds the project root (directory containing `pyproject.toml`, `setup.py`, or `setup.cfg`) and adds it to `sys.path`, so project-root imports work out of the box (like pytest)
+- the evaluation harness automatically finds the project root (directory containing `pyproject.toml`, `setup.py`, or `setup.cfg`) and adds it to `sys.path`, so project-root imports work out of the box (like pytest)
 - use `-v` for verbose output and `-k <pattern>` to filter tests by name
 
 ## investigate and learn

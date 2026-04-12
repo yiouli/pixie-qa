@@ -75,21 +75,21 @@ def _determine_route(message: str, customer_tier: str) -> str:
 # ── Main chatbot entry point ────────────────────────────────────────────────
 
 
-def chat(entry_input: dict[str, Any] | None) -> None:
+def chat(input_data: dict[str, Any] | None) -> None:
     """Process a customer chat message.
 
     This is the runnable entry point for ``pixie test``.  It uses
     ``pixie.wrap()`` at every stage of processing.
 
     Args:
-        entry_input: Dict with ``user_message`` and optional ``customer_id``.
+        input_data: Dict with ``user_message`` and optional ``customer_id``.
     """
-    if entry_input is None:
-        entry_input = {}
+    if input_data is None:
+        input_data = {}
 
-    # ── 1. Extract entry-point input from kwargs ─────────────────────────
-    user_message: str = entry_input.get("user_message", "")
-    customer_id: str = entry_input.get("customer_id", "C001")
+    # ── 1. Extract input data ─────────────────────────
+    user_message: str = input_data.get("user_message", "")
+    customer_id: str = input_data.get("customer_id", "C001")
 
     # ── 2. Look up customer profile (purpose="input", callable) ──────────
     profile: dict[str, Any] = pixie.wrap(

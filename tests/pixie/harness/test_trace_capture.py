@@ -12,7 +12,7 @@ from pixie.harness.trace_capture import (
     EntryTraceLogProcessor,
     current_entry_index,
     get_active_collector,
-    record_entry_kwargs,
+    record_input_data,
     set_active_collector,
 )
 from pixie.instrumentation.llm_tracing import (
@@ -99,9 +99,9 @@ class TestEntryTraceCollector:
         count = collector.write_entry_trace(0, str(out))
         assert count == 0
 
-    def test_set_entry_kwargs_written_first(self, tmp_path: Path) -> None:
+    def test_set_input_data_written_first(self, tmp_path: Path) -> None:
         collector = EntryTraceCollector()
-        collector.set_entry_kwargs(0, {"user_message": "hello"})
+        collector.set_input_data(0, {"user_message": "hello"})
 
         current_entry_index.set(0)
         asyncio.run(collector.on_llm(_make_span()))
@@ -140,7 +140,7 @@ class TestEntryTraceCollector:
     def test_write_entry_trace_full_timeline(self, tmp_path: Path) -> None:
         """Full trace contains kwargs + wrap events + LLM spans in order."""
         collector = EntryTraceCollector()
-        collector.set_entry_kwargs(0, {"q": "test"})
+        collector.set_input_data(0, {"q": "test"})
 
         # Add wrap event with early timestamp
         collector.add_wrap_event(
@@ -192,7 +192,7 @@ class TestEntryTraceCollector:
 
     def test_write_entry_trace_removes_collected(self, tmp_path: Path) -> None:
         collector = EntryTraceCollector()
-        collector.set_entry_kwargs(0, {"x": 1})
+        collector.set_input_data(0, {"x": 1})
         current_entry_index.set(0)
         asyncio.run(collector.on_llm(_make_span()))
 
@@ -215,11 +215,11 @@ class TestModuleLevelCollector:
         set_active_collector(None)
         assert get_active_collector() is None
 
-    def test_record_entry_kwargs_routes_to_collector(self, tmp_path: Path) -> None:
+    def test_record_input_data_routes_to_collector(self, tmp_path: Path) -> None:
         collector = EntryTraceCollector()
         set_active_collector(collector)
         try:
-            record_entry_kwargs(0, {"msg": "hi"})
+            record_input_data(0, {"msg": "hi"})
 
             out = tmp_path / "entry-0.jsonl"
             collector.write_entry_trace(0, str(out))
@@ -229,10 +229,10 @@ class TestModuleLevelCollector:
         finally:
             set_active_collector(None)
 
-    def test_record_entry_kwargs_noop_without_collector(self) -> None:
+    def test_record_input_data_noop_without_collector(self) -> None:
         set_active_collector(None)
         # Should not raise
-        record_entry_kwargs(0, {"msg": "hi"})
+        record_input_data(0, {"msg": "hi"})
 
 
 class TestEntryTraceLogProcessor:
@@ -335,7 +335,7 @@ class TestDeliveryQueueContextPropagation:
         """Submit an LLMSpan through the real _DeliveryQueue pipeline and
         verify EntryTraceCollector captures it under the correct entry index."""
         collector = EntryTraceCollector()
-        collector.set_entry_kwargs(0, {"q": "hello"})
+        collector.set_input_data(0, {"q": "hello"})
 
         registry = _HandlerRegistry()
         registry.add(collector)
@@ -386,8 +386,8 @@ class TestDeliveryQueueContextPropagation:
         """Two spans submitted with different entry indices land in the
         correct per-entry buckets."""
         collector = EntryTraceCollector()
-        collector.set_entry_kwargs(0, {"q": "first"})
-        collector.set_entry_kwargs(1, {"q": "second"})
+        collector.set_input_data(0, {"q": "first"})
+        collector.set_input_data(1, {"q": "second"})
 
         registry = _HandlerRegistry()
         registry.add(collector)

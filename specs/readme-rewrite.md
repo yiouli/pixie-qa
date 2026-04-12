@@ -101,7 +101,7 @@ class MyAppRunnable(pixie.Runnable[MyArgs]):
   "evaluators": ["Factuality"],
   "entries": [
     {
-      "entry_kwargs": { "user_id": "u1", "message": "What is my balance?" },
+      "input_data": { "user_id": "u1", "message": "What is my balance?" },
       "test_case": {
         "eval_input": [
           { "purpose": "input", "name": "db_result", "data": { "balance": 120.5 } }

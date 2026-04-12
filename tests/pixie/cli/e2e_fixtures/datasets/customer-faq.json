@@ -3,7 +3,7 @@
     "runnable": "tests/pixie/cli/e2e_fixtures/mock_evaluators.py:customer_faq_runnable",
     "entries": [
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "What is the baggage allowance?"
             },
             "eval_input": [
@@ -20,7 +20,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "How many seats are on the plane?"
             },
             "eval_input": [
@@ -36,7 +36,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "Is there wifi on the plane?"
             },
             "eval_input": [
@@ -52,7 +52,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "What is the cancellation policy?"
             },
             "eval_input": [
@@ -69,7 +69,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "user_message": "Do you serve meals on the flight?"
             },
             "eval_input": [

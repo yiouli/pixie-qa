@@ -378,7 +378,7 @@ Classes
 :   Write wrap event bodies as JSON lines to a file.
     
     Validates wrap names during tracing: raises :class:`WrapNameCollisionError`
-    when a wrap name collides with the reserved ``ENTRY_KWARGS_KEY`` or with
+    when a wrap name collides with the reserved ``INPUT_DATA_KEY`` or with
     a name already seen in the current trace.
     
     Args:

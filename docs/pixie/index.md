@@ -342,7 +342,7 @@ Functions
     
     The returned evaluator satisfies the ``Evaluator`` protocol but
     always raises :class:`AgentEvaluationPending` when called.  The
-    test runner catches this and records a pending evaluation.
+    evaluation harness catches this and records a pending evaluation.
     
     Args:
         name: Display name (shown in the scorecard).
@@ -457,6 +457,9 @@ Classes
     
     Inherits all ``TestCase`` fields and adds ``eval_output``.
     
+    The runner guarantees ``eval_input`` is non-empty by prepending
+    ``input_data`` before constructing an ``Evaluable``.
+    
     Attributes:
         eval_output: Named output data items from the observed operation
             (non-empty).
@@ -514,7 +517,7 @@ Classes
     * typing.Generic
 
 `Runnable(*args, **kwargs)`
-:   Protocol for structured runnables used by the dataset runner.
+:   Protocol for structured runnables used by the evaluation harness.
     
     Lifecycle:
     
@@ -586,7 +589,9 @@ Classes
     Does not include the actual output — use ``Evaluable`` for that.
     
     Attributes:
-        eval_input: Named input data items (non-empty).
+        eval_input: Named input data items.  May be empty in
+            ``DatasetEntry`` — the runner prepends ``input_data``
+            when building the ``Evaluable``.
         expectation: Expected/reference output for evaluation.
             Defaults to ``UNSET`` (not provided). May be explicitly
             set to ``None`` to indicate "no expectation".

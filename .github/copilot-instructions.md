@@ -24,7 +24,6 @@ pixie/
     test_command.py      # pixie test entry point
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
-    dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
   instrumentation/
     __init__.py          # public API: init(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
@@ -199,7 +198,7 @@ Run manual e2e verification whenever you change anything in:
 
 - `pixie/cli/test_command.py` — the `pixie test` entry point
 - `pixie/cli/main.py` — CLI argument parsing and forwarding
-- `pixie/evals/dataset_runner.py` — dataset loading and evaluator resolution
+- `pixie/harness/runner.py — evaluation harness and evaluator resolution
 - `pixie/evals/scorecard.py` — scorecard models, HTML generation
 - `pixie/evals/criteria.py` — pass criteria
 
@@ -654,7 +653,7 @@ This project has strict error-handling conventions due to operating inside OTel 
 6. ✅ Update docstrings / `README.md` / relevant `specs/` docs
 7. ✅ Add/update `changelogs/<feature>.md` for non-trivial changes
 8. ✅ Verify functionality works as expected
-9. ✅ If touching `pixie test` / scorecard / dataset runner / eval code, run the **agent verification protocol** (section 4a) — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
+9. ✅ If touching `pixie test` / scorecard / evaluation harness / eval code, run the **agent verification protocol** (section 4a) — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
 10. ✅ All relevant `README.md` files are updated (see Documentation section — README Scoping Rules)
 
 **Development cycle:**

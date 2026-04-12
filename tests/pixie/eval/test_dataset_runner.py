@@ -18,7 +18,9 @@ from pixie.harness.runner import (
     load_dataset,
     resolve_evaluator_name,
     resolve_runnable_reference,
+    run_dataset,
 )
+from pixie.instrumentation.models import INPUT_DATA_KEY
 
 # ---------------------------------------------------------------------------
 # resolve_evaluator_name / _resolve_evaluator
@@ -176,12 +178,13 @@ def _make_entry(
     expectation: str | None = None,
     description: str = "desc",
     evaluators: list[str] | None = None,
-    entry_kwargs: dict[str, Any] | None = None,
+    input_data: dict[str, Any] | None = None,
+    eval_input: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a single dataset entry in the flattened format."""
     entry: dict[str, Any] = {
-        "entry_kwargs": entry_kwargs or {"question": inp},
-        "eval_input": [{"name": "input", "value": inp}],
+        "input_data": input_data or {"question": inp},
+        "eval_input": eval_input if eval_input is not None else [],
         "description": description,
     }
     if expectation is not None:
@@ -371,3 +374,106 @@ class TestLoadDataset:
         fpath.write_text("[1, 2, 3]", encoding="utf-8")
         with pytest.raises(ValueError, match="object"):
             load_dataset(fpath)
+
+
+# ---------------------------------------------------------------------------
+# run_dataset — input_data injection into eval_input
+# ---------------------------------------------------------------------------
+
+
+class TestRunDatasetInputDataInjection:
+    """Tests that run_dataset prepends input_data into eval_input for evaluators."""
+
+    @pytest.mark.asyncio
+    async def test_input_data_prepended_when_eval_input_empty(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When eval_input is empty, evaluators still see input_data."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
+        dataset = {
+            "name": "inject-test",
+            "runnable": "_run.py:run",
+            "entries": [
+                {
+                    "input_data": {"question": "hello"},
+                    "eval_input": [],
+                    "description": "empty eval_input",
+                    "evaluators": ["ExactMatch"],
+                    "expectation": "{'question': 'hello'}",
+                }
+            ],
+        }
+        fpath = tmp_path / "inject-test.json"
+        fpath.write_text(json.dumps(dataset))
+
+        name, results = await run_dataset(str(fpath))
+        assert name == "inject-test"
+        assert len(results) == 1
+        # The entry result's input should contain the injected input_data
+        result_input = results[0].input
+        assert result_input is not None
+        # With one eval_input item (injected input_data), collapse returns its value
+        assert isinstance(result_input, dict)
+        assert result_input.get("question") == "hello" or INPUT_DATA_KEY in str(
+            result_input
+        )
+
+    @pytest.mark.asyncio
+    async def test_input_data_prepended_alongside_existing_eval_input(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When eval_input has items, input_data is prepended (not duplicated)."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
+        dataset = {
+            "name": "prepend-test",
+            "runnable": "_run.py:run",
+            "entries": [
+                {
+                    "input_data": {"msg": "hi"},
+                    "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
+                    "description": "has eval_input",
+                    "evaluators": ["ExactMatch"],
+                    "expectation": "ignored",
+                }
+            ],
+        }
+        fpath = tmp_path / "prepend-test.json"
+        fpath.write_text(json.dumps(dataset))
+
+        name, results = await run_dataset(str(fpath))
+        assert len(results) == 1
+        # collapse_named_data with 2 items -> dict
+        result_input = results[0].input
+        assert isinstance(result_input, dict)
+        # Should have both input_data and profile
+        assert INPUT_DATA_KEY in result_input
+        assert "profile" in result_input
+
+    @pytest.mark.asyncio
+    async def test_dataset_entry_without_eval_input_field_loads(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Dataset entries that omit eval_input entirely default to []."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "_run.py").write_text("def run(x): return str(x)\n")
+        dataset = {
+            "name": "omit-test",
+            "runnable": "_run.py:run",
+            "entries": [
+                {
+                    "input_data": {"q": "test"},
+                    "description": "no eval_input field",
+                    "evaluators": ["ExactMatch"],
+                    "expectation": "{'q': 'test'}",
+                }
+            ],
+        }
+        fpath = tmp_path / "omit-test.json"
+        fpath.write_text(json.dumps(dataset))
+
+        name, results = await run_dataset(str(fpath))
+        assert len(results) == 1
+        # Still produces a result — input_data was injected by the runner
+        assert results[0].input is not None

@@ -1,10 +1,10 @@
 # Runnable interface
 
-The current dataset runner takes a runnable property and would directly run the function with the kwargs from dataset entry.
+The current evaluation harness takes a runnable property and would directly run the function with the kwargs from dataset entry.
 
 However, the contract between the test harness, the custom runnable function and the dataset are unclear, leading to unexpected usages. Additionally, for certain applications (e.g. fastapi server + request), setup & teardown are needed, and it's unclear whether those should be implemented as part of the runnable function.
 
-The task now is to create a Protocol for runnable, and have the dataset, dataset runner and custom runnable all work around that protocol.
+The task now is to create a Protocol for runnable, and have the dataset, evaluation harness and custom runnable all work around that protocol.
 
 ## The Runnable Protocol
 
@@ -31,7 +31,7 @@ class Runnable(Protocol[T]):
         ...
 ```
 
-With this, the runnable property in dataset should be pointed to the runnable class instead; the dataset runner would properly create the runnable instance, properly setup and teardown for the dataset run, and call run(...) with the kwargs-turned-pydantic-object for each dataset entry.
+With this, the runnable property in dataset should be pointed to the runnable class instead; the evaluation harness would properly create the runnable instance, properly setup and teardown for the dataset run, and call run(...) with the kwargs-turned-pydantic-object for each dataset entry.
 
 ```python
 # demonstration for a dataset
@@ -78,7 +78,7 @@ The `format` command should take an argument for `input` - relative path for the
 
 - load the log and parse each line into a WrappedData, LLM span, or kwargs
 - create DatasetEntry with proper mapping:
-  - entry_kwargs <= kwargs
+  - input_data <= kwargs
   - test case
     - eval_input <= filtered list[WrappedData] with purpose = 'input', transformed to list[NamedData]
     - expectation <= filtered list[WrappedData] with purpose = 'output' or 'state', transformed to list[NamedData], and LLM call spans with metadata-like values removed. Keep the combined list in the same ordering as in the log

@@ -17,7 +17,7 @@ T = TypeVar("T", bound=BaseModel, contravariant=True)
 
 @runtime_checkable
 class Runnable(Protocol[T]):
-    """Protocol for structured runnables used by the dataset runner.
+    """Protocol for structured runnables used by the evaluation harness.
 
     Lifecycle:
 

@@ -43,7 +43,7 @@ def wrap(
     Args:
         data: A data value or a data-provider callable.
         purpose: Classification of the data point:
-            - "entry": app input via entry point (user message, request body)
+            - "entry": input data via entry point (user message, request body)
             - "input": data from external dependencies (DB records, API responses)
             - "output": data going out to external systems or users
             - "state": intermediate state for evaluation (routing decisions, etc.)
@@ -79,9 +79,9 @@ def wrap(
      - Emits an OTel event with the result
      - Returns the result
 
-**Eval mode** (registry active — set by test runner, `PIXIE_TRACING` forced off):
+**Eval mode** (registry active — set by evaluation harness, `PIXIE_TRACING` forced off):
 
-The test runner always clears `PIXIE_TRACING` before calling the runnable, regardless of the environment. In eval mode, `wrap()` operates for data injection/capture but does NOT emit OTel events or write to trace files.
+The evaluation harness always clears `PIXIE_TRACING` before calling the runnable, regardless of the environment. In eval mode, `wrap()` operates for data injection/capture but does NOT emit OTel events or write to trace files.
 
 1. For `purpose="input"`:
    - Look up `name` in the global registry
@@ -92,7 +92,7 @@ The test runner always clears `PIXIE_TRACING` before calling the runnable, regar
    - Same as production mode (entry data comes from the runnable's arguments, not the registry)
 
 3. For `purpose="output"` or `purpose="state"`:
-   - Same as production mode (observe and log), but also store the captured value in a capture registry for the test runner to collect after the run
+   - Same as production mode (observe and log), but also store the captured value in a capture registry for the evaluation harness to collect after the run
 
 ### 1.4 Global registry
 
@@ -103,7 +103,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Any
 
-# Input registry: populated by test runner before each eval run
+# Input registry: populated by evaluation harness before each eval run
 # Keys are wrap names, values are jsonpickle-serialized strings
 _input_registry: ContextVar[dict[str, str] | None] = ContextVar(
     "_input_registry", default=None
@@ -288,7 +288,7 @@ New env var `PIXIE_TRACING` controls whether tracing is active:
 | Unset or falsy (`""`, `"0"`, `"false"`) | `enable_storage()`, `wrap()`, and `@observe` are no-ops. Zero overhead in production. |
 | Truthy (`"1"`, `"true"`, `"yes"`)       | Full tracing: OTel events, trace file output (if `PIXIE_TRACE_OUTPUT` set), storage.  |
 
-The test runner **must** ensure `PIXIE_TRACING` is unset during evaluation regardless of the environment. `wrap()` still operates in eval mode (registry injection/capture) but does not emit OTel events or write trace files.
+The evaluation harness **must** ensure `PIXIE_TRACING` is unset during evaluation regardless of the environment. `wrap()` still operates in eval mode (registry injection/capture) but does not emit OTel events or write trace files.
 
 **Implementation**: `enable_storage()` checks `config.tracing_enabled` and returns immediately if false (no OTel setup, no processors). `wrap()` checks for an active eval registry first (eval mode takes precedence), then checks `tracing_enabled` for trace-mode behavior, and falls back to no-op.
 
@@ -378,12 +378,12 @@ To:
 ```python
 # NEW: takes only entry-point input, returns None
 # wrap() handles input injection and output capture
-async def run_app(entry_input: dict[str, Any]) -> None: ...
+async def run_app(input data: dict[str, Any]) -> None: ...
 ```
 
 ### 4.2 Dataset format changes
 
-The dataset JSON format changes to separate entry input from dependency input:
+The dataset JSON format changes to separate input data from ingested data:
 
 ```json
 {
@@ -393,10 +393,10 @@ The dataset JSON format changes to separate entry input from dependency input:
   "items": [
     {
       "description": "Customer asks about business hours",
-      "entry_input": {
+      "input data": {
         "user_message": "What are your business hours?"
       },
-      "dependency_input": {
+      "ingested data": {
         "customer_profile": "{jsonpickle-serialized customer profile object}",
         "conversation_history": "{jsonpickle-serialized list}"
       },
@@ -408,8 +408,8 @@ The dataset JSON format changes to separate entry input from dependency input:
 
 **Key changes:**
 
-- `eval_input` splits into `entry_input` (for purpose="entry" wraps) and `dependency_input` (for purpose="input" wraps)
-- `dependency_input` values are jsonpickle-serialized strings, keyed by wrap `name`
+- `eval_input` splits into `input data` (for purpose="entry" wraps) and `ingested data` (for purpose="input" wraps)
+- `ingested data` values are jsonpickle-serialized strings, keyed by wrap `name`
 - `eval_output` is never stored — it's captured at runtime via `wrap(purpose="output")` and `wrap(purpose="state")`
 
 ### 4.3 Test runner flow
@@ -419,35 +419,35 @@ Update `pixie/cli/test_command.py` and `pixie/evals/dataset_runner.py`:
 For each dataset entry:
 
 1. **Ensure `PIXIE_TRACING` is unset** in the current process environment (tracing must be off during eval)
-2. **Parse** `entry_input` and `dependency_input` from the dataset item
+2. **Parse** `input data` and `ingested data` from the dataset item
 3. **Initialize** the capture registry (for output/state)
-4. **Populate** the input registry with `dependency_input` values (keyed by name, values are the jsonpickle strings)
-5. **Resolve** and call the runnable with `entry_input`
+4. **Populate** the input registry with `ingested data` values (keyed by name, values are the jsonpickle strings)
+5. **Resolve** and call the runnable with `input data`
 6. **Collect** captured output and state from the capture registry
 7. **Clear** both registries
 8. **Build** an `Evaluable` from captured data:
-   - `eval_input` = entry_input + dependency_input (for evaluator context)
+   - `eval_input` = input data + ingested data (for evaluator context)
    - `eval_output` = captured output values from wrap(purpose="output")
    - `eval_metadata` = captured state values from wrap(purpose="state")
 9. **Run** evaluators on the `Evaluable`
 
 ### 4.4 Error handling during eval runs
 
-The test runner should catch and report these errors clearly:
+The evaluation harness should catch and report these errors clearly:
 
 | Error                   | Meaning                                        | Message                                                                                     |
 | ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `WrapRegistryMissError` | Dataset entry missing a dependency_input value | "Dataset entry is missing input data for wrap point '{name}'. Add it to dependency_input."  |
+| `WrapRegistryMissError` | Dataset entry missing a ingested data value | "Dataset entry is missing input data for wrap point '{name}'. Add it to ingested data."  |
 | `WrapTypeMismatchError` | Deserialized type doesn't match                | "Type mismatch for '{name}': expected {expected}, got {actual}. Check jsonpickle encoding." |
-| jsonpickle decode error | Malformed serialized data                      | "Cannot deserialize dependency_input['{name}']: {error}"                                    |
+| jsonpickle decode error | Malformed serialized data                      | "Cannot deserialize ingested data['{name}']: {error}"                                    |
 
 These errors should be reported per-entry (not abort the entire run) so the coding agent can fix multiple issues at once.
 
 ### 4.5 Backward compatibility
 
-The old `eval_input` field in dataset JSON should still be accepted for backward compatibility. When present (and `entry_input`/`dependency_input` are absent), the runner falls back to the old behavior: pass `eval_input` directly to the runnable and expect `eval_output` as a return value.
+The old `eval_input` field in dataset JSON should still be accepted for backward compatibility. When present (and `input data`/`ingested data` are absent), the runner falls back to the old behavior: pass `eval_input` directly to the runnable and expect `eval_output` as a return value.
 
-Detection: if the dataset item has `entry_input` or `dependency_input` keys → new mode. Otherwise → legacy mode.
+Detection: if the dataset item has `input data` or `ingested data` keys → new mode. Otherwise → legacy mode.
 
 ---
 
@@ -467,13 +467,13 @@ class Evaluable(BaseModel):
     captured_state: dict[str, JsonValue] | None = None
 ```
 
-When the test runner builds an `Evaluable` from a new-mode run:
+When the evaluation harness builds an `Evaluable` from a new-mode run:
 
-- `eval_input` = the entry_input dict (for evaluator context)
+- `eval_input` = the input data dict (for evaluator context)
 - `eval_output` = primary output value (the first or only `purpose="output"` wrap, or a dict of all if multiple)
 - `captured_output` = all `purpose="output"` values
 - `captured_state` = all `purpose="state"` values
-- `eval_metadata` = includes dependency_input for evaluator context
+- `eval_metadata` = includes ingested data for evaluator context
 
 ---
 
@@ -482,10 +482,10 @@ When the test runner builds an `Evaluable` from a new-mode run:
 Add a new CLI subcommand to filter trace JSONL files by purpose:
 
 ```bash
-uv run pixie trace filter <trace.jsonl> --purpose entry,input
+uv run pixie trace filter <trace.jsonl> --purpose input data
 ```
 
-This reads the JSONL file and outputs only lines where `purpose` matches one of the specified values. Useful for the coding agent to extract only entry/input events when generating dataset entries.
+This reads the JSONL file and outputs only lines where `purpose` matches one of the specified values. Useful for the coding agent to extract only input data events when generating dataset entries.
 
 Implementation: simple filter on the `purpose` field of each JSON line. Output to stdout.
 
@@ -536,7 +536,7 @@ from .wrap import wrap
 
 1. Update `Evaluable` model with `captured_output` and `captured_state`
 2. Update dataset format parsing in `dataset_runner.py`
-3. Update test runner flow in `test_command.py` (ensure `PIXIE_TRACING` is unset during eval)
+3. Update evaluation harness flow in `test_command.py` (ensure `PIXIE_TRACING` is unset during eval)
 4. Add backward compatibility for old `eval_input` format
 5. Tests for runner changes
 
@@ -566,7 +566,7 @@ from .wrap import wrap
 | `pixie/instrumentation/__init__.py`    | Import and export `wrap`                                                         |
 | `pixie/config.py`                      | Add `trace_output`, `tracing_enabled` fields and env vars                        |
 | `pixie/storage/evaluable.py`           | Add `captured_output`, `captured_state` fields                                   |
-| `pixie/evals/dataset_runner.py`        | Support new dataset format with `entry_input`/`dependency_input`                 |
+| `pixie/evals/dataset_runner.py`        | Support new dataset format with `input data`/`ingested data`                 |
 | `pixie/cli/test_command.py`            | New eval run flow with registry setup/teardown, ensure `PIXIE_TRACING` off       |
 | `pixie/instrumentation/handlers.py`    | Integrate trace writer when `trace_output` configured; respect `tracing_enabled` |
 | `pixie/instrumentation/processor.py`   | Write LLM spans to trace file when writer active; respect `tracing_enabled`      |

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from pixie.cli.format_command import format_trace_to_entry
-from pixie.instrumentation.models import ENTRY_KWARGS_KEY
+from pixie.instrumentation.models import INPUT_DATA_KEY
 from pixie.instrumentation.wrap import TraceLogProcessor, WrapNameCollisionError
 
 
@@ -72,15 +72,14 @@ class TestFormatTraceToEntry:
         format_trace_to_entry(trace_file, output_file)
 
         entry = json.loads(output_file.read_text())
-        assert entry["entry_kwargs"] == {"msg": "hi"}
+        assert entry["input_data"] == {"msg": "hi"}
         assert entry["evaluators"] == ["Factuality"]
 
-        # eval_input should contain entry_kwargs first, then 'input' purpose wraps
-        assert len(entry["eval_input"]) == 2
-        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
-        assert entry["eval_input"][0]["value"] == {"msg": "hi"}
-        assert entry["eval_input"][1]["name"] == "user_input"
-        assert entry["eval_input"][1]["value"] == "hello"
+        # eval_input should contain only 'input' purpose wraps (input_data
+        # is injected by the runner at evaluation time, not in the dataset)
+        assert len(entry["eval_input"]) == 1
+        assert entry["eval_input"][0]["name"] == "user_input"
+        assert entry["eval_input"][0]["value"] == "hello"
 
         # expectation should contain output wraps
         assert entry["expectation"] is not None
@@ -109,11 +108,9 @@ class TestFormatTraceToEntry:
         format_trace_to_entry(trace_file, output_file)
 
         entry = json.loads(output_file.read_text())
-        assert entry["entry_kwargs"] == {"a": 1}
-        # eval_input has only the kwargs item
-        assert len(entry["eval_input"]) == 1
-        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
-        assert entry["eval_input"][0]["value"] == {"a": 1}
+        assert entry["input_data"] == {"a": 1}
+        # eval_input is empty when no purpose=input wraps exist
+        assert len(entry["eval_input"]) == 0
         # expectation has output wraps
         assert entry["expectation"] is not None
 
@@ -126,9 +123,8 @@ class TestFormatTraceToEntry:
         format_trace_to_entry(trace_file, output_file)
 
         entry = json.loads(output_file.read_text())
-        assert len(entry["eval_input"]) == 1
-        assert entry["eval_input"][0]["name"] == ENTRY_KWARGS_KEY
-        assert entry["eval_input"][0]["value"] == {}
+        # eval_input is empty when there are no purpose=input wraps
+        assert len(entry["eval_input"]) == 0
 
     def test_file_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
@@ -225,10 +221,10 @@ class TestTraceLogProcessorNameValidation:
         return mock
 
     def test_reserved_key_collision_raises(self, tmp_path: Path) -> None:
-        """Using the reserved ENTRY_KWARGS_KEY as a wrap name raises."""
+        """Using the reserved INPUT_DATA_KEY as a wrap name raises."""
         processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
         record = self._make_log_record(
-            {"type": "wrap", "name": ENTRY_KWARGS_KEY, "purpose": "input", "data": "x"}
+            {"type": "wrap", "name": INPUT_DATA_KEY, "purpose": "input", "data": "x"}
         )
         with pytest.raises(WrapNameCollisionError, match="reserved key"):
             processor.on_emit(record)
@@ -263,6 +259,6 @@ class TestTraceLogProcessorNameValidation:
         processor = TraceLogProcessor(str(tmp_path / "trace.jsonl"))
         for record_type in ("kwargs", "llm_span"):
             record = self._make_log_record(
-                {"type": record_type, "name": ENTRY_KWARGS_KEY}
+                {"type": record_type, "name": INPUT_DATA_KEY}
             )
             processor.on_emit(record)  # should not raise

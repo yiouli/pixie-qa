@@ -20,7 +20,7 @@ The dataset is a JSON object with these top-level fields:
   "evaluators": ["Factuality"],
   "entries": [
     {
-      "entry_kwargs": { "question": "Hello" },
+      "input_data": { "question": "Hello" },
       "description": "Basic greeting",
       "eval_input": [{ "name": "input", "value": "Hello" }],
       "expectation": "A friendly greeting that offers to help",
@@ -36,7 +36,7 @@ All fields are top-level on each entry (flat structure — no nesting):
 
 ```
 entry:
-  ├── entry_kwargs    (required) — args for Runnable.run()
+  ├── input_data    (required) — args for Runnable.run()
   ├── eval_input      (required) — list of {"name": ..., "value": ...} objects
   ├── description     (required) — human-readable label for the test case
   ├── expectation     (optional) — reference for comparison-based evaluators
@@ -50,7 +50,7 @@ entry:
   subclass that drives the app during evaluation.
 - `evaluators` (dataset-level, optional): Default evaluator names — applied to
   every entry that does not declare its own `evaluators`.
-- `entries[].entry_kwargs` (required): Kwargs passed to `Runnable.run()` as a
+- `entries[].input_data` (required): Kwargs passed to `Runnable.run()` as a
   Pydantic model. Keys must match the fields of the Pydantic model used in
   `run(args: T)`.
 - `entries[].description` (required): Human-readable label for the test case.
@@ -149,7 +149,7 @@ def _get_output(evaluable: Evaluable, name: str) -> Any:
     return None
 ```
 
-**`eval_metadata`** is for passing extra per-entry data to evaluators that isn't an app input or output — e.g., expected tool names, boolean flags, thresholds. Defined as a top-level field on the entry, accessed as `evaluable.eval_metadata`.
+**`eval_metadata`** is for passing extra per-entry data to evaluators that isn't an input data or output — e.g., expected tool names, boolean flags, thresholds. Defined as a top-level field on the entry, accessed as `evaluable.eval_metadata`.
 
 **Complete custom evaluator example** (tool call check + dataset entry):
 
@@ -179,7 +179,7 @@ Corresponding dataset entry:
 
 ```json
 {
-  "entry_kwargs": { "user_message": "I want to end this call" },
+  "input_data": { "user_message": "I want to end this call" },
   "description": "User requests call end after failed verification",
   "eval_input": [{ "name": "user_input", "value": "I want to end this call" }],
   "expectation": "Agent should call endCall tool",

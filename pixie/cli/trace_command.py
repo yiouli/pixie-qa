@@ -20,7 +20,7 @@ from pixie.instrumentation.llm_tracing import (
     LLMSpan,
     add_handler,
 )
-from pixie.instrumentation.models import EntryInputLog, LLMSpanLog
+from pixie.instrumentation.models import InputDataLog, LLMSpanLog
 from pixie.instrumentation.wrap import TraceLogProcessor
 
 
@@ -76,7 +76,7 @@ def _run_trace(
     add_handler(LLMTraceLogger(trace_logger))
 
     try:
-        entry_log = EntryInputLog(value=kwargs)
+        entry_log = InputDataLog(value=kwargs)
         trace_logger.write_line(entry_log.model_dump(mode="json"))
         asyncio.run(run_runnable(runnable, kwargs))
     except Exception as exc:

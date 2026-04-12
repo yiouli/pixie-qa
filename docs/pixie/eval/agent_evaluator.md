@@ -4,7 +4,7 @@ Factory for agent-deferred evaluators.
 
 An agent evaluator is a concrete ``Evaluator`` implementation whose
 ``__call__`` raises :class:`AgentEvaluationPending` instead of returning
-an :class:`~pixie.eval.evaluation.Evaluation`.  The test runner catches
+an :class:`~pixie.eval.evaluation.Evaluation`.  The evaluation harness catches
 this exception and records a :class:`~pixie.harness.run_result.PendingEvaluation`
 in the entry result.
 
@@ -28,7 +28,7 @@ Functions
     
     The returned evaluator satisfies the ``Evaluator`` protocol but
     always raises :class:`AgentEvaluationPending` when called.  The
-    test runner catches this and records a pending evaluation.
+    evaluation harness catches this and records a pending evaluation.
     
     Args:
         name: Display name (shown in the scorecard).
@@ -44,7 +44,7 @@ Classes
 `AgentEvaluationPending(evaluator_name: str, criteria: str)`
 :   Raised by agent evaluators to signal deferred grading.
     
-    The test runner catches this and records a
+    The evaluation harness catches this and records a
     :class:`~pixie.harness.run_result.PendingEvaluation`.
     
     Attributes:

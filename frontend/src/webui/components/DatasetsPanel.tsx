@@ -319,11 +319,11 @@ function EntryDetailModal({
           </DetailSection>
         )}
 
-        {item.entry_kwargs && (
-          <DetailSection title="Entry Kwargs">
+        {item.input_data && (
+          <DetailSection title="Input Data">
             <div className="rounded-md bg-bg-inset px-4 py-3">
               <JsonView
-                src={item.entry_kwargs}
+                src={item.input_data}
                 collapseStringMode="address"
                 collapseStringsAfterLength={120}
                 theme="default"

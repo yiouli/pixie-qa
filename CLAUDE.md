@@ -24,7 +24,6 @@ pixie/
     test_command.py      # pixie test entry point
   evals/
     scorecard.py         # scorecard data models + template-based HTML generation
-    dataset_runner.py    # dataset-driven test runner (evaluator resolution, discovery)
   instrumentation/
     __init__.py          # public API: init(), flush()
     spans.py             # ObserveSpan, LLMSpan, message/content types
@@ -105,7 +104,7 @@ Run manual e2e verification whenever changing:
 
 - `pixie/cli/test_command.py`
 - `pixie/cli/main.py`
-- `pixie/evals/dataset_runner.py`
+- `pixie/harness/runner.py`
 - `pixie/evals/scorecard.py`
 - `pixie/evals/criteria.py`
 
@@ -234,5 +233,5 @@ A task is **not complete** until all of the following are updated in the same ch
 5. ✅ `uv run ruff check .` — no linting errors
 6. ✅ Docstrings / `README.md` / `specs/` updated
 7. ✅ `changelogs/<feature>.md` added/updated
-8. ✅ If touching `pixie test`/scorecard/dataset runner/eval: run the **agent verification protocol** — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
+8. ✅ If touching `pixie test`/scorecard/evaluation harness/eval: run the **agent verification protocol** — run `pixie test` on the manual fixture and inspect console output + scorecard HTML with Playwright
 9. ✅ All relevant `README.md` files updated per scoping rules

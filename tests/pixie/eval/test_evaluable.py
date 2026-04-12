@@ -1,8 +1,11 @@
-"""Tests for pixie.eval.evaluable — collapse_named_data utility."""
+"""Tests for pixie.eval.evaluable — collapse_named_data utility and model validation."""
 
 from __future__ import annotations
 
-from pixie.eval.evaluable import NamedData, collapse_named_data
+import pytest
+from pydantic import ValidationError
+
+from pixie.eval.evaluable import Evaluable, NamedData, TestCase, collapse_named_data
 
 
 def _nd(name: str, value: object) -> NamedData:
@@ -63,3 +66,57 @@ class TestCollapseNamedData:
             "transcript": [{"role": "user", "content": "hi"}],
             "score": 0.95,
         }
+
+
+class TestTestCaseEvalInput:
+    """Tests for TestCase.eval_input accepting empty lists."""
+
+    def test_empty_eval_input_allowed(self) -> None:
+        """TestCase (used by DatasetEntry) accepts empty eval_input."""
+        tc = TestCase(eval_input=[], description="test")
+        assert tc.eval_input == []
+
+    def test_default_eval_input_is_empty(self) -> None:
+        """TestCase defaults eval_input to empty list."""
+        tc = TestCase(description="test")
+        assert tc.eval_input == []
+
+    def test_non_empty_eval_input_still_works(self) -> None:
+        tc = TestCase(
+            eval_input=[_nd("q", "hello")],
+            description="test",
+        )
+        assert len(tc.eval_input) == 1
+
+
+class TestEvaluableEvalInputValidation:
+    """Tests for Evaluable requiring non-empty eval_input."""
+
+    def test_evaluable_with_eval_input_succeeds(self) -> None:
+        evaluable = Evaluable(
+            eval_input=[_nd("input_data", {"q": "hi"})],
+            eval_output=[_nd("output", "hello")],
+            description="test",
+        )
+        assert len(evaluable.eval_input) == 1
+
+    def test_evaluable_with_empty_eval_input_raises(self) -> None:
+        """Evaluable rejects empty eval_input — runner must prepend input_data."""
+        with pytest.raises(ValidationError, match="eval_input"):
+            Evaluable(
+                eval_input=[],
+                eval_output=[_nd("output", "hello")],
+                description="test",
+            )
+
+    def test_evaluable_with_multiple_eval_input_succeeds(self) -> None:
+        """Evaluable accepts multiple eval_input items (input_data + wraps)."""
+        evaluable = Evaluable(
+            eval_input=[
+                _nd("input_data", {"msg": "hi"}),
+                _nd("profile", {"tier": "gold"}),
+            ],
+            eval_output=[_nd("response", "hello")],
+            description="test",
+        )
+        assert len(evaluable.eval_input) == 2

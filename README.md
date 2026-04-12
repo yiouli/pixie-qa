@@ -51,11 +51,11 @@ db_result = wrap(fetch_from_db(user_id), purpose="input", name="db_result")
 response   = wrap(generate_response(db_result), purpose="output", name="response")
 ```
 
-| Purpose    | Meaning                                               |
-| ---------- | ----------------------------------------------------- |
+| Purpose    | Meaning                                                |
+| ---------- | ------------------------------------------------------ |
 | `"input"`  | External data fed into the LLM (injected at test time) |
-| `"output"` | Final or intermediate output to evaluate              |
-| `"state"`  | Intermediate state captured for debugging             |
+| `"output"` | Final or intermediate output to evaluate               |
+| `"state"`  | Intermediate state captured for debugging              |
 
 ### `Runnable` — run the app against each dataset entry
 
@@ -94,10 +94,14 @@ class MyAppRunnable(pixie.Runnable[MyArgs]):
   "evaluators": ["Factuality"],
   "entries": [
     {
-      "entry_kwargs": { "user_id": "u1", "message": "What is my balance?" },
+      "input_data": { "user_id": "u1", "message": "What is my balance?" },
       "test_case": {
         "eval_input": [
-          { "purpose": "input", "name": "db_result", "data": { "balance": 120.5 } }
+          {
+            "purpose": "input",
+            "name": "db_result",
+            "data": { "balance": 120.5 }
+          }
         ],
         "expectation": "Your current balance is $120.50.",
         "description": "basic balance query"
@@ -111,27 +115,27 @@ Use `pixie trace` + `pixie format` to capture real traces and turn them into dat
 
 ### Evaluators
 
-| Evaluator               | Task                                                |
-| ----------------------- | --------------------------------------------------- |
-| `Factuality`            | LLM-as-judge factual accuracy                      |
-| `ClosedQA`              | LLM-as-judge Q&A with reference answer             |
-| `AnswerCorrectness`     | RAGAS combined factual + semantic similarity        |
-| `EmbeddingSimilarity`   | Cosine similarity between output and expectation    |
-| `ExactMatch`            | Deterministic exact string match                   |
-| `create_llm_evaluator`  | Custom prompt-based LLM-as-judge                   |
+| Evaluator              | Task                                             |
+| ---------------------- | ------------------------------------------------ |
+| `Factuality`           | LLM-as-judge factual accuracy                    |
+| `ClosedQA`             | LLM-as-judge Q&A with reference answer           |
+| `AnswerCorrectness`    | RAGAS combined factual + semantic similarity     |
+| `EmbeddingSimilarity`  | Cosine similarity between output and expectation |
+| `ExactMatch`           | Deterministic exact string match                 |
+| `create_llm_evaluator` | Custom prompt-based LLM-as-judge                 |
 
 Full evaluator list: [docs/pixie/index.md](docs/pixie/index.md)
 
 ### CLI reference
 
-| Command                                          | Description                                      |
-| ------------------------------------------------ | ------------------------------------------------ |
-| `pixie test [path]`                              | Run eval tests; open scorecard in browser        |
-| `pixie trace --runnable R --input I --output O`  | Run a Runnable, capture trace to JSONL           |
-| `pixie format --input I --output O`              | Convert a trace JSONL to a dataset entry JSON    |
-| `pixie analyze <test_run_id>`                    | LLM analysis of a completed test run             |
-| `pixie init [root]`                              | Scaffold the `pixie_qa/` working directory       |
-| `pixie start [root]`                             | Launch the web UI at `http://localhost:7118`     |
+| Command                                         | Description                                   |
+| ----------------------------------------------- | --------------------------------------------- |
+| `pixie test [path]`                             | Run eval tests; open scorecard in browser     |
+| `pixie trace --runnable R --input I --output O` | Run a Runnable, capture trace to JSONL        |
+| `pixie format --input I --output O`             | Convert a trace JSONL to a dataset entry JSON |
+| `pixie analyze <test_run_id>`                   | LLM analysis of a completed test run          |
+| `pixie init [root]`                             | Scaffold the `pixie_qa/` working directory    |
+| `pixie start [root]`                            | Launch the web UI at `http://localhost:7118`  |
 
 ## Web UI
 
@@ -149,11 +153,11 @@ Changes to artifacts are pushed to the browser in real time via SSE.
 
 Pixie reads configuration from environment variables and a local `.env` file. Existing process env vars take priority over `.env` values.
 
-| Variable                   | Description                                       |
-| -------------------------- | ------------------------------------------------- |
-| `PIXIE_ROOT`               | Root directory for all generated artefacts        |
-| `PIXIE_RATE_LIMIT_ENABLED` | `true` to enable evaluator throttling             |
-| `PIXIE_RATE_LIMIT_RPS`     | Max requests per second for LLM-as-judge calls    |
-| `PIXIE_RATE_LIMIT_RPM`     | Max requests per minute                           |
-| `PIXIE_RATE_LIMIT_TPS`     | Max tokens per second                             |
-| `PIXIE_RATE_LIMIT_TPM`     | Max tokens per minute                             |
+| Variable                   | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| `PIXIE_ROOT`               | Root directory for all generated artefacts     |
+| `PIXIE_RATE_LIMIT_ENABLED` | `true` to enable evaluator throttling          |
+| `PIXIE_RATE_LIMIT_RPS`     | Max requests per second for LLM-as-judge calls |
+| `PIXIE_RATE_LIMIT_RPM`     | Max requests per minute                        |
+| `PIXIE_RATE_LIMIT_TPS`     | Max tokens per second                          |
+| `PIXIE_RATE_LIMIT_TPM`     | Max tokens per minute                          |

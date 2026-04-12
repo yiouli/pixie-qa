@@ -3,7 +3,7 @@
     "runnable": "tests/manual/mock_evaluators.py:sample_qa_runnable",
     "entries": [
         {
-            "entry_kwargs": {
+            "input_data": {
                 "question": "What is the capital of France?"
             },
             "eval_input": [
@@ -20,7 +20,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "question": "What is 2 + 2?"
             },
             "eval_input": [
@@ -37,7 +37,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "question": "Who wrote Hamlet?"
             },
             "eval_input": [
@@ -54,7 +54,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "question": "What is the boiling point of water?"
             },
             "eval_input": [
@@ -70,7 +70,7 @@
             ]
         },
         {
-            "entry_kwargs": {
+            "input_data": {
                 "question": "What is the largest planet?"
             },
             "eval_input": [

@@ -9,7 +9,7 @@ Conceptually there are actually two different type of objects:
 
 So for things that's current using evaluable outside the evaluate(), evaluator part of code, it should actually use the TestCase class because there's no real output (from running app) involved.
 
-Also The captured... fields should be removed, they are only used by dataset runner, and they are really the `eval_output`. The `evaluators` field should also be removed - that's not part of testcase/evaluable itself, rather it's configured separated by dataset.
+Also The captured... fields should be removed, they are only used by evaluation harness, and they are really the `eval_output`. The `evaluators` field should also be removed - that's not part of testcase/evaluable itself, rather it's configured separated by dataset.
 
 The expected_output field name is confusing because it could be a desription of what's expected in the actual eval_output, it should be renamed to `expectation`
 

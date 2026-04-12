@@ -18,7 +18,7 @@ export interface NamedDataItem {
 }
 
 export interface DatasetItem {
-  entry_kwargs?: Record<string, unknown>;
+  input_data?: Record<string, unknown>;
   description?: string;
   eval_input?: NamedDataItem[];
   expectation?: unknown;

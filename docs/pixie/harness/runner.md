@@ -1,6 +1,6 @@
 Module pixie.harness.runner
 ===========================
-Dataset-driven test runner for ``pixie test`` and ``pixie trace``.
+Evaluation harness for ``pixie test`` and ``pixie trace``.
 
 Handles all non-CLI harness logic:
 
@@ -168,13 +168,13 @@ Classes
           "evaluators": ["Factuality"],
           "entries": [
             {
-              "entry_kwargs": {"user_message": "Hello"},
+              "input_data": {"user_message": "Hello"},
               "description": "Greeting",
               "eval_input": [{"name": "profile", "value": {}}],
               "expectation": "Friendly greeting"
             },
             {
-              "entry_kwargs": {"user_message": "Help"},
+              "input_data": {"user_message": "Help"},
               "description": "Help request",
               "eval_input": [{"name": "profile", "value": {}}],
               "expectation": "Offer assistance",
@@ -223,7 +223,7 @@ Classes
     
     Each entry represents one test scenario.  Inherits all :class:`TestCase`
     fields (``eval_input``, ``expectation``, ``eval_metadata``,
-    ``description``) and adds ``entry_kwargs`` and ``evaluators``.
+    ``description``) and adds ``input_data`` and ``evaluators``.
     
     The evaluator list is resolved during :class:`Dataset` validation —
     if the entry omits ``evaluators``, it inherits the dataset-level
@@ -233,7 +233,7 @@ Classes
     Example JSON::
     
         {
-          "entry_kwargs": {"user_message": "What are your hours?"},
+          "input_data": {"user_message": "What are your hours?"},
           "description": "Business hours question",
           "eval_input": [{"name": "profile", "value": {"tier": "gold"}}],
           "expectation": "Should mention Mon-Fri 9am-5pm",
@@ -241,7 +241,7 @@ Classes
         }
     
     Attributes:
-        entry_kwargs: Arguments fed to the runnable's ``run(args)`` method
+        input_data: Arguments fed to the runnable's ``run(args)`` method
             as a Pydantic model.  Keys must match the model's field names.
         evaluators: Evaluator names for this entry.  Omit to inherit
             dataset-level defaults.  Use ``"..."`` to include defaults
@@ -261,10 +261,10 @@ Classes
 
     ### Class variables
 
-    `entry_kwargs: dict[str, JsonValue]`
+    `evaluators: list[str]`
     :
 
-    `evaluators: list[str]`
+    `input_data: dict[str, JsonValue]`
     :
 
     `model_config`
