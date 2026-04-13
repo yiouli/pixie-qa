@@ -29,6 +29,11 @@
   --color-error-bg: #fffbeb;
   --color-error-border: #fde68a;
 
+  --color-info: #2563eb;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #93c5fd;
+  --color-info-text: #1e40af;
+
   /* Surface & background */
   --color-bg: #faf9f7;
   --color-bg-inset: #f5f5f4;

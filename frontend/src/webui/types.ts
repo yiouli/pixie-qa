@@ -91,4 +91,5 @@ export interface ResultMeta {
 export interface TestResultData {
   meta: ResultMeta;
   datasets: DatasetResultData[];
+  actionPlan?: string;
 }

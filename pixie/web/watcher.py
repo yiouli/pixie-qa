@@ -37,9 +37,9 @@ def _is_artifact(path: Path, root: Path) -> bool:
     # scorecards/*.html
     if len(parts) == 2 and parts[0] == "scorecards" and path.suffix == ".html":
         return True
-    # results/<test_id>/result.json or results/<test_id>/dataset-*.md
-    if len(parts) == 3 and parts[0] == "results":
-        return path.suffix in (".json", ".md")
+    # Any file inside results/<test_id>/... with a relevant suffix
+    if len(parts) >= 3 and parts[0] == "results":
+        return path.suffix in (".json", ".jsonl", ".md")
     return False
 
 

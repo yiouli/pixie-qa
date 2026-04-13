@@ -356,7 +356,16 @@ def create_app(
             datasets.append(ds_data)
             ds_idx += 1
 
-        return JSONResponse({"meta": meta, "datasets": datasets})
+        result_payload: dict[str, object] = {"meta": meta, "datasets": datasets}
+
+        # Action plan
+        action_plan_path = result_dir / "action-plan.md"
+        if action_plan_path.exists():
+            result_payload["actionPlan"] = action_plan_path.read_text(
+                encoding="utf-8"
+            )
+
+        return JSONResponse(result_payload)
 
     async def api_shutdown(request: Request) -> JSONResponse:
         """Initiate a graceful server shutdown."""

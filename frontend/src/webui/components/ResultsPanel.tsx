@@ -85,7 +85,7 @@ export function ResultsPanel({
 // ── Test Overview ──────────────────────────────────────────────────
 
 function ResultView({ data }: { data: TestResultData }) {
-  const { meta, datasets } = data;
+  const { meta, datasets, actionPlan } = data;
 
   const startedAt = formatLocalTime(meta.startedAt);
   const endedAt = formatLocalTime(meta.endedAt);
@@ -141,6 +141,20 @@ function ResultView({ data }: { data: TestResultData }) {
         </table>
       </div>
 
+      {/* Action Plan */}
+      {actionPlan && (
+        <div className="mb-5 rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <div className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
+            <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
+              Action Plan
+            </h3>
+            <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
+              {actionPlan}
+            </MarkdownRenderer>
+          </div>
+        </div>
+      )}
+
       {datasets.map((ds) => (
         <DatasetSection key={ds.dataset} dataset={ds} />
       ))}
@@ -171,12 +185,11 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
         <span
           className={`text-xl font-bold ${allPass ? "text-pass" : "text-fail"}`}
         >
-          {passed}/{total} passed
+          {passed} passed
           {pendingCount > 0 && (
-            <span className="ml-2 text-sm font-normal text-ink-muted">
-              | {pendingCount} pending
-            </span>
-          )}
+            <span className="text-info"> ({pendingCount} pending)</span>
+          )}{" "}
+          of {total} total
         </span>
       </div>
 
@@ -342,11 +355,23 @@ function EvalPill({ evaluation }: { evaluation: AnyEvaluationData }) {
       <div className="relative" ref={ref}>
         <button
           type="button"
-          className={`inline-block cursor-pointer rounded-pill border border-border px-3 py-1 text-xs font-bold tracking-wide text-ink-muted transition-colors hover:border-border-strong hover:bg-border/12`}
+          className={`inline-flex items-center gap-1 cursor-pointer rounded-pill border border-info-border px-3 py-1 text-xs font-bold tracking-wide text-info transition-colors hover:border-info hover:bg-info/12 focus-visible:border-info focus-visible:bg-info/12`}
           onClick={() => setOpen(!open)}
           aria-expanded={open}
         >
-          \u23f3 {evaluation.evaluator}
+          <svg
+            className="h-3 w-3"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="8" cy="8" r="6.25" />
+            <path d="M8 4.5V8l2.5 1.5" />
+          </svg>
+          {evaluation.evaluator}
         </button>
         {open && (
           <div className="absolute left-0 top-full z-20 mt-1.5 w-72 rounded-md border border-border bg-surface p-4 shadow-lg animate-fade-in">
@@ -354,7 +379,7 @@ function EvalPill({ evaluation }: { evaluation: AnyEvaluationData }) {
               <span className="font-mono text-xs font-bold text-ink">
                 {evaluation.evaluator}
               </span>
-              <span className="rounded-pill bg-border px-2 py-0.5 text-xs font-bold text-ink-muted">
+              <span className="rounded-pill bg-info px-2 py-0.5 text-xs font-bold text-white">
                 Pending
               </span>
             </div>
@@ -531,13 +556,25 @@ function EvalDetailModal({
               return (
                 <div
                   key={i}
-                  className="mb-3 rounded-sm border-l-3 border-border px-3 py-2"
+                  className="mb-3 rounded-sm border-l-3 border-info px-3 py-2"
                 >
                   <div className="mb-1 flex items-center gap-3">
-                    <span className="inline-block rounded-pill border border-border bg-border px-3 py-1 text-xs font-bold tracking-wide text-ink-muted">
-                      \u23f3 {ev.evaluator}
+                    <span className="inline-flex items-center gap-1 rounded-pill border border-info-border bg-info-bg px-3 py-1 text-xs font-bold tracking-wide text-info">
+                      <svg
+                        className="h-3 w-3"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="8" cy="8" r="6.25" />
+                        <path d="M8 4.5V8l2.5 1.5" />
+                      </svg>
+                      {ev.evaluator}
                     </span>
-                    <span className="rounded-pill bg-border px-2 py-0.5 text-xs font-bold text-ink-muted">
+                    <span className="rounded-pill bg-info px-2 py-0.5 text-xs font-bold text-white">
                       Pending
                     </span>
                   </div>

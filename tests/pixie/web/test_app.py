@@ -338,6 +338,49 @@ class TestAppEndpoints:
         data = resp.json()
         assert data["datasets"][0]["analysis"] == "## Analysis\nAll good."
 
+    def test_result_endpoint_includes_action_plan(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        (result_dir / "action-plan.md").write_text(
+            "# Action Plan\n\n## Priority 1\nFix the thing."
+        )
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert data["actionPlan"] == "# Action Plan\n\n## Priority 1\nFix the thing."
+
+    def test_result_endpoint_omits_action_plan_when_absent(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert "actionPlan" not in data
+
     def test_result_endpoint_missing_id(self, client: TestClient) -> None:
         resp = client.get("/api/result")
         assert resp.status_code == 400
