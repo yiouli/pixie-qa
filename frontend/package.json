@@ -11,12 +11,16 @@
     "dependencies": {
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
-        "react18-json-view": "^0.2.10"
+        "react-markdown": "^10.1.0",
+        "react-syntax-highlighter": "^16.1.1",
+        "react18-json-view": "^0.2.10",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.2.2",
         "@types/react": "^19.1.0",
         "@types/react-dom": "^19.1.0",
+        "@types/react-syntax-highlighter": "^15.5.13",
         "@vitejs/plugin-react": "^4.4.1",
         "tailwindcss": "^4.2.2",
         "typescript": "~5.7.0",

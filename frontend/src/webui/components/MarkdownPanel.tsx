@@ -1,7 +1,7 @@
 /** Markdown viewer panel */
 
 import { useState, useEffect } from "react";
-import { markdownToHtml } from "../markdown";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface MarkdownPanelProps {
   path: string;
@@ -10,7 +10,7 @@ interface MarkdownPanelProps {
 }
 
 export function MarkdownPanel({ path, version }: MarkdownPanelProps) {
-  const [html, setHtml] = useState<string>("");
+  const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,11 +18,11 @@ export function MarkdownPanel({ path, version }: MarkdownPanelProps) {
     fetch(`/api/file?path=${encodeURIComponent(path)}`)
       .then((r) => r.json())
       .then((d: { content: string }) => {
-        setHtml(markdownToHtml(d.content));
+        setContent(d.content);
         setLoading(false);
       })
       .catch(() => {
-        setHtml("<p>Failed to load file.</p>");
+        setContent("Failed to load file.");
         setLoading(false);
       });
   }, [path, version]);
@@ -36,9 +36,6 @@ export function MarkdownPanel({ path, version }: MarkdownPanelProps) {
   }
 
   return (
-    <article
-      className="markdown-content"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <MarkdownRenderer className="markdown-content">{content}</MarkdownRenderer>
   );
 }

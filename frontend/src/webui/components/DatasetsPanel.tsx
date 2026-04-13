@@ -325,6 +325,7 @@ function EntryDetailModal({
               <JsonView
                 src={item.input_data}
                 collapseStringMode="address"
+                collapsed={3}
                 collapseStringsAfterLength={120}
                 theme="default"
                 enableClipboard={false}
@@ -339,6 +340,7 @@ function EntryDetailModal({
               <JsonView
                 src={item.eval_input}
                 collapseStringMode="address"
+                collapsed={3}
                 collapseStringsAfterLength={120}
                 theme="default"
                 enableClipboard={false}
@@ -358,6 +360,7 @@ function EntryDetailModal({
                 <JsonView
                   src={item.expectation}
                   collapseStringMode="address"
+                  collapsed={3}
                   collapseStringsAfterLength={120}
                   theme="default"
                   enableClipboard={false}
@@ -373,6 +376,7 @@ function EntryDetailModal({
               <JsonView
                 src={item.eval_metadata}
                 collapseStringMode="address"
+                collapsed={3}
                 collapseStringsAfterLength={120}
                 theme="default"
                 enableClipboard={false}

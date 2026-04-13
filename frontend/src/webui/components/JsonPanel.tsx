@@ -5,7 +5,7 @@ import JsonView from "react18-json-view";
 import "react18-json-view/src/style.css";
 
 /** How many nesting levels to show expanded by default. */
-const DEFAULT_COLLAPSE_DEPTH = 2;
+const DEFAULT_COLLAPSE_DEPTH = 3;
 /** Truncate long strings in the viewer after this many characters. */
 const STRING_COLLAPSE_LENGTH = 120;
 

@@ -5,6 +5,8 @@ import type { ArtifactEntry } from "../types";
 import { SidebarList } from "./SidebarList";
 import { MarkdownPanel } from "./MarkdownPanel";
 import { JsonPanel } from "./JsonPanel";
+import { JsonlPanel } from "./JsonlPanel";
+import { CodeBlock } from "./CodeBlock";
 
 interface ProjectContextPanelProps {
   files: ArtifactEntry[];
@@ -22,7 +24,40 @@ function isJson(path: string): boolean {
   return path.endsWith(".json");
 }
 
-/** Code/text viewer for non-markdown, non-JSON files (JSONL, Python) */
+/** Return true if the file should be rendered as a JSONL stack */
+function isJsonl(path: string): boolean {
+  return path.endsWith(".jsonl");
+}
+
+/** Infer language from file extension */
+function inferLanguage(path: string): string | undefined {
+  const ext = path.split(".").pop()?.toLowerCase();
+  if (!ext) return undefined;
+  const map: Record<string, string> = {
+    py: "python",
+    js: "javascript",
+    ts: "typescript",
+    tsx: "tsx",
+    jsx: "jsx",
+    sh: "bash",
+    yml: "yaml",
+    yaml: "yaml",
+    toml: "toml",
+    css: "css",
+    html: "html",
+    sql: "sql",
+    rs: "rust",
+    go: "go",
+    rb: "ruby",
+    java: "java",
+    c: "c",
+    cpp: "cpp",
+    h: "c",
+  };
+  return map[ext];
+}
+
+/** Code/text viewer with syntax highlighting */
 function CodePanel({ path, version }: { path: string; version?: number }) {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -49,14 +84,16 @@ function CodePanel({ path, version }: { path: string; version?: number }) {
     );
   }
 
+  const language = inferLanguage(path);
+
   return (
     <div className="mx-auto max-w-200 px-10 py-8 pb-16">
       <h1 className="mb-4 border-b-2 border-border pb-2 font-mono text-lg font-bold">
         {path}
       </h1>
-      <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word rounded-md bg-bg-inset px-5 py-4 font-mono text-sm leading-relaxed text-ink">
+      <CodeBlock language={language} showLineNumbers>
         {content}
-      </pre>
+      </CodeBlock>
     </div>
   );
 }
@@ -106,16 +143,12 @@ export function ProjectContextPanel({
               path={selected}
               version={mdVersions[selected] ?? 0}
             />
+          ) : isJsonl(selected) ? (
+            <JsonlPanel path={selected} version={mdVersions[selected] ?? 0} />
           ) : isJson(selected) ? (
-            <JsonPanel
-              path={selected}
-              version={mdVersions[selected] ?? 0}
-            />
+            <JsonPanel path={selected} version={mdVersions[selected] ?? 0} />
           ) : (
-            <CodePanel
-              path={selected}
-              version={mdVersions[selected] ?? 0}
-            />
+            <CodePanel path={selected} version={mdVersions[selected] ?? 0} />
           )
         ) : (
           <div className="flex h-full items-center justify-center font-sans text-base text-ink-muted">

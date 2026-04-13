@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { isPendingEvaluation } from "../types";
 import { SidebarList } from "./SidebarList";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ResultsPanelProps {
   results: ArtifactEntry[];
@@ -185,12 +186,9 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
           Analysis &amp; Recommendations
         </h3>
         {dataset.analysis ? (
-          <div
-            className="analysis-content text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{
-              __html: simpleMarkdown(dataset.analysis),
-            }}
-          />
+          <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
+            {dataset.analysis}
+          </MarkdownRenderer>
         ) : (
           <div className="text-sm text-ink-muted">No analysis yet.</div>
         )}
@@ -238,6 +236,33 @@ function scoreTier(score: number): ScoreTier {
   if (score < SCORE_FAIL_THRESHOLD) return "fail";
   if (score <= SCORE_WARN_THRESHOLD) return "warn";
   return "pass";
+}
+
+/** Sort evaluations by ascending score, with pending evaluations at the end. */
+function sortEvaluationsForDisplay(
+  evaluations: AnyEvaluationData[],
+): AnyEvaluationData[] {
+  return evaluations
+    .map((evaluation, index) => ({ evaluation, index }))
+    .sort((a, b) => {
+      const aPending = isPendingEvaluation(a.evaluation);
+      const bPending = isPendingEvaluation(b.evaluation);
+
+      if (aPending && bPending) return a.index - b.index;
+      if (aPending) return 1;
+      if (bPending) return -1;
+
+      if (
+        !isPendingEvaluation(a.evaluation) &&
+        !isPendingEvaluation(b.evaluation)
+      ) {
+        const scoreDiff = a.evaluation.score - b.evaluation.score;
+        if (scoreDiff !== 0) return scoreDiff;
+      }
+
+      return a.index - b.index;
+    })
+    .map(({ evaluation }) => evaluation);
 }
 
 /** Tailwind classes for pill border/text by tier. */
@@ -381,6 +406,7 @@ function EvalPill({ evaluation }: { evaluation: AnyEvaluationData }) {
 
 function EntryRow({ entry }: { entry: EntryResultData }) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const sortedEvaluations = sortEvaluationsForDisplay(entry.evaluations);
   const completed = entry.evaluations.filter(
     (ev): ev is EvaluationResultData => !isPendingEvaluation(ev),
   );
@@ -416,7 +442,7 @@ function EntryRow({ entry }: { entry: EntryResultData }) {
         </td>
         <td className="border-b border-border px-3 py-2.5 align-middle">
           <div className="flex flex-wrap gap-1.5">
-            {entry.evaluations.map((ev, i) => (
+            {sortedEvaluations.map((ev, i) => (
               <EvalPill key={i} evaluation={ev} />
             ))}
           </div>
@@ -549,12 +575,9 @@ function EvalDetailModal({
             <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
               Entry Analysis
             </h3>
-            <div
-              className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4 text-sm leading-relaxed analysis-content"
-              dangerouslySetInnerHTML={{
-                __html: simpleMarkdown(entry.analysis),
-              }}
-            />
+            <MarkdownRenderer className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4 text-sm leading-relaxed analysis-content">
+              {entry.analysis}
+            </MarkdownRenderer>
           </div>
         )}
       </div>
@@ -598,17 +621,4 @@ function summarizeInput(input: unknown): string {
 function formatValue(value: unknown): string {
   if (typeof value === "string") return value;
   return JSON.stringify(value, null, 2);
-}
-
-function simpleMarkdown(md: string): string {
-  // Minimal markdown to HTML: headers, bold, paragraphs, lists
-  return md
-    .replace(/^### (.+)$/gm, "<h4>$1</h4>")
-    .replace(/^## (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^# (.+)$/gm, "<h2>$1</h2>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/^- (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>\n?)+/g, "<ul>$&</ul>")
-    .replace(/\n\n/g, "<br/><br/>")
-    .replace(/\n/g, "<br/>");
 }
