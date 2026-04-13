@@ -1,6 +1,11 @@
 # Step 4: Build the Dataset
 
-**Why this step**: The dataset ties everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1b) — into concrete test scenarios. At test time, `pixie test` calls the runnable with `input_data`, the wrap registry is populated with `eval_input`, and evaluators score the resulting captured outputs.
+**Why this step**: The dataset ties everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1c) — into concrete test scenarios. At test time, `pixie test` calls the runnable with `input_data`, the wrap registry is populated with `eval_input`, and evaluators score the resulting captured outputs.
+
+**Before building entries**, review:
+
+- **`pixie_qa/00-project-analysis.md`** — the capability inventory and failure modes. Dataset entries should cover entries from the capability inventory and include entries targeting the listed failure modes.
+- **`pixie_qa/02-eval-criteria.md`** — use cases and their capability coverage. Ensure every listed use case has representative entries.
 
 ---
 
@@ -12,13 +17,7 @@ Before building the dataset, understand what these terms mean:
 
 - **`eval_input`** = a list of `{"name": ..., "value": ...}` objects corresponding to `wrap(purpose="input")` calls in the app. At test time, these are injected automatically by the wrap registry; `wrap(purpose="input")` calls in the app return the registry value instead of calling the real external dependency.
 
-  **CRITICAL**: `eval_input` must have **at least one item** (enforced by `min_length=1` validation). If the app has no `wrap(purpose="input")` calls, you must still include at least one `eval_input` item — use the primary entry-point argument as a synthetic input:
-
-  ```json
-  "eval_input": [
-    { "name": "user_input", "value": "What are your business hours?" }
-  ]
-  ```
+  `eval_input` **may be an empty list** when the app has no `wrap(purpose="input")` calls. The runner automatically prepends `input_data` to `eval_input` when building the `Evaluable`, so evaluators always have at least one input item.
 
   Each item is a `NamedData` object with `name` (str) and `value` (any JSON-serializable value).
 
@@ -90,6 +89,70 @@ Create diverse entries guided by the reference trace and use cases:
 
 **If the user specified a dataset or data source in the prompt** (e.g., a JSON file with research questions or conversation scenarios), read that file, adapt each entry to the `input_data` / `eval_input` shape, and incorporate them into the dataset. Do NOT ignore specified data.
 
+### Entry quality checklist
+
+Before finalizing the dataset, verify each entry against these criteria:
+
+**Input realism**:
+
+- Does `eval_input` contain world data that respects the synthesization boundary (see Step 2c)? User-authored parameters are fine; world data should be sourced, not fabricated from scratch.
+- Does the world data in `eval_input` match the scale and complexity described in `00-project-analysis.md` "Realistic input characteristics"? If the analysis says inputs are typically 5KB–500KB, a 200-char input is not realistic.
+- Is the answer to the prompt non-trivial to extract from the input? A test where the answer is in a clearly labeled HTML tag or the first sentence doesn't test extraction quality.
+
+**Scenario diversity**:
+
+- Do entries cover meaningfully different difficulty levels — not just different topics with the same difficulty?
+- Does at least one entry target a failure mode from `00-project-analysis.md` that you expect might actually cause degraded scores (not a guaranteed pass)?
+- Do entries use different structural patterns in the input data (not just different content poured into the same template)?
+
+**Difficulty calibration**:
+
+- Is there at least one entry you are genuinely uncertain whether the app will handle correctly? If you're confident every entry will pass trivially, the dataset is too easy.
+- Consider including one intentionally challenging entry that probes a known limitation — a "stress test" entry. If it passes, great. If it fails, the eval has demonstrated it can catch real issues.
+
+### Anti-patterns for dataset entries
+
+- **Fabricating world data**: Hand-authoring content the app would normally fetch from external sources (e.g., writing HTML for a web scraper, writing "retrieved documents" for a RAG system). This removes real-world complexity.
+- **Uniform difficulty**: All entries have the same complexity level. Real workloads have a distribution — some easy, some hard, some edge cases.
+- **Obvious answers**: Every entry has the target information cleanly labeled and unambiguous. Real data often has the answer scattered, partially present, duplicated with variations, or embedded in noise.
+- **Round-trip authorship**: You wrote both the input and the expected output, so you know exactly what's there. A real evaluator tests whether the app can find information it hasn't seen before.
+- **Only happy paths**: No entry tests error conditions, edge cases, or known failure modes.
+- **Building all entries from the same toy trace with minor rephrasing**: If all entries have similar `input_data` and similar `eval_input` data, the dataset tests nothing meaningful. Each entry should represent a meaningfully different scenario.
+- **Reusing the project's own test fixtures as eval data**: The project's `tests/`, `fixtures/`, `examples/`, and `mock_server/` directories contain data designed for unit/integration tests — small, clean, deterministic, and trivially easy. Using them as `eval_input` data guarantees 100% pass rates and zero quality signal. Even if these fixtures look convenient, they bypass every real-world difficulty that makes the app's job hard. **Source real-world data instead** — fetch real pages, use public datasets, or generate data that matches the scale/complexity from `00-project-analysis.md`.
+- **Using a project's mock/fake implementations**: If the project includes mock LLMs, fake HTTP servers, or stub services in its test infrastructure, do NOT use them in your eval pipeline. Your eval must exercise the app's real code paths with real (or realistically complex) data — not the project's own test shortcuts.
+
+## 4c′. Verify coverage against project analysis
+
+Before writing the final dataset JSON, open `pixie_qa/00-project-analysis.md` and check:
+
+1. **Realistic input characteristics**: For each characteristic listed (size, complexity, noise, variety), confirm at least one dataset entry reflects it. If the analysis says "messy inputs with navigation and ads," at least one entry's `eval_input` should contain messy data with navigation and ads.
+2. **Failure modes**: For each failure mode listed, confirm at least one dataset entry is designed to exercise it. The entry doesn't need to guarantee failure — but it should create conditions where that failure mode _could_ manifest. If a failure mode cannot be exercised with the current instrumentation setup, add a note in `02-eval-criteria.md` explaining why.
+3. **Capability coverage**: Confirm the dataset covers the capabilities listed in the eval criteria (Step 1c). Each covered capability should have at least one entry.
+
+If any gap is found, add entries to close it before proceeding to 4d.
+
+## 4c″. STOP CHECK — Dataset realism audit (hard gate)
+
+**This is a hard gate.** Do NOT proceed to 4d until every check passes. If any check fails, revise the dataset and re-audit.
+
+Before writing the final dataset JSON, perform this self-audit:
+
+1. **Cross-reference `00-project-analysis.md`**: Open the "Realistic input characteristics" section. For each characteristic (size, complexity, noise, structure), verify at least one dataset entry's `eval_input` reflects it. If the analysis says "5KB–500KB HTML pages with navigation chrome and ads" and your largest `eval_input` is 1KB of clean HTML, **the dataset is not realistic — add harder entries.**
+
+2. **Count distinct sources**: How many unique `eval_input` data sources are in the dataset? If more than 50% of entries share the same `eval_input` content (even with different prompts), the dataset lacks diversity. Prompt variations on the same input test the LLM's interpretation, not the app's data processing.
+
+3. **Difficulty distribution (mandatory threshold)**: For each entry, label it as "routine" (confident it will pass), "moderate" (likely passes but non-trivial), or "challenging" (genuinely uncertain or targeting a known failure mode).
+   - **Maximum 60% "routine" entries.** If you have 5 entries, at most 3 can be routine.
+   - **At least one "challenging" entry** that targets a failure mode from `00-project-analysis.md` where you are genuinely uncertain about the outcome. If every entry is a guaranteed pass, the dataset cannot distinguish a good app from a broken one.
+
+4. **Capability coverage (mandatory threshold)**: Count how many capabilities from `00-project-analysis.md` are exercised by at least one dataset entry.
+   - **Must cover ≥50% of listed capabilities.** If the analysis lists 6 capabilities, the dataset must exercise at least 3.
+   - If coverage is below threshold, add entries targeting the uncovered capabilities.
+
+5. **Project fixture contamination check**: Scan every `eval_input` value. Did any data originate from the project's `tests/`, `fixtures/`, `examples/`, or mock server directories? If yes, **replace it with real-world data.** These fixtures are designed for development convenience, not evaluation realism.
+
+6. **Tautology check**: Will the test pipeline produce meaningful scores, or is it a closed loop? If you authored both the input data and the evaluator logic such that passing is guaranteed by construction (e.g., regex extractor + exact-match evaluator on hand-authored HTML), **the pipeline is tautological** and cannot catch real issues. The app's real LLM should produce the output, and evaluators should assess quality dimensions that can genuinely fail.
+
 ## 4d. Build the dataset JSON file
 
 Create the dataset at `pixie_qa/datasets/<name>.json`:
@@ -97,7 +160,7 @@ Create the dataset at `pixie_qa/datasets/<name>.json`:
 ```json
 {
   "name": "qa-golden-set",
-  "runnable": "pixie_qa/scripts/run_app.py:AppRunnable",
+  "runnable": "pixie_qa/run_app.py:AppRunnable",
   "evaluators": ["Factuality", "pixie_qa/evaluators.py:ConciseVoiceStyle"],
   "entries": [
     {
@@ -156,7 +219,7 @@ Create the dataset at `pixie_qa/datasets/<name>.json`:
 ```
 entry:
   ├── input_data    (required) — args for Runnable.run()
-  ├── eval_input      (required) — list of {"name": ..., "value": ...} objects
+  ├── eval_input      (optional) — list of {"name": ..., "value": ...} objects (default: [])
   ├── description     (required) — human-readable label for the test case
   ├── expectation     (optional) — reference for comparison-based evaluators
   ├── eval_metadata   (optional) — extra per-entry data for custom evaluators
@@ -165,13 +228,13 @@ entry:
 
 **Top-level fields:**
 
-- **`runnable`** (required): `filepath:ClassName` reference to the `Runnable` class from Step 2 (e.g., `"pixie_qa/scripts/run_app.py:AppRunnable"`). Path is relative to the project root.
+- **`runnable`** (required): `filepath:ClassName` reference to the `Runnable` class from Step 2 (e.g., `"pixie_qa/run_app.py:AppRunnable"`). Path is relative to the project root.
 - **`evaluators`** (dataset-level, optional): Default evaluator names applied to every entry — the evaluators for criteria that apply to ALL use cases.
 
 **Per-entry fields (all top-level on each entry):**
 
 - **`input_data`** (required): Keys match the Pydantic model fields for `Runnable.run(args: T)`. These are the app's input data.
-- **`eval_input`** (required): List of `{"name": ..., "value": ...}` objects. Names match `wrap(purpose="input")` names in the app.
+- **`eval_input`** (optional, default `[]`): List of `{"name": ..., "value": ...}` objects. Names match `wrap(purpose="input")` names in the app. The runner automatically prepends `input_data` when building the `Evaluable`.
 - **`description`** (required): Use case one-liner from `pixie_qa/02-eval-criteria.md`.
 - **`expectation`** (optional): Case-specific expectation text for evaluators that need a reference.
 - **`eval_metadata`** (optional): Extra per-entry data for custom evaluators — e.g., expected tool names, boolean flags, thresholds. Accessible in evaluators as `evaluable.eval_metadata`.
@@ -214,12 +277,14 @@ The `eval_input` values are `{"name": ..., "value": ...}` objects. Use the refer
 
 ### Crafting diverse eval scenarios
 
-Cover different aspects of each use case:
+Cover different aspects of each use case. Refer to **`pixie_qa/00-project-analysis.md`** for the capability inventory and failure modes:
 
+- **Cover each capability** — at least one entry per capability from the capability inventory, not just the primary capability
+- **Target failure modes** — include entries that exercise the hard problems / failure modes listed in the project analysis (e.g., malformed input, edge cases, complex scenarios)
 - Different user phrasings of the same request
 - Edge cases (ambiguous input, missing information, error conditions)
 - Entries that stress-test specific eval criteria
-- At least one entry per use case from Step 1b
+- At least one entry per use case from Step 1c
 
 ---
 

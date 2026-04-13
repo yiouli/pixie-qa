@@ -12,11 +12,18 @@ npx skills update || echo "(skill update skipped)"
 echo ""
 echo "=== Installing / upgrading pixie-qa[all] ==="
 if [ -f uv.lock ]; then
-  uv add "pixie-qa[all]>=0.6.0,<0.7.0" --upgrade
+  # uv add does universal resolution across all Python versions in
+  # requires-python.  If the host project supports a Python version
+  # where pixie-qa is unavailable (e.g. 3.10), uv add fails.
+  # Fall back to uv pip install which only targets the active interpreter.
+  uv add "pixie-qa[all]>=0.7.0,<0.8.0" --upgrade 2>&1 || {
+    echo "(uv add failed — falling back to uv pip install)"
+    uv pip install "pixie-qa[all]>=0.7.0,<0.8.0" 2>&1 || true
+  }
 elif [ -f poetry.lock ]; then
-  poetry add "pixie-qa[all]>=0.6.0,<0.7.0"
+  poetry add "pixie-qa[all]>=0.7.0,<0.8.0"
 else
-  pip install --upgrade "pixie-qa[all]>=0.6.0,<0.7.0"
+  pip install --upgrade "pixie-qa[all]>=0.7.0,<0.8.0"
 fi
 
 echo ""

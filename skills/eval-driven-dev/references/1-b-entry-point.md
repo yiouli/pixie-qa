@@ -1,6 +1,6 @@
-# Step 1a: Entry Point & Execution Flow
+# Step 1b: Entry Point & Execution Flow
 
-Identify how the application starts and how a real user invokes it.
+Identify how the application starts and how a real user invokes it. Use the **capability inventory** from `pixie_qa/00-project-analysis.md` to prioritize — focus on the entry point(s) that exercise the most valuable and frequently-used capabilities, not just the first one you find.
 
 ---
 

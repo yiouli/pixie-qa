@@ -1,6 +1,6 @@
-# Step 5: Run Evaluation-Based Tests
+# Step 5: Run `pixie test` and Fix Mechanical Issues
 
-**Why this step**: Run `pixie test` and fix any dataset quality issues — `WrapRegistryMissError`, `WrapTypeMismatchError`, bad `eval_input` data, or import failures — until real evaluator scores are produced for every entry.
+**Why this step**: Run `pixie test` and fix mechanical issues in your QA components — dataset format problems, runnable implementation bugs, and custom evaluator errors — until every entry produces real scores. This step is NOT about assessing result quality or fixing the application itself.
 
 ---
 
@@ -18,7 +18,7 @@ uv run pixie test -v
 
 `pixie test` automatically loads the `.env` file before running tests.
 
-The evaluation harness now:
+The evaluation harness:
 
 1. Resolves the `Runnable` class from the dataset's `runnable` field
 2. Calls `Runnable.create()` to construct an instance, then `setup()` once
@@ -35,9 +35,11 @@ The evaluation harness now:
 
 Because entries run concurrently, the Runnable's `run()` method must be concurrency-safe. If you see `sqlite3.OperationalError`, `"database is locked"`, or similar errors, add a `Semaphore(1)` to your Runnable (see the concurrency section in Step 2 reference).
 
-## 5b. Fix dataset/harness issues
+## 5b. Fix mechanical issues only
 
-**Data validation errors** (registry miss, type mismatch, deserialization failure) are reported per-entry with clear messages pointing to the specific `wrap` name and dataset field. This step is about fixing **what you did wrong in Step 4** — bad data, wrong format, missing fields — not about evaluating the app's quality.
+This step is strictly about fixing what you built in previous steps — the dataset, the runnable, and any custom evaluators. You are fixing mechanical problems that prevent the pipeline from running, NOT assessing or improving the application's output quality.
+
+**What counts as a mechanical issue** (fix these):
 
 | Error                                 | Cause                                                                                                                   | Fix                                                                                          |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -46,22 +48,37 @@ Because entries run concurrently, the Runnable's `run()` method must be concurre
 | Runnable resolution failure           | `runnable` path or class name is wrong, or the class doesn't implement the `Runnable` protocol                          | Fix `filepath:ClassName` in the dataset; ensure the class has `create()` and `run()` methods |
 | Import error                          | Module path or syntax error in runnable/evaluator                                                                       | Fix the referenced file                                                                      |
 | `ModuleNotFoundError: pixie_qa`       | `pixie_qa/` directory missing `__init__.py`                                                                             | Run `pixie init` to recreate it                                                              |
-| `TypeError: ... is not callable`      | Evaluator name points to a non-callable attribute                                                                       | Evaluators must be functions, classes, or callable instances                                 |
+| `TypeError: ... is not callable`      | Evaluator name points to a non-callable attribute                                                                       | Evaluators must be functions, classes, or callable instances                                  |
 | `sqlite3.OperationalError`            | Concurrent `run()` calls sharing a SQLite connection                                                                    | Add `asyncio.Semaphore(1)` to the Runnable (see Step 2 concurrency section)                  |
+| Custom evaluator crashes              | Bug in your custom evaluator implementation                                                                             | Fix the evaluator code                                                                       |
 
-Iterate — fix errors, re-run, fix the next error — until `pixie test` runs cleanly with real evaluator scores for all entries.
+**What is NOT a mechanical issue** (do NOT fix these here):
 
-### When to stop iterating on evaluator results
+- Application produces wrong/low-quality output → that's the application's behavior, analyzed in Step 6
+- Evaluator scores are low → that's a quality signal, analyzed in Step 6
+- LLM calls fail inside the application → report in Step 6, do not mock or work around
+- Evaluator scores fluctuate between runs → normal LLM non-determinism, not a bug
 
-Once the dataset runs without errors and produces real scores, assess the results:
-
-- **Custom function evaluators** (deterministic checks): If they fail, the issue is in the dataset data or evaluator logic. Fix and re-run — these should converge quickly.
-- **LLM-as-judge evaluators** (e.g., `Factuality`, `ClosedQA`, custom LLM evaluators): These have inherent variance across runs. If scores fluctuate between runs without code changes, the issue is evaluator prompt quality, not app behavior. **Do not spend more than one revision cycle on LLM evaluator prompts.** Run 2–3 times, assess variance, and accept the results if they are directionally correct.
-- **General rule**: Stop iterating when all custom function evaluators pass consistently and LLM evaluators produce reasonable scores (most passing). Perfect LLM evaluator scores are not the goal — the goal is a working QA pipeline that catches real regressions.
+Iterate — fix errors, re-run, fix the next error — until `pixie test` runs to completion with real evaluator scores for all entries.
 
 ## Output
 
-- Test results at `{PIXIE_ROOT}/results/<test_id>/`
+After `pixie test` completes successfully, results are stored in the per-entry directory structure:
+
+```
+{PIXIE_ROOT}/results/<test_id>/
+  meta.json                           # test run metadata
+  dataset-{idx}/
+    metadata.json                     # dataset name, path, runnable
+    entry-{idx}/
+      config.json                     # evaluators, description, expectation
+      eval-input.jsonl                # input data fed to evaluators
+      eval-output.jsonl               # output data captured from app
+      evaluations.jsonl               # evaluation results (scored + pending)
+      trace.jsonl                     # LLM call traces (if captured)
+```
+
+The `<test_id>` is printed in console output. You will reference this directory in Step 6.
 
 ---
 

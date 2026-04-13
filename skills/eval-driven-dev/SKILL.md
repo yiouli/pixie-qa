@@ -8,8 +8,8 @@ description: >
 license: MIT
 compatibility: Python 3.11+
 metadata:
-  version: 0.6.1
-  pixie-qa-version: ">=0.6.1,<0.7.0"
+  version: 0.7.0
+  pixie-qa-version: ">=0.7.0,<0.8.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -20,6 +20,8 @@ You're building an **automated QA pipeline** that tests a Python application end
 **What you're testing is the app itself** — its request handling, context assembly (how it gathers data, builds prompts, manages conversation state), routing, and response formatting. The app uses an LLM, which makes outputs non-deterministic — that's why you use evaluators (LLM-as-judge, similarity scores) instead of `assertEqual` — but the thing under test is the app's code, not the LLM.
 
 During evaluation, the app's own code runs for real — routing, prompt assembly, LLM calls, response formatting — nothing is mocked or stubbed. But the data the app reads from external sources (databases, caches, third-party APIs, voice streams) is replaced with test-specified values via instrumentations. This means each test case controls exactly what data the app sees, while still exercising the full application code path.
+
+**Rule: The app's LLM calls must go to a real LLM.** Do not replace, mock, stub, or intercept the LLM with a fake implementation (e.g., `RunnableLambda`, `DummyLLM`, regex-based extractor, hardcoded responses). The LLM is the core value-generating component — replacing it makes the eval tautological (you control both inputs and outputs, so scores are meaningless). If the project's test suite contains LLM mocking patterns (`DummyLLM`, `mock_llm_model`, `RunnableLambda` fakes, `model_instance` pointed at a fake), those are for the project's own unit tests — do NOT adopt them for the eval Runnable.
 
 **The deliverable is a working `pixie test` run with real scores** — not a plan, not just instrumentation, not just a dataset.
 
@@ -45,6 +47,17 @@ Follow Steps 1–6 straight through without stopping. Do not ask the user for co
 - **Create artifacts immediately.** After reading code for a sub-step, write the output file for that sub-step before moving on. Don't accumulate understanding across multiple sub-steps before writing anything.
 - **Verify, then move on.** Each step has a checkpoint. Verify it, then proceed to the next step. Don't plan future steps while verifying the current one.
 
+**When to stop and ask for help:**
+
+Some blockers cannot and should not be worked around. When you encounter any of the following, **stop immediately and ask the user for help** — do not attempt workarounds:
+
+- **Missing LLM API key**: The app needs an API key (OpenAI, Anthropic, etc.) to make real LLM calls, but no key is configured in the environment. Do NOT work around this by mocking, faking, or replacing the LLM — that defeats the purpose of the eval. Ask the user to provide the API key.
+- **Missing credentials for required services**: The app requires authentication for services that cannot be mocked (e.g., the LLM provider itself). Ask the user to provide credentials.
+- **App import failures that indicate a broken project**: If the app's core modules cannot be imported due to missing system dependencies or incompatible Python versions (not just missing pip packages you can install), ask the user to fix the project setup.
+- **Ambiguous entry point**: If the app has multiple equally plausible entry points and the project analysis doesn't clarify which one matters most, ask the user which to target.
+
+Blockers you SHOULD resolve yourself (do not ask): missing Python packages (install them), missing `pixie` package (install it), port conflicts (pick a different port), file permission issues (fix them), test data that needs sourcing (source it).
+
 **Run Steps 1–6 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
 
 ---
@@ -59,33 +72,61 @@ Follow Steps 1–6 straight through without stopping. Do not ask the user for co
 
 If the prompt specifies any of the above, they take priority. Read and incorporate them before proceeding.
 
-Step 1 has two sub-steps. Each reads its own reference file and produces its own output file. **Complete each sub-step fully before starting the next.**
+Step 1 has three sub-steps. Each reads its own reference file and produces its own output file. **Complete each sub-step fully before starting the next.**
 
-#### Sub-step 1a: Entry point & execution flow
+#### Sub-step 1a: Project analysis
 
-> **Reference**: Read `references/1-a-entry-point.md` now.
+> **Reference**: Read `references/1-a-project-analysis.md` now.
 
-Read the source code to understand how the app starts and how a real user invokes it. Write your findings to `pixie_qa/01-entry-point.md` before moving on.
+Before looking at code structure or entry points, understand what this software does in the real world — its purpose, its users, the complexity of real inputs, and where it fails. This understanding drives every downstream decision: which entry points matter most, what eval criteria to define, what trace inputs to use, and what dataset entries to create. Write your findings to `pixie_qa/00-project-analysis.md` before moving on. **Note**: the project may contain `tests/`, `fixtures/`, `examples/`, mock servers, and documentation — these are the project's own development infrastructure, NOT data sources for your eval pipeline. Ignore them when sourcing trace inputs and dataset content.
+
+> **Checkpoint**: `pixie_qa/00-project-analysis.md` written with what the software does, target users, capability inventory (at least 3 capabilities if the project has them), realistic input characteristics, and hard problems / failure modes (at least 2).
+
+#### Sub-step 1b: Entry point & execution flow
+
+> **Reference**: Read `references/1-b-entry-point.md` now.
+
+Read the source code to understand how the app starts and how a real user invokes it. Use the **capability inventory** from `pixie_qa/00-project-analysis.md` to prioritize entry points — focus on the entry point(s) that exercise the most valuable capabilities, not just the first one found. Write your findings to `pixie_qa/01-entry-point.md` before moving on.
 
 > **Checkpoint**: `pixie_qa/01-entry-point.md` written with entry point, execution flow, user-facing interface, and env requirements.
 
-#### Sub-step 1b: Eval criteria
+#### Sub-step 1c: Eval criteria
 
-> **Reference**: Read `references/1-b-eval-criteria.md` now.
+> **Reference**: Read `references/1-c-eval-criteria.md` now.
 
-Define the app's use cases and eval criteria. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
+Define the app's use cases and eval criteria. Derive use cases from the **capability inventory** in `pixie_qa/00-project-analysis.md`. Derive eval criteria from the **hard problems / failure modes** — not generic quality dimensions. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
 
 > **Checkpoint**: `pixie_qa/02-eval-criteria.md` written with use cases, eval criteria, and their applicability scope. Do NOT read Step 2 instructions yet.
 
 ---
 
-### Step 2: Instrument with `wrap` and capture a reference trace
+### Step 2: Instrument, run application, and capture a reference trace
 
-> **Reference**: Read `references/2-wrap-and-trace.md` now for the detailed sub-steps.
+Step 2 has three sub-steps. Each reads its own reference file. **Complete each sub-step before starting the next.**
 
-**Goal**: Make the app testable by controlling its external data and capturing its outputs. `wrap()` calls at data boundaries let the test harness inject controlled inputs (replacing real DB/API calls) and capture outputs for scoring. The `Runnable` class provides the lifecycle interface that `pixie test` uses to set up, invoke, and tear down the app. A reference trace captured with `pixie trace` proves the instrumentation works and provides the exact data shapes needed for dataset creation in Step 4.
+#### Sub-step 2a: Instrument with `wrap`
 
-> **Checkpoint**: `pixie_qa/scripts/run_app.py` written and verified. `pixie_qa/reference-trace.jsonl` exists and all expected data points appear when formatted with `pixie format`. Do NOT read Step 3 instructions yet.
+> **Reference**: Read `references/2a-instrumentation.md` now.
+
+Add `wrap()` calls at the app's data boundaries so the eval harness can inject controlled inputs and capture outputs. This makes the app testable without changing its logic.
+
+> **Checkpoint**: `wrap()` calls added at all data boundaries. Every eval criterion from `pixie_qa/02-eval-criteria.md` has a corresponding data point.
+
+#### Sub-step 2b: Implement the Runnable
+
+> **Reference**: Read `references/2b-implement-runnable.md` now.
+
+Write a Runnable class that lets the eval harness invoke the app exactly as a real user would. The Runnable should be simple — it just wires up the app's real entry point to the harness interface. If it's getting complicated, something is wrong.
+
+> **Checkpoint**: `pixie_qa/run_app.py` written. The Runnable calls the app's real entry point with real LLM configuration — no mocking, no faking, no component replacement.
+
+#### Sub-step 2c: Capture and verify a reference trace
+
+> **Reference**: Read `references/2c-capture-and-verify-trace.md` now.
+
+Run the app through the Runnable and capture a trace. The trace proves instrumentation and the Runnable are working correctly, and provides the data shapes needed for dataset creation in Step 4.
+
+> **Checkpoint**: `pixie_qa/reference-trace.jsonl` exists. All expected `wrap` entries and `llm_span` entries appear. `pixie format` shows all data points needed for evaluation. Do NOT read Step 3 instructions yet.
 
 ---
 
@@ -93,7 +134,7 @@ Define the app's use cases and eval criteria. Use cases drive dataset creation (
 
 > **Reference**: Read `references/3-define-evaluators.md` now for the detailed sub-steps.
 
-**Goal**: Turn the qualitative eval criteria from Step 1b into concrete, runnable scoring functions. Each criterion maps to either a built-in evaluator or a custom one you implement. The evaluator mapping artifact bridges between criteria and the dataset, ensuring every quality dimension has a scorer.
+**Goal**: Turn the qualitative eval criteria from Step 1c into concrete, runnable scoring functions. Each criterion maps to either a built-in evaluator, an **agent evaluator** (the default for any semantic or qualitative criterion), or a manual custom function (only for mechanical/deterministic checks like regex or field existence). The evaluator mapping artifact bridges between criteria and the dataset, ensuring every quality dimension has a scorer. Select evaluators that measure the **hard problems** identified in `pixie_qa/00-project-analysis.md` — not just generic quality dimensions.
 
 > **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` written with criterion-to-evaluator mapping. Do NOT read Step 4 instructions yet.
 
@@ -103,22 +144,24 @@ Define the app's use cases and eval criteria. Use cases drive dataset creation (
 
 > **Reference**: Read `references/4-build-dataset.md` now for the detailed sub-steps.
 
-**Goal**: Create the test scenarios that tie everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1b). Each dataset entry defines what to send to the app, what data the app should see from external services, and how to score the result. Use the reference trace from Step 2 as the source of truth for data shapes and field names.
+**Goal**: Create the test scenarios that tie everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1c). Each dataset entry defines what to send to the app, what data the app should see from external services, and how to score the result. Use the reference trace from Step 2 as the source of truth for data shapes and field names. Cover entries from the **capability inventory** in `pixie_qa/00-project-analysis.md` and include entries targeting the **failure modes** identified there. **Do NOT use the project's own test fixtures, mock servers, or example data as dataset `eval_input` content** — source real-world data instead.
 
-> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries covering all use cases. Do NOT read Step 5 instructions yet.
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries covering all use cases. **Dataset realism audit passed** — entries use real-world data at representative scale, no project test fixtures contamination, and at least one entry targets a failure mode with uncertain outcome. Do NOT read Step 5 instructions yet.
 
 ---
 
-### Step 5: Run evaluation-based tests
+### Step 5: Run `pixie test` and fix mechanical issues
 
 > **Reference**: Read `references/5-run-tests.md` now for the detailed sub-steps.
 
-**Goal**: Execute the full pipeline end-to-end and verify it produces real scores. This step is about getting the machinery running — fixing any setup or data issues until every dataset entry runs and gets scored.
+**Goal**: Execute the full pipeline end-to-end and get it running without mechanical errors. This step is strictly about fixing setup and data issues in the pixie QA components (dataset, runnable, custom evaluators) — NOT about fixing the application itself or evaluating result quality. Once `pixie test` completes without errors and produces real evaluator scores for every entry, this step is done.
 
-> **Checkpoint**: Tests run and produce real scores. Analysis generated.
+> **Checkpoint**: `pixie test` runs to completion. Every dataset entry has evaluator scores (real `EvaluationResult` or `PendingEvaluation`). No setup errors, no import failures, no data validation errors.
 >
-> If the test errors out, that's a setup bug — fix and re-run. But if tests produce real pass/fail scores, that's the deliverable.
->
+> If the test errors out, that's a mechanical bug in your QA components — fix and re-run. But once tests produce scores, move on. Do NOT assess result quality here — that's Step 6.
+
+---
+
 > **STOP GATE — read this before doing anything else after tests produce scores:**
 >
 > - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 6.
@@ -126,9 +169,11 @@ Define the app's use cases and eval criteria. Use cases drive dataset creation (
 
 ---
 
-### Step 6: Investigate and iterate
+### Step 6: Analyze outcomes
 
-> **Reference**: Read `references/6-investigate.md` now — it has the stop/continue decision, analysis review, root-cause patterns, and investigation procedures. **Follow its instructions before doing any investigation work.**
+> **Reference**: Read `references/6-analyze-outcomes.md` now — it has the complete three-phase analysis process, writing guidelines, and output format requirements.
+
+**Goal**: Analyze `pixie test` results in a structured, data-driven process to produce actionable insights on test case quality, evaluator quality, and application quality. This step completes pending evaluations, writes per-entry and per-dataset analysis, and produces a prioritized action plan. Every statement must be backed by concrete data from the evaluation run — no speculation, no hand-waving.
 
 ---
 

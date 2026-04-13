@@ -16,7 +16,7 @@ The dataset is a JSON object with these top-level fields:
 ```json
 {
   "name": "customer-faq",
-  "runnable": "pixie_qa/scripts/run_app.py:AppRunnable",
+  "runnable": "pixie_qa/run_app.py:AppRunnable",
   "evaluators": ["Factuality"],
   "entries": [
     {
@@ -37,7 +37,7 @@ All fields are top-level on each entry (flat structure — no nesting):
 ```
 entry:
   ├── input_data    (required) — args for Runnable.run()
-  ├── eval_input      (required) — list of {"name": ..., "value": ...} objects
+  ├── eval_input      (optional) — list of {"name": ..., "value": ...} objects (default: [])
   ├── description     (required) — human-readable label for the test case
   ├── expectation     (optional) — reference for comparison-based evaluators
   ├── eval_metadata   (optional) — extra per-entry data for custom evaluators
@@ -54,9 +54,10 @@ entry:
   Pydantic model. Keys must match the fields of the Pydantic model used in
   `run(args: T)`.
 - `entries[].description` (required): Human-readable label for the test case.
-- `entries[].eval_input` (required): List of `{"name": ..., "value": ...}`
+- `entries[].eval_input` (optional, default `[]`): List of `{"name": ..., "value": ...}`
   objects. Used to populate the wrap input registry — `wrap(purpose="input")`
-  calls in the app return registry values keyed by `name`.
+  calls in the app return registry values keyed by `name`. The runner
+  automatically prepends `input_data` when building the `Evaluable`.
 - `entries[].expectation` (optional): Concise expectation description
   for comparison-based evaluators. Should describe what a correct output looks
   like, **not** copy the verbatim output. Use `pixie format` on the trace to
@@ -84,13 +85,14 @@ In dataset JSON, evaluator names are resolved as follows:
 
 ## CLI Commands
 
-| Command                                     | Description                     |
-| ------------------------------------------- | ------------------------------- |
-| `pixie test [path] [-v] [--no-open]`        | Run eval tests on dataset files |
-| `pixie dataset create <name>`               | Create a new empty dataset      |
-| `pixie dataset list`                        | List all datasets               |
-| `pixie dataset save <name> [--select MODE]` | Save a span to a dataset        |
-| `pixie dataset validate [path]`             | Validate dataset JSON files     |
+| Command                                     | Description                           |
+| ------------------------------------------- | ------------------------------------- |
+| `pixie test [path] [-v] [--no-open]`        | Run eval tests on dataset files       |
+| `pixie dataset create <name>`               | Create a new empty dataset            |
+| `pixie dataset list`                        | List all datasets                     |
+| `pixie dataset save <name> [--select MODE]` | Save a span to a dataset              |
+| `pixie dataset validate [path]`             | Validate dataset JSON files           |
+| `pixie analyze <test_run_id>`               | Generate analysis and recommendations |
 
 ---
 
@@ -110,13 +112,13 @@ class Evaluable(TestCase):
 
 Data carrier for evaluators. Extends `TestCase` with actual output.
 
-- `eval_input` — `list[NamedData]` populated from the entry's `eval_input` field. **Must have at least one item** (`min_length=1`).
+- `eval_input` — `list[NamedData]` populated from the entry's `eval_input` field plus `input_data` (prepended by the runner). Always has at least one item.
 - `eval_output` — `list[NamedData]` containing ALL `wrap(purpose="output")` and `wrap(purpose="state")` values captured during the run. Each item has `.name` (str) and `.value` (JsonValue). Use `_get_output(evaluable, "name")` to look up by name.
 - `eval_metadata` — `dict[str, JsonValue] | None` from the entry's `eval_metadata` field
 - `expected_output` — expectation text from dataset (or `UNSET` if not provided)
 
 Attributes:
-eval_input: Named input data items (from dataset). Must be non-empty.
+eval_input: Named input data items (from dataset + input_data prepended by runner). Always non-empty.
 eval_output: Named output data items (from wrap calls during run).
 Each item has `.name` (str) and `.value` (JsonValue).
 Contains ALL `wrap(purpose="output")` and `wrap(purpose="state")` values.

@@ -21,11 +21,11 @@ processing pipeline. Its behavior depends on the active mode:
 
 ## CLI Commands
 
-| Command                                                                                   | Description                                                                                                                                 |
-| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pixie trace --runnable <filepath:ClassName> --input <kwargs.json> --output <file.jsonl>` | Run the Runnable once with kwargs from the JSON file and write a trace file. `--input` is a **file path** (not inline JSON).                |
+| Command                                                                                   | Description                                                                                                                                   |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pixie trace --runnable <filepath:ClassName> --input <kwargs.json> --output <file.jsonl>` | Run the Runnable once with kwargs from the JSON file and write a trace file. `--input` is a **file path** (not inline JSON).                  |
 | `pixie format <file.jsonl>`                                                               | Convert a trace file to a formatted dataset entry template. Shows `input_data`, `eval_input`, and `eval_output` (the real captured output). |
-| `pixie trace filter <file.jsonl> --purpose input`                                         | Print only wrap events matching the given purposes. Outputs one JSON line per matching event.                                               |
+| `pixie trace filter <file.jsonl> --purpose input`                                         | Print only wrap events matching the given purposes. Outputs one JSON line per matching event.                                                 |
 
 ---
 
@@ -72,7 +72,7 @@ class AppRunnable(pixie.Runnable[AppArgs]):
     _sem: asyncio.Semaphore
 
     @classmethod
-    def create(cls) -> AppRunnable:
+    def create(cls) -> "AppRunnable":
         inst = cls()
         inst._sem = asyncio.Semaphore(1)  # serialise DB access
         return inst
@@ -96,8 +96,7 @@ reference project modules (e.g., `from app import service`).
 **Example**:
 
 ```python
-# pixie_qa/scripts/run_app.py
-from __future__ import annotations
+# pixie_qa/run_app.py
 from pydantic import BaseModel
 import pixie
 
@@ -106,7 +105,7 @@ class AppArgs(BaseModel):
 
 class AppRunnable(pixie.Runnable[AppArgs]):
     @classmethod
-    def create(cls) -> AppRunnable:
+    def create(cls) -> "AppRunnable":
         return cls()
 
     async def run(self, args: AppArgs) -> None:
@@ -128,7 +127,7 @@ class AppRunnable(pixie.Runnable[AppArgs]):
     _client: httpx.AsyncClient
 
     @classmethod
-    def create(cls) -> AppRunnable:
+    def create(cls) -> "AppRunnable":
         return cls()
 
     async def setup(self) -> None:
