@@ -85,7 +85,6 @@ CLI Commands
 | Command | Description |
 | --- | --- |
 | ``pixie test [path] [-v] [--no-open]`` | Run eval tests on dataset files |
-| ``pixie analyze <test_run_id>`` | Generate analysis and recommendations |
 
 Sub-modules
 -----------

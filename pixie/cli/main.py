@@ -5,7 +5,6 @@ Usage::
     pixie test [path] [-v] [--no-open]
     pixie trace --runnable <ref> --input <file> --output <file>
     pixie format --input <file> --output <file>
-    pixie analyze <test_run_id>
     pixie init [root]
     pixie start [root]
 """
@@ -46,16 +45,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Do not automatically open the scorecard HTML in a browser",
-    )
-
-    # -- pixie analyze -------------------------------------------------------
-    analyze_parser = subparsers.add_parser(
-        "analyze",
-        help="Generate analysis and recommendations for a test run",
-    )
-    analyze_parser.add_argument(
-        "test_run_id",
-        help="Test run ID (e.g. 20260403-120000)",
     )
 
     # -- pixie init ----------------------------------------------------------
@@ -173,11 +162,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_open:
             test_argv.append("--no-open")
         return test_main(test_argv)
-
-    elif args.command == "analyze":
-        from pixie.cli.analyze_command import analyze
-
-        return analyze(test_id=args.test_run_id)
 
     elif args.command == "init":
         from pixie.cli.init_command import init_pixie_dir

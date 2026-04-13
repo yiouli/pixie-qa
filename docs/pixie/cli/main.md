@@ -7,7 +7,6 @@ Usage::
     pixie test [path] [-v] [--no-open]
     pixie trace --runnable <ref> --input <file> --output <file>
     pixie format --input <file> --output <file>
-    pixie analyze <test_run_id>
     pixie init [root]
     pixie start [root]
 

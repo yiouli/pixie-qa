@@ -104,8 +104,8 @@ Functions
     Raises:
         ValueError: If *reference* is not in ``filepath:name`` format.
 
-`async def run_dataset(dataset_path: str) ‑> tuple[str, list[pixie.harness.run_result.EntryResult]]`
-:   Run evaluations for a single dataset and return the dataset name and results.
+`async def run_dataset(dataset_path: str) ‑> tuple[str, str, list[pixie.harness.run_result.EntryResult]]`
+:   Run evaluations for a single dataset and return the dataset name, runnable, and results.
     
     **Concurrency model**: up to 4 entries run concurrently via
     ``asyncio.gather`` (gated by a semaphore).  Evaluators within
@@ -122,7 +122,7 @@ Functions
         dataset_path: Path to a dataset JSON file.
     
     Returns:
-        A tuple of (dataset_name, list of EntryResult objects).
+        A tuple of (dataset_name, runnable_reference, list of EntryResult objects).
     
     Raises:
         FileNotFoundError: If the dataset file does not exist.

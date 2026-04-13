@@ -133,7 +133,6 @@ Full evaluator list: [docs/pixie/index.md](docs/pixie/index.md)
 | `pixie test [path]`                             | Run eval tests; open scorecard in browser     |
 | `pixie trace --runnable R --input I --output O` | Run a Runnable, capture trace to JSONL        |
 | `pixie format --input I --output O`             | Convert a trace JSONL to a dataset entry JSON |
-| `pixie analyze <test_run_id>`                   | LLM analysis of a completed test run          |
 | `pixie init [root]`                             | Scaffold the `pixie_qa/` working directory    |
 | `pixie start [root]`                            | Launch the web UI at `http://localhost:7118`  |
 

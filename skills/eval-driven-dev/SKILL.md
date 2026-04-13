@@ -113,7 +113,7 @@ Define the app's use cases and eval criteria. Use cases drive dataset creation (
 
 > **Reference**: Read `references/5-run-tests.md` now for the detailed sub-steps.
 
-**Goal**: Execute the full pipeline end-to-end and verify it produces real scores. This step is about getting the machinery running — fixing any setup or data issues until every dataset entry runs and gets scored. Once tests produce results, run `pixie analyze` for pattern analysis.
+**Goal**: Execute the full pipeline end-to-end and verify it produces real scores. This step is about getting the machinery running — fixing any setup or data issues until every dataset entry runs and gets scored.
 
 > **Checkpoint**: Tests run and produce real scores. Analysis generated.
 >

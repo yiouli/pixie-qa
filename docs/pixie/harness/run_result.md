@@ -7,9 +7,22 @@ Provides:
 - :class:`EntryResult` — results for a single dataset entry.
 - :class:`DatasetResult` — results for a single dataset.
 - :class:`RunResult` — top-level result container.
-- :func:`save_test_result` — write result JSON to disk.
-- :func:`load_test_result` — read result JSON from disk.
+- :func:`save_test_result` — write result artifacts to disk.
+- :func:`load_test_result` — read result artifacts from disk.
 - :func:`generate_test_id` — create a timestamped test run ID.
+
+On-disk layout::
+
+    results/{test_id}/
+      meta.json
+      dataset-{idx}/
+        metadata.json
+        entry-{idx}/
+          config.json
+          eval-input.jsonl
+          eval-output.jsonl
+          evaluations.jsonl
+          trace.jsonl        (written by test_command)
 
 Functions
 ---------
@@ -21,10 +34,12 @@ Functions
         A string of the form ``YYYYMMDD-HHMMSS``.
 
 `def load_test_result(test_id: str) ‑> pixie.harness.run_result.RunResult`
-:   Load a test result from ``<pixie_root>/results/<test_id>/result.json``.
+:   Load a test result from the per-entry directory structure.
     
-    Also reads any ``dataset-<index>.md`` analysis files and attaches
-    their content to the corresponding :class:`DatasetResult`.
+    Reads ``meta.json``, per-dataset ``metadata.json``, and per-entry
+    ``config.json``/``eval-input.jsonl``/``eval-output.jsonl``/
+    ``evaluations.jsonl`` files.  Also reads ``analysis.md`` files
+    if present.
     
     Args:
         test_id: The test run identifier.
@@ -33,31 +48,41 @@ Functions
         The deserialized :class:`RunResult`.
     
     Raises:
-        FileNotFoundError: If the result file does not exist.
+        FileNotFoundError: If the result directory or meta.json does not exist.
 
 `def save_test_result(result: RunResult) ‑> str`
-:   Write test result JSON to ``<pixie_root>/results/<test_id>/result.json``.
+:   Write test result artifacts to the per-entry directory structure.
     
-    Also writes per-entry ``entry-{i}/entry.json`` files so that each
-    entry's data (input, output, evaluations, trace path) is accessible
-    individually — e.g. for agent-driven grading of pending evaluations.
+    Layout::
+    
+        results/{test_id}/
+          meta.json
+          dataset-{idx}/
+            metadata.json
+            entry-{idx}/
+              config.json
+              eval-input.jsonl
+              eval-output.jsonl
+              evaluations.jsonl
     
     Args:
         result: The test run result to persist.
     
     Returns:
-        The absolute path of the saved JSON file.
+        The absolute path of the result directory.
 
 Classes
 -------
 
-`DatasetResult(dataset: str, entries: list[EntryResult], analysis: str | None = None)`
+`DatasetResult(dataset: str, dataset_path: str, runnable: str, entries: list[EntryResult], analysis: str | None = None)`
 :   Results for a single dataset evaluation run.
     
     Attributes:
         dataset: Dataset name.
+        dataset_path: Original path of the dataset file.
+        runnable: Configured runnable reference string.
         entries: Per-entry results.
-        analysis: Markdown analysis content (None until ``pixie analyze`` runs).
+        analysis: Markdown analysis content (None until agent fills it in).
 
     ### Instance variables
 
@@ -67,18 +92,30 @@ Classes
     `dataset: str`
     :
 
+    `dataset_path: str`
+    :
+
     `entries: list[pixie.harness.run_result.EntryResult]`
     :
 
-`EntryResult(input: JsonValue, output: JsonValue, expected_output: JsonValue | None, description: str | None, evaluations: list[EvaluationResult | PendingEvaluation], trace_file: str | None = None, analysis: str | None = None)`
+    `runnable: str`
+    :
+
+`EntryResult(eval_input: list[NamedData], eval_output: list[NamedData], evaluations: list[EvaluationResult | PendingEvaluation], expectation: JsonValue | None, evaluators: list[str], eval_metadata: dict[str, JsonValue] | None, description: str | None, trace_file: str | None = None, analysis: str | None = None)`
 :   Results for a single dataset entry.
     
+    Canonical data is stored in ``eval_input`` and ``eval_output`` as
+    :class:`NamedData` lists.  The collapsed ``input`` / ``output`` /
+    ``expected_output`` properties exist for display compatibility.
+    
     Attributes:
-        input: The eval input value.
-        output: The eval output value.
-        expected_output: The expected output (None if not provided).
-        description: One-sentence scenario description (None if not provided).
+        eval_input: Named input data items fed to evaluators.
+        eval_output: Named output data items produced by the app.
         evaluations: Completed and pending evaluator results for this entry.
+        expectation: The expected output (None if not provided).
+        evaluators: Fully-expanded evaluator name list.
+        eval_metadata: Per-entry metadata dict (None if not provided).
+        description: One-sentence scenario description (None if not provided).
         trace_file: Relative path to per-entry JSONL trace file (None if not captured).
         analysis: Per-entry analysis markdown (None until agent fills it in).
 
@@ -90,17 +127,32 @@ Classes
     `description: str | None`
     :
 
+    `eval_input: list[pixie.eval.evaluable.NamedData]`
+    :
+
+    `eval_metadata: dict[str, JsonValue] | None`
+    :
+
+    `eval_output: list[pixie.eval.evaluable.NamedData]`
+    :
+
     `evaluations: list[pixie.harness.run_result.EvaluationResult | pixie.harness.run_result.PendingEvaluation]`
     :
 
-    `expected_output: JsonValue | None`
+    `evaluators: list[str]`
     :
+
+    `expectation: JsonValue | None`
+    :
+
+    `expected_output: JsonValue | None`
+    :   Alias for ``expectation`` for backward compatibility.
 
     `input: JsonValue`
-    :
+    :   Collapsed eval_input for display.
 
     `output: JsonValue`
-    :
+    :   Collapsed eval_output for display.
 
     `trace_file: str | None`
     :

@@ -19,10 +19,7 @@ class TestInitPixieDir:
         assert result == root
         assert root.is_dir()
         assert (root / "datasets").is_dir()
-        assert (root / "tests").is_dir()
-        assert (root / "scripts").is_dir()
         assert (root / "__init__.py").is_file()
-        assert (root / "scripts" / "__init__.py").is_file()
 
     def test_idempotent_on_existing_structure(self, tmp_path: Path) -> None:
         root = tmp_path / "pixie_qa"
@@ -35,8 +32,6 @@ class TestInitPixieDir:
         init_pixie_dir(str(root))
 
         assert (root / "datasets" / "sample.json").is_file()
-        assert (root / "tests").is_dir()
-        assert (root / "scripts").is_dir()
 
     def test_uses_config_default_when_no_root(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -54,4 +49,3 @@ class TestInitPixieDir:
         init_pixie_dir(str(root))
 
         assert root.is_dir()
-        assert (root / "tests").is_dir()

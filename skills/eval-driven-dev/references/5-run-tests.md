@@ -59,20 +59,9 @@ Once the dataset runs without errors and produces real scores, assess the result
 - **LLM-as-judge evaluators** (e.g., `Factuality`, `ClosedQA`, custom LLM evaluators): These have inherent variance across runs. If scores fluctuate between runs without code changes, the issue is evaluator prompt quality, not app behavior. **Do not spend more than one revision cycle on LLM evaluator prompts.** Run 2–3 times, assess variance, and accept the results if they are directionally correct.
 - **General rule**: Stop iterating when all custom function evaluators pass consistently and LLM evaluators produce reasonable scores (most passing). Perfect LLM evaluator scores are not the goal — the goal is a working QA pipeline that catches real regressions.
 
-## 5c. Run analysis
-
-Once tests complete without setup errors and produce real scores, run analysis:
-
-```bash
-uv run pixie analyze <test_id>
-```
-
-Where `<test_id>` is the test run identifier printed by `pixie test` (e.g., `20250615-120000`). This generates LLM-powered markdown analysis for each dataset, identifying patterns in successes and failures.
-
 ## Output
 
-- Test results at `{PIXIE_ROOT}/results/<test_id>/result.json`
-- Analysis files at `{PIXIE_ROOT}/results/<test_id>/dataset-<index>.md` (after `pixie analyze`)
+- Test results at `{PIXIE_ROOT}/results/<test_id>/`
 
 ---
 

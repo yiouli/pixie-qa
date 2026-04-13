@@ -84,14 +84,13 @@ In dataset JSON, evaluator names are resolved as follows:
 
 ## CLI Commands
 
-| Command                                     | Description                           |
-| ------------------------------------------- | ------------------------------------- |
-| `pixie test [path] [-v] [--no-open]`        | Run eval tests on dataset files       |
-| `pixie dataset create <name>`               | Create a new empty dataset            |
-| `pixie dataset list`                        | List all datasets                     |
-| `pixie dataset save <name> [--select MODE]` | Save a span to a dataset              |
-| `pixie dataset validate [path]`             | Validate dataset JSON files           |
-| `pixie analyze <test_run_id>`               | Generate analysis and recommendations |
+| Command                                     | Description                     |
+| ------------------------------------------- | ------------------------------- |
+| `pixie test [path] [-v] [--no-open]`        | Run eval tests on dataset files |
+| `pixie dataset create <name>`               | Create a new empty dataset      |
+| `pixie dataset list`                        | List all datasets               |
+| `pixie dataset save <name> [--select MODE]` | Save a span to a dataset        |
+| `pixie dataset validate [path]`             | Validate dataset JSON files     |
 
 ---
 

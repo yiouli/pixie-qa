@@ -407,7 +407,7 @@ class TestRunDatasetInputDataInjection:
         fpath = tmp_path / "inject-test.json"
         fpath.write_text(json.dumps(dataset))
 
-        name, results = await run_dataset(str(fpath))
+        name, _runnable, results = await run_dataset(str(fpath))
         assert name == "inject-test"
         assert len(results) == 1
         # The entry result's input should contain the injected input_data
@@ -442,7 +442,7 @@ class TestRunDatasetInputDataInjection:
         fpath = tmp_path / "prepend-test.json"
         fpath.write_text(json.dumps(dataset))
 
-        name, results = await run_dataset(str(fpath))
+        name, _runnable, results = await run_dataset(str(fpath))
         assert len(results) == 1
         # collapse_named_data with 2 items -> dict
         result_input = results[0].input
@@ -473,7 +473,7 @@ class TestRunDatasetInputDataInjection:
         fpath = tmp_path / "omit-test.json"
         fpath.write_text(json.dumps(dataset))
 
-        name, results = await run_dataset(str(fpath))
+        name, _runnable, results = await run_dataset(str(fpath))
         assert len(results) == 1
         # Still produces a result — input_data was injected by the runner
         assert results[0].input is not None

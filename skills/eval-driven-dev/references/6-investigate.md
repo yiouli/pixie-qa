@@ -144,11 +144,7 @@ Make the targeted change, update the dataset if needed, and re-run:
 uv run pixie test -v
 ```
 
-After fixes stabilize, run analysis again to see if the patterns have changed:
-
-```bash
-uv run pixie analyze <new_test_id>
-```
+After fixes stabilize, re-run `pixie test` to see if the patterns have changed.
 
 ---
 

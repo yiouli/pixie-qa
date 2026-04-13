@@ -41,7 +41,6 @@ from pixie.eval.evaluable import (
     NamedData,
     TestCase,
     _Unset,
-    collapse_named_data,
 )
 from pixie.eval.evaluation import evaluate
 from pixie.harness.run_result import EntryResult, EvaluationResult, PendingEvaluation
@@ -658,11 +657,13 @@ async def evaluate_entry(
     expectation = None if isinstance(exp_out, _Unset) or exp_out is None else exp_out
 
     return EntryResult(
-        input=collapse_named_data(evaluable.eval_input),
-        output=collapse_named_data(evaluable.eval_output),
-        expected_output=expectation,
-        description=evaluable.description,
+        eval_input=list(evaluable.eval_input),
+        eval_output=list(evaluable.eval_output),
         evaluations=eval_results,
+        expectation=expectation,
+        evaluators=evaluator_names,
+        eval_metadata=evaluable.eval_metadata,
+        description=evaluable.description,
     )
 
 
@@ -727,10 +728,8 @@ async def _run_entry(
             clear_eval_input()
             clear_eval_output()
             return EntryResult(
-                input=collapse_named_data(full_eval_input),
-                output=None,
-                expected_output=None,
-                description=entry.description,
+                eval_input=full_eval_input,
+                eval_output=[],
                 evaluations=[
                     EvaluationResult(
                         evaluator="WrapError",
@@ -738,6 +737,10 @@ async def _run_entry(
                         reasoning=str(exc),
                     )
                 ],
+                expectation=None,
+                evaluators=entry.evaluators,
+                eval_metadata=entry.eval_metadata,
+                description=entry.description,
             )
 
         captured = get_eval_output() or []
@@ -769,8 +772,8 @@ async def _run_entry(
     return await evaluate_entry(evaluable, entry.evaluators)
 
 
-async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
-    """Run evaluations for a single dataset and return the dataset name and results.
+async def run_dataset(dataset_path: str) -> tuple[str, str, list[EntryResult]]:
+    """Run evaluations for a single dataset and return the dataset name, runnable, and results.
 
     **Concurrency model**: up to 4 entries run concurrently via
     ``asyncio.gather`` (gated by a semaphore).  Evaluators within
@@ -787,7 +790,7 @@ async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
         dataset_path: Path to a dataset JSON file.
 
     Returns:
-        A tuple of (dataset_name, list of EntryResult objects).
+        A tuple of (dataset_name, runnable_reference, list of EntryResult objects).
 
     Raises:
         FileNotFoundError: If the dataset file does not exist.
@@ -823,4 +826,4 @@ async def run_dataset(dataset_path: str) -> tuple[str, list[EntryResult]]:
         ]
         entry_results = list(await asyncio.gather(*entry_tasks))
 
-    return dataset.name, entry_results
+    return dataset.name, dataset.runnable, entry_results

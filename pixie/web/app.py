@@ -22,6 +22,39 @@ from starlette.routing import Route
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# JSONL helpers for api_result
+# ---------------------------------------------------------------------------
+
+
+def _read_jsonl_file(path: Path) -> list[dict[str, object]]:
+    """Read a JSONL file and return a list of dicts.  Returns [] if missing."""
+    if not path.is_file():
+        return []
+    items: list[dict[str, object]] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                items.append(json.loads(line))
+    return items
+
+
+def _collapse_named_items(items: list[dict[str, object]]) -> object:
+    """Collapse a list of ``{"name": ..., "value": ...}`` dicts for display.
+
+    Empty → ``None``, single item → its value, multiple → ``{name: value}`` dict.
+    """
+    if not items:
+        return None
+    if len(items) == 1:
+        return items[0].get("value")
+    return {str(item.get("name", "")): item.get("value") for item in items}
+
+
+# ---------------------------------------------------------------------------
+
+
 def _resolve_artifact_root(root: str) -> Path:
     """Return the absolute path to the pixie artifact root directory."""
     return Path(root).resolve()
@@ -78,7 +111,7 @@ def _list_results(root: Path) -> list[dict[str, str]]:
     if not results_dir.exists():
         return dirs
     for p in sorted(results_dir.iterdir(), reverse=True):
-        if p.is_dir() and (p / "result.json").exists():
+        if p.is_dir() and (p / "meta.json").exists():
             dirs.append({"name": p.name, "path": f"results/{p.name}"})
     return dirs
 
@@ -236,7 +269,7 @@ def create_app(
         return JSONResponse({"ok": True})
 
     async def api_result(request: Request) -> Response:
-        """Serve a test result with analysis content merged in."""
+        """Serve a test result reconstructed from the per-entry file structure."""
         test_id = request.query_params.get("id", "")
         if not test_id:
             return JSONResponse({"error": "id parameter required"}, status_code=400)
@@ -244,21 +277,86 @@ def create_app(
         # Prevent path traversal
         safe_id = Path(test_id).name
         result_dir = artifact_root / "results" / safe_id
-        result_file = result_dir / "result.json"
+        meta_file = result_dir / "meta.json"
 
-        if not result_file.exists():
+        if not meta_file.exists():
             return JSONResponse({"error": "result not found"}, status_code=404)
 
-        content = result_file.read_text(encoding="utf-8")
-        data = json.loads(content)
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
 
-        # Merge analysis markdown into dataset objects
-        for i, ds in enumerate(data.get("datasets", [])):
-            analysis_path = result_dir / f"dataset-{i}.md"
-            if analysis_path.exists():
-                ds["analysis"] = analysis_path.read_text(encoding="utf-8")
+        # Reconstruct datasets from directory structure
+        datasets: list[dict[str, object]] = []
+        ds_idx = 0
+        while True:
+            ds_dir = result_dir / f"dataset-{ds_idx}"
+            if not ds_dir.is_dir():
+                break
 
-        return JSONResponse(data)
+            ds_meta_path = ds_dir / "metadata.json"
+            ds_meta = (
+                json.loads(ds_meta_path.read_text(encoding="utf-8"))
+                if ds_meta_path.exists()
+                else {}
+            )
+
+            entries: list[dict[str, object]] = []
+            entry_idx = 0
+            while True:
+                entry_dir = ds_dir / f"entry-{entry_idx}"
+                if not entry_dir.is_dir():
+                    break
+
+                # Read config
+                config_path = entry_dir / "config.json"
+                config = (
+                    json.loads(config_path.read_text(encoding="utf-8"))
+                    if config_path.exists()
+                    else {}
+                )
+
+                # Read eval-input (collapse for display)
+                eval_input = _read_jsonl_file(entry_dir / "eval-input.jsonl")
+                input_val = _collapse_named_items(eval_input)
+
+                # Read eval-output (collapse for display)
+                eval_output = _read_jsonl_file(entry_dir / "eval-output.jsonl")
+                output_val = _collapse_named_items(eval_output)
+
+                # Read evaluations
+                evaluations = _read_jsonl_file(entry_dir / "evaluations.jsonl")
+
+                entry: dict[str, object] = {
+                    "input": input_val,
+                    "output": output_val,
+                    "evaluations": evaluations,
+                }
+                if config.get("expectation") is not None:
+                    entry["expectedOutput"] = config["expectation"]
+                if config.get("description") is not None:
+                    entry["description"] = config["description"]
+
+                # Entry analysis
+                entry_analysis_path = entry_dir / "analysis.md"
+                if entry_analysis_path.exists():
+                    entry["analysis"] = entry_analysis_path.read_text(encoding="utf-8")
+
+                entries.append(entry)
+                entry_idx += 1
+
+            ds_data: dict[str, object] = {
+                "dataset": ds_meta.get("dataset", f"dataset-{ds_idx}"),
+                "entries": entries,
+            }
+
+            # Dataset analysis
+            ds_analysis_path = ds_dir / "analysis.md"
+            if ds_analysis_path.exists():
+                ds_data["analysis"] = ds_analysis_path.read_text(encoding="utf-8")
+
+            datasets.append(ds_data)
+            ds_idx += 1
+
+        return JSONResponse({"meta": meta, "datasets": datasets})
 
     async def api_shutdown(request: Request) -> JSONResponse:
         """Initiate a graceful server shutdown."""

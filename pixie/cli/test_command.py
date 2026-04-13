@@ -92,9 +92,11 @@ async def _run_datasets(
     except Exception:
         pass  # Best-effort registration.
 
-    for ds_path in dataset_files:
+    for ds_idx, ds_path in enumerate(dataset_files):
         try:
-            dataset_name, entry_results = await run_dataset(str(ds_path))
+            dataset_name, dataset_runnable, entry_results = await run_dataset(
+                str(ds_path)
+            )
         except ValueError as exc:
             print(str(exc))  # noqa: T201
             return 1
@@ -102,12 +104,17 @@ async def _run_datasets(
         # Write per-entry trace files and annotate EntryResults.
         annotated_entries = []
         for i, entry in enumerate(entry_results):
-            trace_rel = f"entry-{i}/trace.jsonl"
+            trace_rel = f"dataset-{ds_idx}/entry-{i}/trace.jsonl"
             trace_abs = os.path.join(result_dir, trace_rel)
             collector.write_entry_trace(i, trace_abs)
             annotated_entries.append(replace(entry, trace_file=trace_rel))
 
-        ds_result = DatasetResult(dataset=dataset_name, entries=annotated_entries)
+        ds_result = DatasetResult(
+            dataset=dataset_name,
+            dataset_path=str(ds_path),
+            runnable=dataset_runnable,
+            entries=annotated_entries,
+        )
         dataset_results.append(ds_result)
 
         # Print results

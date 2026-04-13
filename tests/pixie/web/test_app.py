@@ -107,7 +107,7 @@ class TestBuildManifest:
     def test_manifest_includes_results(self, tmp_path: Path) -> None:
         results_dir = tmp_path / "results" / "20260403-120000"
         results_dir.mkdir(parents=True)
-        (results_dir / "result.json").write_text("{}")
+        (results_dir / "meta.json").write_text('{"testId": "20260403-120000"}')
 
         manifest = _build_manifest(tmp_path)
         assert len(manifest["results"]) == 1  # type: ignore[arg-type]
@@ -117,7 +117,7 @@ class TestListResults:
     def test_returns_result_directories(self, tmp_path: Path) -> None:
         results_dir = tmp_path / "results" / "20260403-120000"
         results_dir.mkdir(parents=True)
-        (results_dir / "result.json").write_text("{}")
+        (results_dir / "meta.json").write_text('{"testId": "20260403-120000"}')
 
         result = _list_results(tmp_path)
         assert len(result) == 1
@@ -291,11 +291,21 @@ class TestAppEndpoints:
     ) -> None:
         result_dir = app_root / "results" / "20260403-120000"
         result_dir.mkdir(parents=True)
-        result_data = {
-            "meta": {"testId": "20260403-120000"},
-            "datasets": [{"dataset": "test", "entries": []}],
-        }
-        (result_dir / "result.json").write_text(json.dumps(result_data))
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        ds_dir = result_dir / "dataset-0"
+        ds_dir.mkdir()
+        (ds_dir / "metadata.json").write_text(
+            json.dumps({"dataset": "test", "datasetPath": "", "runnable": ""})
+        )
 
         resp = client.get("/api/result?id=20260403-120000")
         assert resp.status_code == 200
@@ -307,12 +317,22 @@ class TestAppEndpoints:
     ) -> None:
         result_dir = app_root / "results" / "20260403-120000"
         result_dir.mkdir(parents=True)
-        result_data = {
-            "meta": {"testId": "20260403-120000"},
-            "datasets": [{"dataset": "test", "entries": []}],
-        }
-        (result_dir / "result.json").write_text(json.dumps(result_data))
-        (result_dir / "dataset-0.md").write_text("## Analysis\nAll good.")
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        ds_dir = result_dir / "dataset-0"
+        ds_dir.mkdir()
+        (ds_dir / "metadata.json").write_text(
+            json.dumps({"dataset": "test", "datasetPath": "", "runnable": ""})
+        )
+        (ds_dir / "analysis.md").write_text("## Analysis\nAll good.")
 
         resp = client.get("/api/result?id=20260403-120000")
         data = resp.json()
@@ -335,7 +355,7 @@ class TestAppEndpoints:
     ) -> None:
         result_dir = app_root / "results" / "20260403-120000"
         result_dir.mkdir(parents=True)
-        (result_dir / "result.json").write_text("{}")
+        (result_dir / "meta.json").write_text('{"testId": "20260403-120000"}')
 
         resp = client.get("/api/manifest")
         data = resp.json()
@@ -466,16 +486,16 @@ class TestMainStopSubcommand:
 class TestMainAutoStart:
     """Commands other than init/start/stop auto-start the server."""
 
-    def test_analyze_auto_starts_server(self) -> None:
+    def test_test_auto_starts_server(self) -> None:
         with (
             patch("pixie.web.server.ensure_server") as mock_ensure,
-            patch("pixie.cli.analyze_command.analyze", return_value=0),
+            patch("pixie.cli.test_command.main", return_value=0),
             patch("pixie.config.get_config") as mock_config,
         ):
             mock_config.return_value.root = "pixie_qa"
             from pixie.cli.main import main
 
-            main(["analyze", "20260101-120000"])
+            main(["test", "some_dataset.json"])
             mock_ensure.assert_called_once_with("pixie_qa")
 
     def test_init_does_not_auto_start(self) -> None:
