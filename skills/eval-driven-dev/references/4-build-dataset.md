@@ -17,7 +17,7 @@ Before building the dataset, understand what these terms mean:
 
 - **`eval_input`** = a list of `{"name": ..., "value": ...}` objects corresponding to `wrap(purpose="input")` calls in the app. At test time, these are injected automatically by the wrap registry; `wrap(purpose="input")` calls in the app return the registry value instead of calling the real external dependency.
 
-  `eval_input` **may be an empty list** when the app has no `wrap(purpose="input")` calls. The runner automatically prepends `input_data` to `eval_input` when building the `Evaluable`, so evaluators always have at least one input item.
+  `eval_input` **may be an empty list** only when the app has no `wrap(purpose="input")` calls. **If the app HAS input wraps, every dataset entry MUST provide corresponding `eval_input` values with pre-captured content** — otherwise the app makes live external calls during eval, which is slow, flaky, and non-reproducible. See section 4b′ for how to capture this content.
 
   Each item is a `NamedData` object with `name` (str) and `value` (any JSON-serializable value).
 
@@ -78,6 +78,77 @@ The output looks like:
 - Look at `eval_output` to understand what the app produces — then write a **concise `expectation` description** that captures the key quality criteria for each scenario
 
 **Example**: if `eval_output.response` is `"Our business hours are Monday to Friday, 9 AM to 5 PM, and Saturday 10 AM to 2 PM."`, write `expectation` as `"Should mention weekday hours (Mon–Fri 9am–5pm) and Saturday hours"` — a short description a human or LLM evaluator can compare against.
+
+## 4b′. Capture external content for `eval_input` (mandatory)
+
+**CRITICAL**: If the app has ANY `wrap(purpose="input")` calls, every dataset entry MUST provide corresponding `eval_input` values with **pre-captured real content**. An empty `eval_input` list means the app will make live external calls (HTTP requests, database queries, API calls) during every eval run — this makes evals slow, flaky, and non-reproducible.
+
+### Why this matters
+
+During `pixie test`, each `wrap(purpose="input", name="X")` call in the app checks the wrap registry for a value named `"X"`:
+- **If found**: the registered value is returned directly (no external call)
+- **If not found**: the real external call executes (non-deterministic, slow, may fail)
+
+An `eval_input: []` entry means NOTHING is in the registry, so every external dependency runs live. This defeats the purpose of instrumentation.
+
+### How to capture content
+
+For each `wrap(purpose="input", name="X")` in the app, you must capture the real data once and embed it in the dataset. Choose one of these approaches:
+
+**Option A — Use the reference trace** (preferred):
+
+The reference trace from Step 2c already contains captured values for every `purpose="input"` wrap. Extract them:
+
+```bash
+# View the reference trace to find input wrap values
+grep '"purpose": "input"' pixie_qa/reference-trace.jsonl
+```
+
+Or use `pixie format` to see the data in dataset-entry format — the `eval_input` array in the output already has the captured values with correct names and shapes.
+
+**Option B — Fetch content directly** (for new entries with different inputs):
+
+When creating dataset entries with different input sources (e.g., different URLs, different queries), capture the content by running the dependency code once:
+
+```python
+# Example: for a web scraper, fetch the page content once
+import requests
+resp = requests.get("https://en.wikipedia.org/wiki/Python_(programming_language)")
+page_content = resp.text  # or parse to markdown, depending on what wrap captures
+```
+
+Then include the captured content in the entry's `eval_input`:
+
+```json
+{
+  "eval_input": [
+    {
+      "name": "fetch_result",
+      "value": "<captured page content here>"
+    }
+  ]
+}
+```
+
+**Option C — Run `pixie trace` with each input** (most thorough):
+
+For each set of `input_data`, run `pixie trace` to execute the app with real dependencies and capture all values:
+
+```bash
+uv run pixie trace --runnable pixie_qa/run_app.py:AppRunnable --input '{"prompt": "...", "source": "..."}'
+```
+
+Then extract the `purpose="input"` values from the resulting trace and use them as `eval_input`.
+
+### Content format
+
+The `eval_input` value must match the **exact type and format** that the `wrap()` call returns. Check the reference trace to see what format the app produces:
+
+- If the wrap captures a string (e.g., HTML content, markdown text), the value is a string
+- If the wrap captures a dict (e.g., database record), the value is a JSON object
+- If the wrap captures a list, the value is a JSON array
+
+**Do NOT skip this step.** Every `wrap(purpose="input")` in the app must have a corresponding `eval_input` entry in every dataset row. If you proceed with empty `eval_input` when the app has input wraps, evals will be unreliable.
 
 ## 4c. Generate dataset items
 
@@ -152,6 +223,8 @@ Before writing the final dataset JSON, perform this self-audit:
 5. **Project fixture contamination check**: Scan every `eval_input` value. Did any data originate from the project's `tests/`, `fixtures/`, `examples/`, or mock server directories? If yes, **replace it with real-world data.** These fixtures are designed for development convenience, not evaluation realism.
 
 6. **Tautology check**: Will the test pipeline produce meaningful scores, or is it a closed loop? If you authored both the input data and the evaluator logic such that passing is guaranteed by construction (e.g., regex extractor + exact-match evaluator on hand-authored HTML), **the pipeline is tautological** and cannot catch real issues. The app's real LLM should produce the output, and evaluators should assess quality dimensions that can genuinely fail.
+
+7. **`eval_input` completeness check**: For every `wrap(purpose="input", name="X")` call in the instrumented app code, verify that EVERY dataset entry provides a corresponding `eval_input` item with `"name": "X"` and a non-empty `"value"`. If any entry has `eval_input: []` while the app has input wraps, **the dataset is incomplete — captured content is missing.** Go back to step 4b′ and capture the content.
 
 ## 4d. Build the dataset JSON file
 

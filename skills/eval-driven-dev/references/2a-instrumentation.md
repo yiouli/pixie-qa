@@ -23,9 +23,9 @@ For each data point found, add a `wrap()` call in the application code:
 ```python
 import pixie
 
-# External dependency data — value form (result of a DB/API call)
-profile = pixie.wrap(db.get_profile(user_id), purpose="input", name="customer_profile",
-    description="Customer profile fetched from database")
+# External dependency data — function form (prevents the real call in eval mode)
+profile = pixie.wrap(db.get_profile, purpose="input", name="customer_profile",
+    description="Customer profile fetched from database")(user_id)
 
 # External dependency data — function form (prevents the real call in eval mode)
 history = pixie.wrap(redis.get_history, purpose="input", name="conversation_history",
@@ -51,7 +51,9 @@ profile = pixie.wrap(db.get_profile(user_id), purpose="input", name="customer_pr
 profile = pixie.wrap(db.get_profile, purpose="input", name="customer_profile")(user_id)
 ```
 
-Use function form when you want to prevent the external call in eval mode (expensive, has side-effects, or you want a clean injection point). In tracing mode, the function is called normally and the result is logged.
+**CRITICAL: Always use function form for `purpose="input"` wraps on external calls** — HTTP requests, database queries, API calls, file reads, cache lookups. Function form prevents the real call from executing in eval mode, so the dataset value is returned directly without making a live network request or database query. Value form still executes the real call first and only replaces the result afterwards — this wastes time, creates flaky tests, and makes evals dependent on external service availability.
+
+The only case where value form is acceptable for `purpose="input"` is when the wrapped value is a local computation (no I/O, no side effects) that is cheap to recompute.
 
 ### Placement rules
 
@@ -66,12 +68,11 @@ Use function form when you want to prevent the external call in eval mode (expen
 
 Place input wraps at the **boundary where external data enters the app**, not at intermediate processing stages. In a pipeline architecture (fetch → process → extract → format):
 
-- **Correct**: `wrap(html_content, purpose="input", name="fetched_page")` at the HTTP fetch boundary — eval mode replaces the real fetch with controlled HTML, and the full parse → chunk → extract pipeline runs on it.
+- **Correct**: `wrap(fetch_page, purpose="input", name="fetched_page")(url)` using **function form** at the HTTP fetch boundary — in eval mode, the fetch is skipped entirely and the dataset value is returned; in trace mode, the real fetch runs and the result is captured.
+- **Incorrect**: `wrap(html_content, purpose="input", name="fetched_page")` using value form — the HTTP fetch still runs in eval mode (wasting time and creating flaky tests), and only the result is replaced afterwards.
 - **Incorrect**: `wrap(processed_chunks, purpose="input", name="chunks")` after parsing — eval mode bypasses parsing and chunking entirely.
 
-**Principle**: `wrap(purpose="input")` replaces the _minimum external dependency_ while exercising the _maximum internal logic_. Push the boundary as far upstream as possible.
-
-Use **function form** for input wraps when the data comes from an external call (DB query, API request, file read) — this prevents the real call from executing in eval mode, where the registry value is returned instead.
+**Principle**: `wrap(purpose="input")` replaces the _minimum external dependency_ while exercising the _maximum internal logic_. Push the boundary as far upstream as possible. **Always use function form** for input wraps on external calls — this prevents the real call from executing in eval mode.
 
 #### `purpose="output"` — where processed data exits
 

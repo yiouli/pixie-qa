@@ -144,9 +144,9 @@ Run the app through the Runnable and capture a trace. The trace proves instrumen
 
 > **Reference**: Read `references/4-build-dataset.md` now for the detailed sub-steps.
 
-**Goal**: Create the test scenarios that tie everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1c). Each dataset entry defines what to send to the app, what data the app should see from external services, and how to score the result. Use the reference trace from Step 2 as the source of truth for data shapes and field names. Cover entries from the **capability inventory** in `pixie_qa/00-project-analysis.md` and include entries targeting the **failure modes** identified there. **Do NOT use the project's own test fixtures, mock servers, or example data as dataset `eval_input` content** — source real-world data instead.
+**Goal**: Create the test scenarios that tie everything together — the runnable (Step 2), the evaluators (Step 3), and the use cases (Step 1c). Each dataset entry defines what to send to the app, what data the app should see from external services, and how to score the result. Use the reference trace from Step 2 as the source of truth for data shapes and field names. Cover entries from the **capability inventory** in `pixie_qa/00-project-analysis.md` and include entries targeting the **failure modes** identified there. **Do NOT use the project's own test fixtures, mock servers, or example data as dataset `eval_input` content** — source real-world data instead. **Every `wrap(purpose="input")` in the app must have pre-captured content in each entry's `eval_input`** — do NOT leave `eval_input` empty when the app has input wraps.
 
-> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries covering all use cases. **Dataset realism audit passed** — entries use real-world data at representative scale, no project test fixtures contamination, and at least one entry targets a failure mode with uncertain outcome. Do NOT read Step 5 instructions yet.
+> **Checkpoint**: Dataset JSON created at `pixie_qa/datasets/<name>.json` with diverse entries covering all use cases. **Dataset realism audit passed** — entries use real-world data at representative scale, no project test fixtures contamination, at least one entry targets a failure mode with uncertain outcome, and every `eval_input` has captured content for all input wraps. Do NOT read Step 5 instructions yet.
 
 ---
 
@@ -160,12 +160,7 @@ Run the app through the Runnable and capture a trace. The trace proves instrumen
 >
 > If the test errors out, that's a mechanical bug in your QA components — fix and re-run. But once tests produce scores, move on. Do NOT assess result quality here — that's Step 6.
 
----
-
-> **STOP GATE — read this before doing anything else after tests produce scores:**
->
-> - If the user's original prompt asks only for setup ("set up QA", "add tests", "add evals", "set up evaluations"), **STOP HERE**. Report the test results to the user: "QA setup is complete. Tests show N/M passing. [brief summary]. Want me to investigate the failures and iterate?" Do NOT proceed to Step 6.
-> - If the user's original prompt explicitly asks for iteration ("fix", "improve", "debug", "iterate", "investigate failures", "make tests pass"), proceed to Step 6.
+**Always proceed to Step 6 after tests produce scores.** Analysis is the essential final step — without it, pending evaluations are never completed and the user gets uninterpreted raw scores with no actionable insights. Do NOT stop here and ask the user whether to continue.
 
 ---
 

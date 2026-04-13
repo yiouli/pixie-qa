@@ -7,7 +7,9 @@
 set -u
 
 echo "=== Updating skill ==="
-npx skills update || echo "(skill update skipped)"
+npx skills update yiouli/pixie-qa -g -y && npx skills update yiouli/pixie-qa -p -y || {
+  echo "(skill update failed — proceeding with existing version)"
+}
 
 echo ""
 echo "=== Installing / upgrading pixie-qa[all] ==="
