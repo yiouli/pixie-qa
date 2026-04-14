@@ -6,10 +6,10 @@ description: >
   ALWAYS USE THIS SKILL when the user asks to set up QA, add tests, add evals,
   evaluate, benchmark, fix wrong behaviors, improve quality, or do quality assurance for any Python project that calls an LLM model.
 license: MIT
-compatibility: Python 3.11+
+compatibility: Python 3.10+
 metadata:
-  version: 0.7.0
-  pixie-qa-version: ">=0.7.0,<0.8.0"
+  version: 0.8.0
+  pixie-qa-version: ">=0.8.0,<0.9.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
@@ -31,8 +31,16 @@ This skill is about doing the work, not describing it. Read code, edit files, ru
 
 ## Before you start
 
-**First, activate the virtual environment**. Identify the correct virtual environment for the project and activate it. After the virtual environment is active, the run the setup.sh included in the skill's resources.
-The script updates the `eval-driven-dev` skill and `pixie-qa` python package to latest version, initialize the pixie working directory if it's not already initialized, and start a web server in the background to show user updates. If the skill or package update fails, continue — do not let these failures block the rest of the workflow.
+**First, activate the virtual environment**. Identify the correct virtual environment for the project and activate it. After the virtual environment is active, run the setup.sh included in the skill's resources.
+The script updates the `eval-driven-dev` skill and `pixie-qa` python package to latest version, initialize the pixie working directory if it's not already initialized, and start a web server in the background to show user updates.
+
+**Setup error handling — what you can skip vs. what must succeed:**
+
+- **Skill update fails** → OK to continue. The existing skill version is sufficient.
+- **pixie-qa upgrade fails but was already installed** → OK to continue with the existing version.
+- **pixie-qa is NOT installed and installation fails** → **STOP.** Ask the user for help. The workflow cannot proceed without the `pixie` package.
+- **`pixie init` fails** → **STOP.** Ask the user for help.
+- **`pixie start` (web server) fails** → **STOP.** Ask the user for help. Check `server.log` in the pixie root directory for diagnostics. Common causes: port conflict, missing dependency, slow environment. Do NOT proceed without the web server — the user needs it to see eval results.
 
 ---
 

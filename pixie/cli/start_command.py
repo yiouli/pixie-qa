@@ -46,7 +46,13 @@ def start(
     init_pixie_dir(root=artifact_root)
     port = start_detached(artifact_root, tab=tab, item_id=item_id)
     if port is None:
-        print("Failed to start the web server.")  # noqa: T201
+        from pathlib import Path
+
+        log_path = Path(artifact_root).resolve() / "server.log"
+        msg = "Failed to start the web server."
+        if log_path.exists():
+            msg += f" Check {log_path} for details."
+        print(msg)  # noqa: T201
         return 1
     print(f"Server running on port {port}")  # noqa: T201
     return 0

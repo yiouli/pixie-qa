@@ -456,20 +456,43 @@ def start_detached(
         str(port),
     ]
 
-    # Detach: new session, redirect stdio to devnull
-    subprocess.Popen(
+    # Write stderr to a log file so startup failures are diagnosable
+    log_path = Path(root).resolve() / "server.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = log_path.open("w")
+
+    # Detach: new session, redirect stdio
+    proc = subprocess.Popen(
         cmd,
         start_new_session=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_file,
+        stderr=log_file,
         stdin=subprocess.DEVNULL,
     )
 
-    # Wait for the server to become reachable
-    actual_port = _wait_for_server(root, host, timeout=5.0)
+    # Wait for the server to become reachable (15s to handle slow envs)
+    actual_port = _wait_for_server(root, host, timeout=15.0)
     if actual_port is None:
-        logger.warning("Server did not start within timeout")
+        # Check if the process already exited (crash on startup)
+        retcode = proc.poll()
+        log_file.close()
+        stderr_tail = ""
+        with contextlib.suppress(Exception):
+            text = log_path.read_text().strip()
+            # Show last 20 lines of the log for diagnostics
+            lines = text.splitlines()
+            stderr_tail = "\n".join(lines[-20:])
+        if retcode is not None:
+            logger.warning(
+                "Server process exited with code %d before becoming reachable",
+                retcode,
+            )
+        else:
+            logger.warning("Server did not start within timeout")
+        if stderr_tail:
+            logger.warning("Server log tail:\n%s", stderr_tail)
         return None
+    log_file.close()
 
     if open_browser:
         webbrowser.open(build_url(host, actual_port, tab=tab, item_id=item_id))

@@ -86,6 +86,7 @@ The output looks like:
 ### Why this matters
 
 During `pixie test`, each `wrap(purpose="input", name="X")` call in the app checks the wrap registry for a value named `"X"`:
+
 - **If found**: the registered value is returned directly (no external call)
 - **If not found**: the real external call executes (non-deterministic, slow, may fail)
 
