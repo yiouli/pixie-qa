@@ -393,6 +393,146 @@ class TestAppEndpoints:
         resp = client.get("/api/result?id=../../etc/passwd")
         assert resp.status_code == 404
 
+    # ── Dual artifact (summary + detail) tests ───────────────────────
+
+    def test_result_endpoint_includes_analysis_summary_at_dataset_level(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        ds_dir = result_dir / "dataset-0"
+        ds_dir.mkdir()
+        (ds_dir / "metadata.json").write_text(
+            json.dumps({"dataset": "test", "datasetPath": "", "runnable": ""})
+        )
+        (ds_dir / "analysis-summary.md").write_text("# Summary\nBrief.")
+        (ds_dir / "analysis.md").write_text("# Detail\nVerbose.")
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert data["datasets"][0]["analysisSummary"] == "# Summary\nBrief."
+        assert data["datasets"][0]["analysis"] == "# Detail\nVerbose."
+
+    def test_result_endpoint_includes_analysis_summary_at_entry_level(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        ds_dir = result_dir / "dataset-0"
+        ds_dir.mkdir()
+        (ds_dir / "metadata.json").write_text(
+            json.dumps({"dataset": "test", "datasetPath": "", "runnable": ""})
+        )
+        entry_dir = ds_dir / "entry-0"
+        entry_dir.mkdir()
+        (entry_dir / "eval-input.jsonl").write_text("")
+        (entry_dir / "eval-output.jsonl").write_text("")
+        (entry_dir / "evaluations.jsonl").write_text("")
+        (entry_dir / "analysis-summary.md").write_text("Entry summary.")
+        (entry_dir / "analysis.md").write_text("Entry detail.")
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        entry = data["datasets"][0]["entries"][0]
+        assert entry["analysisSummary"] == "Entry summary."
+        assert entry["analysis"] == "Entry detail."
+
+    def test_result_endpoint_includes_action_plan_summary(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        (result_dir / "action-plan-summary.md").write_text("Brief plan.")
+        (result_dir / "action-plan.md").write_text("Detailed plan.")
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert data["actionPlanSummary"] == "Brief plan."
+        assert data["actionPlan"] == "Detailed plan."
+
+    def test_result_endpoint_omits_summaries_when_absent(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        assert "actionPlanSummary" not in data
+
+    def test_result_endpoint_includes_dataset_metadata(
+        self, client: TestClient, app_root: Path
+    ) -> None:
+        result_dir = app_root / "results" / "20260403-120000"
+        result_dir.mkdir(parents=True)
+        (result_dir / "meta.json").write_text(
+            json.dumps(
+                {
+                    "testId": "20260403-120000",
+                    "command": "pixie test",
+                    "startedAt": "",
+                    "endedAt": "",
+                }
+            )
+        )
+        ds_dir = result_dir / "dataset-0"
+        ds_dir.mkdir()
+        (ds_dir / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "dataset": "faq",
+                    "datasetPath": "pixie_qa/datasets/faq.json",
+                    "runnable": "pixie_qa/run_app.py:AppRunnable",
+                }
+            )
+        )
+
+        resp = client.get("/api/result?id=20260403-120000")
+        data = resp.json()
+        ds = data["datasets"][0]
+        assert ds["datasetPath"] == "pixie_qa/datasets/faq.json"
+        assert ds["runnable"] == "pixie_qa/run_app.py:AppRunnable"
+
     def test_manifest_includes_results(
         self, client: TestClient, app_root: Path
     ) -> None:

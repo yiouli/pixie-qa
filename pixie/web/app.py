@@ -335,10 +335,17 @@ def create_app(
                 if config.get("description") is not None:
                     entry["description"] = config["description"]
 
-                # Entry analysis
-                entry_analysis_path = entry_dir / "analysis.md"
-                if entry_analysis_path.exists():
-                    entry["analysis"] = entry_analysis_path.read_text(encoding="utf-8")
+                # Entry analysis (summary + detail)
+                entry_analysis_summary = entry_dir / "analysis-summary.md"
+                entry_analysis_detail = entry_dir / "analysis.md"
+                if entry_analysis_summary.exists():
+                    entry["analysisSummary"] = entry_analysis_summary.read_text(
+                        encoding="utf-8"
+                    )
+                if entry_analysis_detail.exists():
+                    entry["analysis"] = entry_analysis_detail.read_text(
+                        encoding="utf-8"
+                    )
 
                 entries.append(entry)
                 entry_idx += 1
@@ -348,20 +355,36 @@ def create_app(
                 "entries": entries,
             }
 
-            # Dataset analysis
-            ds_analysis_path = ds_dir / "analysis.md"
-            if ds_analysis_path.exists():
-                ds_data["analysis"] = ds_analysis_path.read_text(encoding="utf-8")
+            # Dataset metadata (runnable, path)
+            if ds_meta.get("datasetPath") is not None:
+                ds_data["datasetPath"] = ds_meta["datasetPath"]
+            if ds_meta.get("runnable") is not None:
+                ds_data["runnable"] = ds_meta["runnable"]
+
+            # Dataset analysis (summary + detail)
+            ds_analysis_summary = ds_dir / "analysis-summary.md"
+            ds_analysis_detail = ds_dir / "analysis.md"
+            if ds_analysis_summary.exists():
+                ds_data["analysisSummary"] = ds_analysis_summary.read_text(
+                    encoding="utf-8"
+                )
+            if ds_analysis_detail.exists():
+                ds_data["analysis"] = ds_analysis_detail.read_text(encoding="utf-8")
 
             datasets.append(ds_data)
             ds_idx += 1
 
         result_payload: dict[str, object] = {"meta": meta, "datasets": datasets}
 
-        # Action plan
-        action_plan_path = result_dir / "action-plan.md"
-        if action_plan_path.exists():
-            result_payload["actionPlan"] = action_plan_path.read_text(
+        # Action plan (summary + detail)
+        action_plan_summary = result_dir / "action-plan-summary.md"
+        action_plan_detail = result_dir / "action-plan.md"
+        if action_plan_summary.exists():
+            result_payload["actionPlanSummary"] = action_plan_summary.read_text(
+                encoding="utf-8"
+            )
+        if action_plan_detail.exists():
+            result_payload["actionPlan"] = action_plan_detail.read_text(
                 encoding="utf-8"
             )
 

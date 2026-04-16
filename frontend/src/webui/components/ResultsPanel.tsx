@@ -82,10 +82,74 @@ export function ResultsPanel({
   );
 }
 
+// ── Analysis Block with summary / detail toggle ─────────────────────
+
+function AnalysisBlock({
+  summary,
+  detail,
+  title,
+  emptyMessage,
+}: {
+  summary?: string;
+  detail?: string;
+  title: string;
+  emptyMessage?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Nothing to show at all
+  if (!summary && !detail) {
+    if (emptyMessage) {
+      return (
+        <div className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
+          <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
+            {title}
+          </h3>
+          <div className="text-sm text-ink-muted">{emptyMessage}</div>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  // Only detail (no summary) — show detail directly
+  const displayContent = summary ?? detail!;
+  const hasDetail = summary && detail;
+
+  return (
+    <div className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
+      {title && (
+        <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
+          {title}
+        </h3>
+      )}
+      <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
+        {displayContent}
+      </MarkdownRenderer>
+      {hasDetail && (
+        <details
+          className="mt-3"
+          open={expanded}
+          onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="cursor-pointer text-xs font-semibold text-accent hover:text-accent-hover select-none">
+            {expanded ? "Less details" : "More details"}
+          </summary>
+          <div className="mt-3 rounded-md border border-border bg-surface px-4 py-3">
+            <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
+              {detail}
+            </MarkdownRenderer>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 // ── Test Overview ──────────────────────────────────────────────────
 
 function ResultView({ data }: { data: TestResultData }) {
-  const { meta, datasets, actionPlan } = data;
+  const { meta, datasets, actionPlan, actionPlanSummary } = data;
 
   const startedAt = formatLocalTime(meta.startedAt);
   const endedAt = formatLocalTime(meta.endedAt);
@@ -139,21 +203,18 @@ function ResultView({ data }: { data: TestResultData }) {
             </tr>
           </tbody>
         </table>
-      </div>
 
-      {/* Action Plan */}
-      {actionPlan && (
-        <div className="mb-5 rounded-lg border border-border bg-surface p-6 shadow-sm">
-          <div className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
-            <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
-              Action Plan
-            </h3>
-            <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
-              {actionPlan}
-            </MarkdownRenderer>
+        {/* Action Plan (inside overview card) */}
+        {(actionPlanSummary || actionPlan) && (
+          <div className="mt-4">
+            <AnalysisBlock
+              summary={actionPlanSummary}
+              detail={actionPlan}
+              title="Action Plan"
+            />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {datasets.map((ds) => (
         <DatasetSection key={ds.dataset} dataset={ds} />
@@ -193,18 +254,38 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
         </span>
       </div>
 
+      {/* Dataset metadata (app input) */}
+      {(dataset.runnable || dataset.datasetPath) && (
+        <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted">
+          {dataset.runnable && (
+            <span>
+              <span className="font-semibold text-ink-secondary">
+                Runnable:
+              </span>{" "}
+              <code className="rounded-sm bg-bg-inset px-1 py-0.5 font-mono">
+                {dataset.runnable}
+              </code>
+            </span>
+          )}
+          {dataset.datasetPath && (
+            <span>
+              <span className="font-semibold text-ink-secondary">Dataset:</span>{" "}
+              <code className="rounded-sm bg-bg-inset px-1 py-0.5 font-mono">
+                {dataset.datasetPath}
+              </code>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Analysis section */}
-      <div className="mb-5 rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4">
-        <h3 className="mb-3 text-sm font-semibold text-ink-secondary">
-          Analysis &amp; Recommendations
-        </h3>
-        {dataset.analysis ? (
-          <MarkdownRenderer className="analysis-content text-sm leading-relaxed">
-            {dataset.analysis}
-          </MarkdownRenderer>
-        ) : (
-          <div className="text-sm text-ink-muted">No analysis yet.</div>
-        )}
+      <div className="mb-5">
+        <AnalysisBlock
+          summary={dataset.analysisSummary}
+          detail={dataset.analysis}
+          title="Analysis &amp; Recommendations"
+          emptyMessage="No analysis yet."
+        />
       </div>
 
       {/* Entries table */}
@@ -607,14 +688,16 @@ function EvalDetailModal({
           })}
         </div>
 
-        {entry.analysis && (
+        {(entry.analysisSummary || entry.analysis) && (
           <div className="mb-5">
             <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-secondary">
               Entry Analysis
             </h3>
-            <MarkdownRenderer className="rounded-md border-l-3 border-accent bg-bg-inset px-5 py-4 text-sm leading-relaxed analysis-content">
-              {entry.analysis}
-            </MarkdownRenderer>
+            <AnalysisBlock
+              summary={entry.analysisSummary}
+              detail={entry.analysis}
+              title=""
+            />
           </div>
         )}
       </div>

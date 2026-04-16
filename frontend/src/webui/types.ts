@@ -73,12 +73,16 @@ export interface EntryResultData {
   description?: string;
   evaluations: AnyEvaluationData[];
   analysis?: string;
+  analysisSummary?: string;
 }
 
 export interface DatasetResultData {
   dataset: string;
   entries: EntryResultData[];
   analysis?: string;
+  analysisSummary?: string;
+  datasetPath?: string;
+  runnable?: string;
 }
 
 export interface ResultMeta {
@@ -92,4 +96,5 @@ export interface TestResultData {
   meta: ResultMeta;
   datasets: DatasetResultData[];
   actionPlan?: string;
+  actionPlanSummary?: string;
 }
