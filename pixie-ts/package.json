@@ -1,0 +1,53 @@
+{
+    "name": "pixie-qa",
+    "version": "0.8.0",
+    "description": "Automated quality assurance for AI applications — TypeScript edition",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "bin": {
+        "pixie-qa": "dist/cli/main.js"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "eslint src/",
+        "typecheck": "tsc --noEmit"
+    },
+    "keywords": [
+        "ai",
+        "qa",
+        "evaluation",
+        "llm",
+        "testing",
+        "instrumentation"
+    ],
+    "license": "MIT",
+    "engines": {
+        "node": ">=18"
+    },
+    "dependencies": {
+        "commander": "^13.0.0",
+        "dotenv": "^16.4.0",
+        "openai": "^4.70.0",
+        "zod": "^3.23.0",
+        "@opentelemetry/api": "^1.9.0",
+        "@opentelemetry/sdk-trace-node": "^1.28.0",
+        "@opentelemetry/sdk-trace-base": "^1.28.0",
+        "express": "^4.21.0",
+        "eventsource": "^2.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@types/express": "^4.17.21",
+        "typescript": "^5.7.0",
+        "vitest": "^3.0.0"
+    }
+}

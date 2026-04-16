@@ -3,6 +3,8 @@
 This directory contains all tests for the pixie-qa project: automated unit tests,
 automated e2e tests, and manual testing fixtures for visual inspection.
 
+> **TypeScript tests** live in `pixie-ts/tests/` — see [pixie-ts/README.md](../pixie-ts/README.md) for TS testing instructions.
+
 ## Quick Reference
 
 ```bash

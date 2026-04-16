@@ -1,0 +1,49 @@
+{
+  "name": "customer-faq",
+  "runnable": "tests/e2e_fixtures/mock_evaluators.ts:customerFaqRunnable",
+  "evaluators": ["tests/e2e_fixtures/mock_evaluators.ts:MockFactualityEval"],
+  "entries": [
+    {
+      "input_data": { "user_message": "What is the baggage allowance?" },
+      "expectation": "You may bring one carry-on bag weighing up to 50 pounds, with maximum dimensions of 22 x 14 x 9 inches.",
+      "description": "Baggage allowance — exact match expected",
+      "evaluators": [
+        "...",
+        "tests/e2e_fixtures/mock_evaluators.ts:MockClosedQAEval"
+      ]
+    },
+    {
+      "input_data": { "user_message": "How many seats are on the plane?" },
+      "expectation": "There are 120 seats total — 22 business class and 98 economy.",
+      "description": "Seat count — partial match expected",
+      "evaluators": [
+        "...",
+        "tests/e2e_fixtures/mock_evaluators.ts:MockClosedQAEval"
+      ]
+    },
+    {
+      "input_data": { "user_message": "Is there wifi on the plane?" },
+      "expectation": "Yes, we offer complimentary wifi.",
+      "description": "Wifi availability — output longer than expected",
+      "evaluators": ["..."]
+    },
+    {
+      "input_data": { "user_message": "What is the cancellation policy?" },
+      "expectation": "You can cancel your booking up to 24 hours before departure for a full refund.",
+      "description": "Cancellation policy — output longer than expected",
+      "evaluators": [
+        "...",
+        "tests/e2e_fixtures/mock_evaluators.ts:MockHallucinationEval"
+      ]
+    },
+    {
+      "input_data": { "user_message": "Do you serve meals on the flight?" },
+      "expectation": "We serve snacks and beverages on all flights.",
+      "description": "Meals — partial keyword overlap",
+      "evaluators": [
+        "...",
+        "tests/e2e_fixtures/mock_evaluators.ts:MockStrictTone"
+      ]
+    }
+  ]
+}

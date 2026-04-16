@@ -2,10 +2,11 @@
 
 Eval-driven development for Python LLM applications.
 
-pixie-qa ships two complementary tools:
+pixie-qa ships three complementary tools:
 
 - **`eval-driven-dev` agent skill** — guides a coding agent through the full eval-driven development loop: instrument → capture → build dataset → test → investigate → iterate.
 - **`pixie-qa` Python package** — the runtime: `wrap()` for data-boundary instrumentation, `Runnable` for dataset-driven test execution, built-in and custom evaluators, and the `pixie` CLI.
+- **`pixie-qa` TypeScript package** ([pixie-ts/](pixie-ts/)) — a full TypeScript port of the Python package with identical functionality and camelCase naming.
 
 ## Agent Skill
 
@@ -160,3 +161,15 @@ Pixie reads configuration from environment variables and a local `.env` file. Ex
 | `PIXIE_RATE_LIMIT_RPM`     | Max requests per minute                        |
 | `PIXIE_RATE_LIMIT_TPS`     | Max tokens per second                          |
 | `PIXIE_RATE_LIMIT_TPM`     | Max tokens per minute                          |
+
+## TypeScript Package
+
+A full TypeScript port lives in [`pixie-ts/`](pixie-ts/). It provides identical functionality to the Python package with TypeScript-idiomatic naming:
+
+```bash
+cd pixie-ts
+npm install && npm run build
+npx pixie-qa test [path]          # same CLI commands as Python pixie
+```
+
+See [pixie-ts/README.md](pixie-ts/README.md) for full documentation.

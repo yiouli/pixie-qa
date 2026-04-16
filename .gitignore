@@ -6,3 +6,5 @@ uv.lock
 pixie/assets/index.html
 frontend/node_modules/
 frontend/dist/
+node_modules/
+dist/

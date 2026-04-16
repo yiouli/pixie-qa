@@ -1,0 +1,74 @@
+{
+  "name": "sample-qa",
+  "runnable": "tests/manual/mock_evaluators.ts:sampleQaRunnable",
+  "entries": [
+    {
+      "input_data": {
+        "question": "What is the capital of France?"
+      },
+      "eval_input": [
+        { "name": "input", "value": "What is the capital of France?" }
+      ],
+      "expectation": "The capital of France is Paris.",
+      "description": "Identify the capital of France",
+      "evaluators": [
+        "tests/manual/mock_evaluators.ts:SimpleFactualityEval",
+        "tests/manual/mock_evaluators.ts:StrictKeywordEval"
+      ]
+    },
+    {
+      "input_data": {
+        "question": "What is 2 + 2?"
+      },
+      "eval_input": [
+        { "name": "input", "value": "What is 2 + 2?" }
+      ],
+      "expectation": "The answer is 4.",
+      "description": "Basic arithmetic addition",
+      "evaluators": [
+        "tests/manual/mock_evaluators.ts:SimpleFactualityEval",
+        "tests/manual/mock_evaluators.ts:StrictKeywordEval"
+      ]
+    },
+    {
+      "input_data": {
+        "question": "Who wrote Hamlet?"
+      },
+      "eval_input": [
+        { "name": "input", "value": "Who wrote Hamlet?" }
+      ],
+      "expectation": "Shakespeare authored Hamlet.",
+      "description": "Identify Hamlet's author with varied phrasing",
+      "evaluators": [
+        "tests/manual/mock_evaluators.ts:SimpleFactualityEval",
+        "tests/manual/mock_evaluators.ts:StrictKeywordEval"
+      ]
+    },
+    {
+      "input_data": {
+        "question": "What is the boiling point of water?"
+      },
+      "eval_input": [
+        { "name": "input", "value": "What is the boiling point of water?" }
+      ],
+      "expectation": "Water boils at 100 degrees Celsius.",
+      "description": "State boiling point of water",
+      "evaluators": [
+        "tests/manual/mock_evaluators.ts:SimpleFactualityEval"
+      ]
+    },
+    {
+      "input_data": {
+        "question": "What is the largest planet?"
+      },
+      "eval_input": [
+        { "name": "input", "value": "What is the largest planet?" }
+      ],
+      "expectation": "The largest planet in the solar system is Jupiter.",
+      "description": "Identify the largest planet in the solar system",
+      "evaluators": [
+        "tests/manual/mock_evaluators.ts:SimpleFactualityEval"
+      ]
+    }
+  ]
+}
