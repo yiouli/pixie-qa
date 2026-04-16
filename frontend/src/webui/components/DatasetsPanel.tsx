@@ -119,6 +119,16 @@ function shortName(ref: string): string {
 
 // ── DatasetTable ──────────────────────────────────────────────────
 
+/** Check if a value is "empty" for column-hiding purposes. */
+function isEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object")
+    return Object.keys(value as object).length === 0;
+  if (typeof value === "string") return value.trim() === "";
+  return false;
+}
+
 function DatasetTable({ data }: { data: DatasetData }) {
   const [detailItem, setDetailItem] = useState<DatasetItem | null>(null);
 
@@ -129,6 +139,13 @@ function DatasetTable({ data }: { data: DatasetData }) {
       </div>
     );
   }
+
+  const hasInputData = data.items.some((item) => !isEmpty(item.input_data));
+  const hasEvalInput = data.items.some((item) => !isEmpty(item.eval_input));
+  const hasExpectation = data.items.some((item) => !isEmpty(item.expectation));
+
+  const thClass =
+    "whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary";
 
   return (
     <div className="p-6">
@@ -142,24 +159,13 @@ function DatasetTable({ data }: { data: DatasetData }) {
         <table className="w-full border-collapse font-sans text-sm">
           <thead>
             <tr>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                #
-              </th>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                Description
-              </th>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                Eval Input
-              </th>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                Expectation
-              </th>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                Evaluators
-              </th>
-              <th className="whitespace-nowrap border-b-2 border-border bg-surface-hover p-2 text-left text-xs font-semibold uppercase tracking-wider text-ink-secondary">
-                Details
-              </th>
+              <th className={thClass}>#</th>
+              <th className={thClass}>Description</th>
+              {hasInputData && <th className={thClass}>Input Data</th>}
+              {hasEvalInput && <th className={thClass}>Eval Input</th>}
+              {hasExpectation && <th className={thClass}>Expectation</th>}
+              <th className={thClass}>Evaluators</th>
+              <th className={thClass}>Details</th>
             </tr>
           </thead>
           <tbody>
@@ -173,21 +179,47 @@ function DatasetTable({ data }: { data: DatasetData }) {
                     {item.description ?? "—"}
                   </span>
                 </td>
-                <td className="max-w-80 border-b border-border p-2 align-top">
-                  <div className="overflow-x-auto rounded-sm bg-bg-inset px-2 py-1">
-                    <JsonView
-                      src={item.eval_input}
-                      collapsed={2}
-                      collapseStringMode="address"
-                      collapseStringsAfterLength={80}
-                      theme="default"
-                      enableClipboard={false}
-                    />
-                  </div>
-                </td>
-                <td className="max-w-80 border-b border-border p-2 align-top">
-                  <ExpectationCell value={item.expectation} />
-                </td>
+                {hasInputData && (
+                  <td className="max-w-80 border-b border-border p-2 align-top">
+                    {isEmpty(item.input_data) ? (
+                      <span className="text-ink-muted">—</span>
+                    ) : (
+                      <div className="overflow-x-auto rounded-sm bg-bg-inset px-2 py-1">
+                        <JsonView
+                          src={item.input_data}
+                          collapsed={2}
+                          collapseStringMode="address"
+                          collapseStringsAfterLength={80}
+                          theme="default"
+                          enableClipboard={false}
+                        />
+                      </div>
+                    )}
+                  </td>
+                )}
+                {hasEvalInput && (
+                  <td className="max-w-80 border-b border-border p-2 align-top">
+                    {isEmpty(item.eval_input) ? (
+                      <span className="text-ink-muted">—</span>
+                    ) : (
+                      <div className="overflow-x-auto rounded-sm bg-bg-inset px-2 py-1">
+                        <JsonView
+                          src={item.eval_input}
+                          collapsed={2}
+                          collapseStringMode="address"
+                          collapseStringsAfterLength={80}
+                          theme="default"
+                          enableClipboard={false}
+                        />
+                      </div>
+                    )}
+                  </td>
+                )}
+                {hasExpectation && (
+                  <td className="max-w-80 border-b border-border p-2 align-top">
+                    <ExpectationCell value={item.expectation} />
+                  </td>
+                )}
                 <td className="max-w-60 border-b border-border p-2 align-top">
                   <EvaluatorPills
                     evaluators={expandEvaluators(
