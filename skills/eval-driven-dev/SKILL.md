@@ -1,27 +1,26 @@
 ---
 name: eval-driven-dev
 description: >
-  Set up eval-based QA for Python LLM applications: instrument the app,
-  build golden datasets, write and run eval tests, and iterate on failures.
+  Improve AI application with evaluation-driven development. Define eval criteria, instrument the application, build golden datasets, observe and evaluate application runs, analyze results, and produce a concrete action plan for improvements.
   ALWAYS USE THIS SKILL when the user asks to set up QA, add tests, add evals,
   evaluate, benchmark, fix wrong behaviors, improve quality, or do quality assurance for any Python project that calls an LLM model.
 license: MIT
 compatibility: Python 3.10+
 metadata:
-  version: 0.8.0
-  pixie-qa-version: ">=0.8.0,<0.9.0"
+  version: 0.8.1
+  pixie-qa-version: ">=0.8.1,<0.9.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
 # Eval-Driven Development for Python LLM Applications
 
-You're building an **automated QA pipeline** that tests a Python application end-to-end — running it the same way a real user would, with real inputs — then scoring the outputs using evaluators and producing pass/fail results via `pixie test`.
+You're building an **automated evaluation pipeline** that tests a Python-based AI application end-to-end — running it the same way a real user would, with real inputs — then scoring the outputs using evaluators and producing pass/fail results via `pixie test`.
 
 **What you're testing is the app itself** — its request handling, context assembly (how it gathers data, builds prompts, manages conversation state), routing, and response formatting. The app uses an LLM, which makes outputs non-deterministic — that's why you use evaluators (LLM-as-judge, similarity scores) instead of `assertEqual` — but the thing under test is the app's code, not the LLM.
 
 During evaluation, the app's own code runs for real — routing, prompt assembly, LLM calls, response formatting — nothing is mocked or stubbed. But the data the app reads from external sources (databases, caches, third-party APIs, voice streams) is replaced with test-specified values via instrumentations. This means each test case controls exactly what data the app sees, while still exercising the full application code path.
 
-**Rule: The app's LLM calls must go to a real LLM.** Do not replace, mock, stub, or intercept the LLM with a fake implementation (e.g., `RunnableLambda`, `DummyLLM`, regex-based extractor, hardcoded responses). The LLM is the core value-generating component — replacing it makes the eval tautological (you control both inputs and outputs, so scores are meaningless). If the project's test suite contains LLM mocking patterns (`DummyLLM`, `mock_llm_model`, `RunnableLambda` fakes, `model_instance` pointed at a fake), those are for the project's own unit tests — do NOT adopt them for the eval Runnable.
+**Rule: The app's LLM calls must go to a real LLM.** Do not replace, mock, stub, or intercept the LLM with a fake implementation. The LLM is the core value-generating component — replacing it makes the eval tautological (you control both inputs and outputs, so scores are meaningless). If the project's test suite contains LLM mocking patterns, those are for the project's own unit tests — do NOT adopt them for the eval Runnable.
 
 **The deliverable is a working `pixie test` run with real scores** — not a plan, not just instrumentation, not just a dataset.
 
@@ -86,25 +85,25 @@ Step 1 has three sub-steps. Each reads its own reference file and produces its o
 
 > **Reference**: Read `references/1-a-project-analysis.md` now.
 
-Before looking at code structure or entry points, understand what this software does in the real world — its purpose, its users, the complexity of real inputs, and where it fails. This understanding drives every downstream decision: which entry points matter most, what eval criteria to define, what trace inputs to use, and what dataset entries to create. Write your findings to `pixie_qa/00-project-analysis.md` before moving on. **Note**: the project may contain `tests/`, `fixtures/`, `examples/`, mock servers, and documentation — these are the project's own development infrastructure, NOT data sources for your eval pipeline. Ignore them when sourcing trace inputs and dataset content.
+Before looking at code structure or entry points, understand what this software does in the real world — its purpose, its users, the complexity of real inputs, and where it fails. This understanding drives every downstream decision: which entry points matter most, what eval criteria to define, what trace inputs to use, and what dataset entries to create. Write both the detailed and summary versions of your findings before moving on. **Note**: the project may contain `tests/`, `fixtures/`, `examples/`, mock servers, and documentation — these are the project's own development infrastructure, NOT data sources for your eval pipeline. Ignore them when sourcing trace inputs and dataset content.
 
-> **Checkpoint**: `pixie_qa/00-project-analysis.md` written with what the software does, target users, capability inventory (at least 3 capabilities if the project has them), realistic input characteristics, and hard problems / failure modes (at least 2).
+> **Checkpoint**: `pixie_qa/00-project-analysis.md` (detailed, with code references and reasoning chains) and `pixie_qa/00-project-analysis-summary.md` (concise human-readable TLDR) written — both covering what the software does, target users, capability inventory (at least 3 capabilities if the project has them), realistic input characteristics, and hard problems / failure modes (at least 2).
 
 #### Sub-step 1b: Entry point & execution flow
 
 > **Reference**: Read `references/1-b-entry-point.md` now.
 
-Read the source code to understand how the app starts and how a real user invokes it. Use the **capability inventory** from `pixie_qa/00-project-analysis.md` to prioritize entry points — focus on the entry point(s) that exercise the most valuable capabilities, not just the first one found. Write your findings to `pixie_qa/01-entry-point.md` before moving on.
+Read the source code to understand how the app starts and how a real user invokes it. Use the **capability inventory** from `pixie_qa/00-project-analysis.md` to prioritize entry points — focus on the entry point(s) that exercise the most valuable capabilities, not just the first one found. Write both the detailed and summary versions before moving on.
 
-> **Checkpoint**: `pixie_qa/01-entry-point.md` written with entry point, execution flow, user-facing interface, and env requirements.
+> **Checkpoint**: `pixie_qa/01-entry-point.md` (detailed, with code pointers and execution flow traces) and `pixie_qa/01-entry-point-summary.md` (concise human-readable TLDR) written — both covering entry point, execution flow, user-facing interface, and env requirements.
 
 #### Sub-step 1c: Eval criteria
 
 > **Reference**: Read `references/1-c-eval-criteria.md` now.
 
-Define the app's use cases and eval criteria. Derive use cases from the **capability inventory** in `pixie_qa/00-project-analysis.md`. Derive eval criteria from the **hard problems / failure modes** — not generic quality dimensions. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). Write your findings to `pixie_qa/02-eval-criteria.md` before moving on.
+Define the app's use cases and eval criteria. Derive use cases from the **capability inventory** in `pixie_qa/00-project-analysis.md`. Derive eval criteria from the **hard problems / failure modes** — not generic quality dimensions. Use cases drive dataset creation (Step 4); eval criteria drive evaluator selection (Step 3). Write both the detailed and summary versions before moving on.
 
-> **Checkpoint**: `pixie_qa/02-eval-criteria.md` written with use cases, eval criteria, and their applicability scope. Do NOT read Step 2 instructions yet.
+> **Checkpoint**: `pixie_qa/02-eval-criteria.md` (detailed, with failure-mode traceability and observability chains) and `pixie_qa/02-eval-criteria-summary.md` (concise human-readable TLDR) written — both covering use cases, eval criteria, and their applicability scope. Do NOT read Step 2 instructions yet.
 
 ---
 
@@ -144,7 +143,7 @@ Run the app through the Runnable and capture a trace. The trace proves instrumen
 
 **Goal**: Turn the qualitative eval criteria from Step 1c into concrete, runnable scoring functions. Each criterion maps to either a built-in evaluator, an **agent evaluator** (the default for any semantic or qualitative criterion), or a manual custom function (only for mechanical/deterministic checks like regex or field existence). The evaluator mapping artifact bridges between criteria and the dataset, ensuring every quality dimension has a scorer. Select evaluators that measure the **hard problems** identified in `pixie_qa/00-project-analysis.md` — not just generic quality dimensions.
 
-> **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` written with criterion-to-evaluator mapping. Do NOT read Step 4 instructions yet.
+> **Checkpoint**: All evaluators implemented. `pixie_qa/03-evaluator-mapping.md` (detailed, with decision rationale) and `pixie_qa/03-evaluator-mapping-summary.md` (concise human-readable TLDR) written with criterion-to-evaluator mapping. Do NOT read Step 4 instructions yet.
 
 ---
 
@@ -177,6 +176,8 @@ Run the app through the Runnable and capture a trace. The trace proves instrumen
 > **Reference**: Read `references/6-analyze-outcomes.md` now — it has the complete three-phase analysis process, writing guidelines, and output format requirements.
 
 **Goal**: Analyze `pixie test` results in a structured, data-driven process to produce actionable insights on test case quality, evaluator quality, and application quality. This step completes pending evaluations, writes per-entry and per-dataset analysis, and produces a prioritized action plan. Every statement must be backed by concrete data from the evaluation run — no speculation, no hand-waving.
+
+**Dual-variant output**: Every analysis artifact in this step is produced as two files — a **detailed version** (for agent consumption: data points, evidence trails, reasoning chains) and a **summary version** (for human review: concise TLDR readable in under 2 minutes). Always write the detailed version first, then derive the summary from it. The summary must be a strict subset of the detailed version's content — it should never contain claims not supported in the detailed version.
 
 ---
 

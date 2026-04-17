@@ -27,11 +27,32 @@ Read `meta.json` to find the `<test_id>`. All the data you need for analysis is 
 
 ## Writing principles
 
-Every analysis artifact you produce must follow these principles:
+Every analysis **detailed** artifact you produce must follow these principles:
 
 - **Data-driven**: Every opinion or statement must be backed by concrete data from the evaluation run. Quote scores, cite entry indices, reference specific eval input/output content. No hand-waving. It is better to write nothing than to write something unsubstantiated.
-- **Plain & clear**: Write in plain, clear, simple, and concise language. Avoid jargon. State findings directly.
+- **Evidence-first**: Present the raw data and evidence before drawing conclusions. The reader (another coding agent) should be able to independently verify your conclusions from the evidence you cite.
+- **Traceable**: For every conclusion, provide the chain: data source → observation → reasoning → conclusion. Another agent should be able to follow this chain backward to verify or challenge any claim.
+- **No selling**: Do not advocate, promote, or use value-laden language ("excellent", "robust", "impressive", "well-designed"). State what the data shows and what actions it implies. Let the reader form quality judgments.
 - **Action-oriented**: Every analysis should contribute to the end goal of concrete improvements to the evaluation pipeline or application. Do not write observations that don't lead somewhere.
+
+Every analysis **summary** artifact must follow these principles:
+
+- **Concise**: The human reader should be able to understand the key findings and actions in under 2 minutes for any single artifact.
+- **Conclusions-first**: Lead with what the reader needs to know (results, findings, actions), not with methodology or background.
+- **Plain language**: Avoid jargon. A non-technical stakeholder should be able to follow the summary.
+- **Consistent**: Summary conclusions must match the detailed version's evidence. Never add claims in the summary that aren't supported in the detailed version.
+
+### Dual-variant pattern
+
+Every analysis artifact in this step has two files:
+
+| Artifact         | Detailed file (for agent)   | Summary file (for human)            |
+| ---------------- | --------------------------- | ----------------------------------- |
+| Entry analysis   | `entry-{idx}/analysis.md`   | `entry-{idx}/analysis-summary.md`   |
+| Dataset analysis | `dataset-{idx}/analysis.md` | `dataset-{idx}/analysis-summary.md` |
+| Action plan      | `action-plan.md`            | `action-plan-summary.md`            |
+
+**Always write the detailed version first**, then derive the summary from it. The summary is a strict subset of the detailed version's content — it should never contain claims or conclusions not present in the detailed version.
 
 ---
 
@@ -90,17 +111,52 @@ If `evaluations.jsonl` contains entries with `"status": "pending"`, you must gra
 - Be calibrated — reserve 1.0 for outputs that genuinely satisfy criteria fully
 - Do not penalize LLM non-determinism — different phrasing of a correct answer is not a failure
 
-### 1c. Write entry-level analysis
+### 1c. Write entry-level analysis (two files per entry)
 
-Write `analysis.md` in the entry directory (`dataset-{idx}/entry-{idx}/analysis.md`). Cover:
+Produce **two files** per entry. Write the detailed version first, then derive the summary from it.
+
+#### Detailed version: `dataset-{idx}/entry-{idx}/analysis.md`
+
+This file is for **agent consumption** — it will be read by the coding agent to further verify conclusions, investigate issues, and take corrective actions. Focus on data points, evidence trails, and the reasoning chain that connects observations to conclusions.
+
+**Writing principles:**
+
+- **Present data first, then conclusions.** Start each section with the raw data (scores, output excerpts, trace excerpts), then state what you conclude from it. The reader should be able to verify your conclusion from the data you presented.
+- **Quote specific evidence.** When discussing output quality, quote the relevant part of `eval-output.jsonl` or `trace.jsonl`. When discussing evaluator behavior, cite the exact score and reasoning string.
+- **Trace issues to root causes.** If an evaluator score is low, trace backward: what did the output look like → what did the LLM produce → what input did the LLM receive → was the input correct? This chain helps the next agent decide where to intervene.
+- **Do not make ungrounded claims.** If you can't cite evidence for a statement, don't make it. "The evaluator may be too strict" requires evidence (e.g., "the output contains the correct information but phrased differently, scoring 0.5 instead of 1.0").
+- **Do not sell.** Avoid "excellent", "robust", "impressive". State what happened and what it means.
+
+**Content for each entry:**
 
 1. **What this entry tested** — one sentence from the description/input
-2. **Evaluation results** — summarize scores from all evaluators (completed + newly graded)
-3. **Test case quality** — does this test case effectively exercise the intended capability? Is the expectation clear and appropriate? Are the evaluators well-suited?
-4. **Evaluator quality** — for each evaluator on this entry: is the score reasonable given the output? Would a different input produce a different score (discriminative power)?
-5. **Application issues** — any problems surfaced by this test case (wrong output, missing data, unexpected behavior). Cite specific evidence from eval-output and trace.
+2. **Raw evaluation data** — table of all evaluator scores with reasoning strings
+3. **Output analysis** — key excerpts from `eval-output.jsonl` with observations about quality, correctness, completeness. Quote specific fields/values.
+4. **Trace analysis** — relevant excerpts from `trace.jsonl` (LLM calls, token counts, latency) that inform quality assessment
+5. **Test case quality assessment** — does this test case effectively exercise the intended capability? Evidence for/against: Is the expectation clear? Are inputs realistic? Would this catch a regression?
+6. **Evaluator quality assessment** — for each evaluator: is the score reasonable given the output data? Evidence: compare what the evaluator scored vs what the output actually contains. Would a different input produce a different score (discriminative power)?
+7. **Application issues** — problems surfaced, with evidence chain: output excerpt → what went wrong → root cause hypothesis → suggested investigation
+8. **Open questions** — anything that couldn't be conclusively determined from this data alone
 
-Keep it concise — typically 10–20 lines per entry.
+#### Summary version: `dataset-{idx}/entry-{idx}/analysis-summary.md`
+
+This file is for **human review** — a quick-scan view of what happened with this entry.
+
+**Template:**
+
+```markdown
+# Entry {idx}: <description one-liner>
+
+**Result**: PASS / FAIL
+
+| Evaluator | Score | Verdict                 |
+| --------- | ----- | ----------------------- |
+| ...       | ...   | OK / Issue: <one-liner> |
+
+**Key finding**: <1-2 sentences: what worked, what didn't, what action is needed>
+```
+
+Maximum ~15 lines per entry summary.
 
 ---
 
@@ -135,29 +191,87 @@ For each hypothesis:
 
 It is always possible to produce 3 hypotheses even when the data is limited. If the evaluation data doesn't give a conclusive answer on application quality, that itself is a signal about test case or evaluator gaps.
 
-### 2c. Write the dataset analysis
+### 2c. Write the dataset analysis (two files)
 
-The dataset `analysis.md` should contain:
+Produce **two files** for the dataset analysis. Write the detailed version first, then derive the summary.
+
+#### Detailed version: `dataset-{idx}/analysis.md`
+
+This file is for **agent consumption** — it provides the complete data aggregation, hypothesis formation with evidence chains, and validated conclusions that a coding agent can act on directly.
+
+**Writing principles:**
+
+- **Show all the data before interpreting it.** Start with the raw aggregation (pass/fail, per-evaluator stats, failure clusters) before any hypotheses. The data should stand on its own.
+- **For each hypothesis, present: data → reasoning → conclusion.** The reader should be able to follow your logic step by step and arrive at the same conclusion independently.
+- **Cross-reference entry analyses.** When citing evidence, reference the specific entry analysis file and the data points within it (e.g., "Entry 3 analysis shows FactualGrounding=0.5, caused by hallucinated author field — see `entry-3/analysis.md` §Output analysis").
+- **Distinguish correlation from causation.** If two entries fail the same evaluator, that's a pattern. But the root cause might differ — verify by checking the actual output data, don't assume.
+- **Do not speculate without marking it.** If a conclusion is uncertain, say "Hypothesis (unvalidated): ..." and explain what additional data would confirm or refute it.
+
+**Content:**
 
 1. **Overview** — dataset name, entry count, overall pass rate
-2. **Per-evaluator statistics** — table with pass rate, score range, mean
-3. **Failure clusters** — entries grouped by failed evaluators (helps find systemic issues)
-4. **Hypothesis 1: Test cases** — the hypothesis, evidence, validation, conclusion
-5. **Hypothesis 2: Evaluators** — same structure
-6. **Hypothesis 3: Application** — same structure
+2. **Raw aggregation data**
+   - Per-evaluator statistics table (pass rate, score range, mean, standard deviation)
+   - Failure matrix: entries × evaluators showing scores, highlighting failures
+   - Failure clusters: entries grouped by shared failed evaluators
+3. **Hypothesis 1: Test cases** — hypothesis statement, evidence with entry/evaluator references, validation steps taken, conclusion with specific action
+4. **Hypothesis 2: Evaluators** — same structure
+5. **Hypothesis 3: Application** — same structure
+6. **Open questions** — anything the data doesn't conclusively answer, with suggestions for what additional data would help
+
+#### Summary version: `dataset-{idx}/analysis-summary.md`
+
+This file is for **human review** — a scannable overview of the dataset results, key findings, and recommended actions.
+
+**Template:**
+
+```markdown
+# Dataset Analysis — Summary
+
+**Dataset**: <name> | **Entries**: <N> | **Pass rate**: <X/N (Y%)>
+
+## Results at a glance
+
+| Evaluator | Pass rate | Avg score | Notes                  |
+| --------- | --------- | --------- | ---------------------- |
+| ...       | ...       | ...       | <one-liner if notable> |
+
+## Key findings
+
+1. <Finding>: <1-2 sentences with the conclusion and its implication>
+2. ...
+3. ...
+
+## Recommended actions (priority order)
+
+1. <Action>: <what to do and expected impact, 1-2 sentences>
+2. ...
+3. ...
+```
+
+Maximum ~40 lines for the summary.
 
 ---
 
-## Phase 3: Action plan
+## Phase 3: Action plan (two files)
 
-After all datasets are analyzed, produce the action plan. Write `action-plan.md` at the test run root (`{PIXIE_ROOT}/results/<test_id>/action-plan.md`).
+After all datasets are analyzed, produce the action plan. Write **two files** at the test run root. Write the detailed version first, then derive the summary.
 
-The action plan synthesizes all dataset analyses into a prioritized, itemized list of improvements. Each item must be specific enough that a coding agent can implement it directly.
+### Detailed version: `{PIXIE_ROOT}/results/<test_id>/action-plan.md`
 
-### Structure
+This file is for **agent consumption** — it provides specific, implementable improvement items with full evidence trails, so a coding agent can pick up any item and execute it without additional context-gathering.
+
+**Writing principles:**
+
+- **Each item must be self-contained.** A coding agent reading just one priority item should have enough context (evidence references, file paths, expected changes) to implement it.
+- **Trace every item back to evidence.** Each priority must reference: which hypothesis (from which dataset analysis), which entries/evaluators provided the evidence, and what the specific data showed.
+- **Be concrete about "How".** Don't say "improve the prompt" — say "In `scrapegraphai/prompts/generate_answer.py` line 45, add instruction: '...'". The more specific, the more actionable.
+- **Do not include speculative items.** Every item must have validated evidence. If an item is based on an unvalidated hypothesis, either validate it first or exclude it.
+
+**Structure:**
 
 ```markdown
-# Action Plan
+# Action Plan (Detailed)
 
 ## Summary
 
@@ -167,18 +281,36 @@ The action plan synthesizes all dataset analyses into a prioritized, itemized li
 ## Priority 1: [Most impactful improvement]
 
 - **What**: [specific change to make]
-- **Why**: [which hypothesis from which dataset, with evidence]
-- **Expected impact**: [which entries/evaluators this will improve]
-- **How**: [concrete implementation steps]
+- **Why**: [which hypothesis from which dataset analysis, with entry/evaluator references]
+- **Evidence**: [specific scores, output excerpts, trace data that support this]
+- **Expected impact**: [which entries/evaluators this will improve, and predicted score change]
+- **How**: [concrete implementation steps with file paths and line numbers]
+- **Verification**: [how to verify the fix worked — which entries to re-run, what scores to expect]
 
-## Priority 2: [Next improvement]
-
-...
-
-## Priority 3: [Next improvement]
+## Priority 2: ...
 
 ...
 ```
+
+### Summary version: `{PIXIE_ROOT}/results/<test_id>/action-plan-summary.md`
+
+This file is for **human review** — a prioritized list of improvements that a human can understand and approve in under 2 minutes.
+
+**Template:**
+
+```markdown
+# Action Plan — Summary
+
+**Overall**: <X entries, Y% pass rate. 1-sentence assessment.>
+
+## Actions (priority order)
+
+1. **<Action title>**: <What to change and why, 2-3 sentences. Expected impact.>
+2. **<Action title>**: <What to change and why, 2-3 sentences. Expected impact.>
+3. ...
+```
+
+Maximum ~30 lines for the summary.
 
 **Prioritization criteria**:
 
@@ -193,8 +325,8 @@ The action plan should have 3–5 items. Each must trace back to a validated hyp
 
 ## Process summary
 
-1. **Phase 1** (per entry): Read data → grade pending evaluations → write `entry-{idx}/analysis.md`
-2. **Phase 2** (per dataset): Aggregate → form 3 hypotheses → validate → write `dataset-{idx}/analysis.md`
-3. **Phase 3** (per test run): Synthesize → prioritize → write `action-plan.md`
+1. **Phase 1** (per entry): Read data → grade pending evaluations → write `entry-{idx}/analysis.md` + `entry-{idx}/analysis-summary.md`
+2. **Phase 2** (per dataset): Aggregate → form 3 hypotheses → validate → write `dataset-{idx}/analysis.md` + `dataset-{idx}/analysis-summary.md`
+3. **Phase 3** (per test run): Synthesize → prioritize → write `action-plan.md` + `action-plan-summary.md`
 
 Process entries within a dataset concurrently (using subagents if available). Process phases sequentially — Phase 2 depends on Phase 1 outputs, Phase 3 depends on Phase 2 outputs.
