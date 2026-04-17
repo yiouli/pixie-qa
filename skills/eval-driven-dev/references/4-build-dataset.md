@@ -112,10 +112,9 @@ Or use `pixie format` to see the data in dataset-entry format — the `eval_inpu
 When creating dataset entries with different input sources (e.g., different URLs, different queries), capture the content by running the dependency code once:
 
 ```python
-# Example: for a web scraper, fetch the page content once
-import requests
-resp = requests.get("https://en.wikipedia.org/wiki/Python_(programming_language)")
-page_content = resp.text  # or parse to markdown, depending on what wrap captures
+# Example: for a web scraper, run the app's own fetch logic once
+from myapp.fetcher import fetch_page
+page_content = fetch_page(target_url)  # use the app's real code path
 ```
 
 Then include the captured content in the entry's `eval_input`:
@@ -190,8 +189,8 @@ Before finalizing the dataset, verify each entry against these criteria:
 - **Round-trip authorship**: You wrote both the input and the expected output, so you know exactly what's there. A real evaluator tests whether the app can find information it hasn't seen before.
 - **Only happy paths**: No entry tests error conditions, edge cases, or known failure modes.
 - **Building all entries from the same toy trace with minor rephrasing**: If all entries have similar `input_data` and similar `eval_input` data, the dataset tests nothing meaningful. Each entry should represent a meaningfully different scenario.
-- **Reusing the project's own test fixtures as eval data**: The project's `tests/`, `fixtures/`, `examples/`, and `mock_server/` directories contain data designed for unit/integration tests — small, clean, deterministic, and trivially easy. Using them as `eval_input` data guarantees 100% pass rates and zero quality signal. Even if these fixtures look convenient, they bypass every real-world difficulty that makes the app's job hard. **Source real-world data instead** — fetch real pages, use public datasets, or generate data that matches the scale/complexity from `00-project-analysis.md`.
-- **Using a project's mock/fake implementations**: If the project includes mock LLMs, fake HTTP servers, or stub services in its test infrastructure, do NOT use them in your eval pipeline. Your eval must exercise the app's real code paths with real (or realistically complex) data — not the project's own test shortcuts.
+- **Reusing the project's own test fixtures as eval data**: The project's `tests/`, `fixtures/`, `examples/`, and `mock_server/` directories contain data designed for unit/integration tests — small, clean, deterministic, and trivially easy. Using them as `eval_input` data guarantees 100% pass rates and zero quality signal. Even if these fixtures look convenient, they bypass every real-world difficulty that makes the app's job hard. **Run the production code to capture realistic data instead**, or generate synthetic data that matches the scale/complexity from `00-project-analysis.md`.
+- **Using a project's mock/fake implementations**: If the project includes mock LLMs, fake HTTP servers, or stub services in its test infrastructure, do NOT use them in your eval pipeline. Your eval must exercise the app's real code paths with realistically complex data — not the project's own test shortcuts.
 
 ## 4c′. Verify coverage against project analysis
 

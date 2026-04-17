@@ -13,12 +13,11 @@ The input must reflect the "Realistic input characteristics" section, according 
 The input has two parts — understand the boundary between them:
 
 - **User-provided parameters** (you author): What a real user types or configures — prompts, queries, configuration flags, URLs, schema definitions. Write these to be representative of real usage.
-- **World data** (you source, not fabricate): Content the app fetches from external sources during execution — web pages, documents, database records, API responses. You do NOT hand-author this data. Instead:
-  1. **Let the app fetch it**: Provide real external references (URLs, file paths) and let the app fetch during trace capture.
-  2. **Source it**: If fetching isn't practical, use public data sources (Wikipedia, government pages, public datasets).
-  3. **Last resort — generate with constraints**: Generate synthetic data matching `00-project-analysis.md`'s scale, structure, and noise characteristics.
+- **World data** (captured from production code, not fabricated): Content the app fetches from external sources during execution — database records, API responses, files, etc. Run the production code once to capture this data into the trace. Only resort to synthetic data generation when:
+  - The user explicitly instructs you to use synthetic data, OR
+  - Fetching from real sources is impractical (too many fetches, incurs real monetary cost, or takes unreasonably long — more than ~30 minutes)
 
-**Quick check before writing input**: "Would a real user create this data, or would the app get it from somewhere else?" If the app gets it from somewhere, don't hand-author it.
+**Quick check before writing input**: "Would a real user create this data, or would the app get it from somewhere else?" If the app gets it, let the production code run and capture it.
 
 | App type             | User provides (you author)            | World provides (you source)                                        |
 | -------------------- | ------------------------------------- | ------------------------------------------------------------------ |

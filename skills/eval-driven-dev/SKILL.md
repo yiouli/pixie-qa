@@ -58,12 +58,11 @@ Follow Steps 1–6 straight through without stopping. Do not ask the user for co
 
 Some blockers cannot and should not be worked around. When you encounter any of the following, **stop immediately and ask the user for help** — do not attempt workarounds:
 
-- **Missing LLM API key**: The app needs an API key (OpenAI, Anthropic, etc.) to make real LLM calls, but no key is configured in the environment. Do NOT work around this by mocking, faking, or replacing the LLM — that defeats the purpose of the eval. Ask the user to provide the API key.
-- **Missing credentials for required services**: The app requires authentication for services that cannot be mocked (e.g., the LLM provider itself). Ask the user to provide credentials.
+- **Application won't run due to missing environment variables or configuration**: The app requires environment variables or configuration that are not set and cannot be inferred. Do NOT work around this by mocking, faking, or replacing application components — the eval must exercise real production code. Ask the user to fix the environment setup.
 - **App import failures that indicate a broken project**: If the app's core modules cannot be imported due to missing system dependencies or incompatible Python versions (not just missing pip packages you can install), ask the user to fix the project setup.
 - **Ambiguous entry point**: If the app has multiple equally plausible entry points and the project analysis doesn't clarify which one matters most, ask the user which to target.
 
-Blockers you SHOULD resolve yourself (do not ask): missing Python packages (install them), missing `pixie` package (install it), port conflicts (pick a different port), file permission issues (fix them), test data that needs sourcing (source it).
+Blockers you SHOULD resolve yourself (do not ask): missing Python packages (install them), missing `pixie` package (install it), port conflicts (pick a different port), file permission issues (fix them).
 
 **Run Steps 1–6 in sequence.** If the user's prompt makes it clear that earlier steps are already done (e.g., "run the existing tests", "re-run evals"), skip to the appropriate step. When in doubt, start from Step 1.
 

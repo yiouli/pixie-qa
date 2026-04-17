@@ -18,9 +18,9 @@ The Runnable is how `pixie test` and `pixie trace` run your application. Think o
 
 The Runnable calls the app's actual entry point — the same function, class, or endpoint a real user would trigger. It does not reimplement, shortcut, or substitute any part of the application.
 
-This includes the LLM. The app's LLM calls go to a real LLM with real API credentials. The whole point of eval-based testing is that LLM outputs are non-deterministic, so you use evaluators (not assertions) to score them. If you replace the LLM with a fake, you've eliminated the non-determinism and the eval measures nothing.
+This includes the LLM. The app's LLM calls must go through the real code path — do not mock, fake, or replace application components. The whole point of eval-based testing is that LLM outputs are non-deterministic, so you use evaluators (not assertions) to score them. If you replace any component with a fake, you've eliminated the real behavior and the eval measures nothing.
 
-**If the app needs an API key and none is configured, stop and ask the user.** Do not work around it.
+**If the app won't run due to missing environment variables or configuration that you cannot resolve, stop and ask the user to fix the environment setup.** Do not work around it by mocking components.
 
 ### 2. Represent start-up args with a Pydantic BaseModel
 

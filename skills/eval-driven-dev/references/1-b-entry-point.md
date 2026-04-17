@@ -27,7 +27,7 @@ How does a real user or client invoke the app? This is what the eval must exerci
 
 ### 3. Environment and configuration
 
-- What env vars does the app require? (API keys, database URLs, feature flags)
+- What env vars does the app require? (service endpoints, database URLs, feature flags)
 - What config files does it read?
 - What has sensible defaults vs. what must be explicitly set?
 
