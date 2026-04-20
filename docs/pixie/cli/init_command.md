@@ -6,8 +6,7 @@ Creates the standard directory layout for eval-driven development::
 
     pixie_qa/
         datasets/
-        tests/
-        scripts/
+        results/
 
 The command is idempotent: existing files and directories are never
 overwritten or deleted.  Running ``pixie init`` on an already-initialised

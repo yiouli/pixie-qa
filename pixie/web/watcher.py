@@ -74,7 +74,6 @@ async def watch_artifacts(root: str, sse: SSEManager) -> None:
     # Ensure watched directories exist
     root_path.mkdir(parents=True, exist_ok=True)
     (root_path / "datasets").mkdir(exist_ok=True)
-    (root_path / "scorecards").mkdir(exist_ok=True)
     (root_path / "results").mkdir(exist_ok=True)
 
     logger.info("Watching for artifact changes in %s", root_path)

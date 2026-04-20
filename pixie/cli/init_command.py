@@ -4,8 +4,7 @@ Creates the standard directory layout for eval-driven development::
 
     pixie_qa/
         datasets/
-        tests/
-        scripts/
+        results/
 
 The command is idempotent: existing files and directories are never
 overwritten or deleted.  Running ``pixie init`` on an already-initialised
@@ -20,6 +19,15 @@ from pixie.config import get_config
 
 #: Subdirectories to create under the pixie root.
 _SUBDIRS = ("datasets", "results")
+
+#: Default .gitignore content written to the pixie root on ``pixie init``.
+_GITIGNORE_CONTENT = """\
+server.lock
+server.log
+
+# remove this if you want to keep the results in source control
+results/**
+"""
 
 
 def init_pixie_dir(root: str | None = None) -> Path:
@@ -46,5 +54,10 @@ def init_pixie_dir(root: str | None = None) -> Path:
     root_init_py = root_path / "__init__.py"
     if not root_init_py.exists():
         root_init_py.write_text("")
+
+    # Write a default .gitignore so transactional files are ignored by git.
+    gitignore = root_path / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text(_GITIGNORE_CONTENT)
 
     return root_path
