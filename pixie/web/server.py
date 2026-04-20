@@ -399,8 +399,8 @@ def _wait_for_server(root: str, host: str, timeout: float = 5.0) -> int | None:
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        port = _is_server_running(root, host)
-        if port is not None:
+        port = _read_lock(root)
+        if port is not None and _probe_server(host, port) is not None:
             return port
         time.sleep(0.2)
     return None

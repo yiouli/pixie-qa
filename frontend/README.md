@@ -63,9 +63,10 @@ Build selection uses `VITE_BUILD_TARGET`:
 For `pixie start`:
 
 1. Python serves `webui.html` and API endpoints from a Starlette app.
-2. The frontend fetches `/api/manifest` to list available artifacts.
-3. The frontend subscribes to `/api/events` (SSE) for live updates.
-4. Results, datasets, markdown files, and legacy scorecards are rendered in dedicated panels.
+2. The CLI waits until the detached server responds before reporting success and opening the browser, so fresh `server.lock` files written during startup are not mistaken for stale failures.
+3. The frontend fetches `/api/manifest` to list available artifacts.
+4. The frontend subscribes to `/api/events` (SSE) for live updates.
+5. Results, datasets, markdown files, and legacy scorecards are rendered in dedicated panels.
 
 ## Legacy Notes
 

@@ -1203,6 +1203,27 @@ class TestStartDetached:
             mock_open.assert_not_called()
 
 
+class TestWaitForServer:
+    def test_preserves_fresh_lock_until_status_is_ready(self, tmp_path: Path) -> None:
+        from pixie.web.server import _read_lock, _wait_for_server, _write_lock
+
+        root = str(tmp_path)
+        _write_lock(root, 7120)
+
+        with (
+            patch(
+                "pixie.web.server._probe_server",
+                side_effect=[None, None, 0],
+            ) as mock_probe,
+            patch("time.monotonic", side_effect=[0.0, 0.0, 0.2, 0.4, 0.6]),
+            patch("time.sleep"),
+        ):
+            assert _wait_for_server(root, "127.0.0.1", timeout=1.0) == 7120
+
+        assert mock_probe.call_count == 3
+        assert _read_lock(root) == 7120
+
+
 # ── ensure_server ────────────────────────────────────────────────────
 
 

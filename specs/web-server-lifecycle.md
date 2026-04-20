@@ -8,6 +8,8 @@ However, this design is problematic when `pixie` is being used by a coding agent
 
 To solve this, the `pixie start` command should start the web server in a separate, detached process; and a `pixie stop` command should be added for stopping the server.
 
+During detached startup, the parent process must preserve a freshly written `server.lock` long enough for the child process to finish binding and answer `/api/status`. Treating that lock as stale before the status endpoint is reachable causes false startup timeouts: the child keeps serving, but `pixie start` reports failure and never opens the browser.
+
 The server should add an additional endpoint for shutdown request - when a shutdown request is received, the server should disconnect all client, kill itself and cleanup. `pixie stop` command should simply fire the request to the existing server.
 
 ## `pixie start` on none init command
