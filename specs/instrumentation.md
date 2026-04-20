@@ -484,15 +484,18 @@ Single queue for both `LLMSpan` and `ObserveSpan`. Two daemon threads drive the 
 1. **`pixie-asyncio-loop`** — runs a dedicated `asyncio` event loop via `loop.run_forever()`.
 2. **`pixie-delivery-worker`** — a plain thread that consumes items and schedules async dispatch
    coroutines on the event loop via `asyncio.run_coroutine_threadsafe()` (**fire-and-forget**).
-   The worker does **not** await the returned `Future`; instead `queue.task_done()` is called
-   through a `Future.add_done_callback`, so `flush()` / `queue.join()` correctly blocks until
-   all in-flight async processing completes.
+   Each queue item stores both the span and a snapshot of the submitting thread's
+   `contextvars` state. The worker does **not** await the returned `Future`; instead
+   `queue.task_done()` is called through a `Future.add_done_callback`, so `flush()` /
+   `queue.join()` correctly blocks until all in-flight async processing completes.
 
 ```python
 class _DeliveryQueue:
     def __init__(self, handler: InstrumentationHandler, maxsize: int = 1000):
         self._handler = handler
-        self._queue: queue.Queue[LLMSpan | ObserveSpan] = queue.Queue(maxsize=maxsize)
+        self._queue: queue.Queue[tuple[LLMSpan | ObserveSpan, contextvars.Context]] = (
+            queue.Queue(maxsize=maxsize)
+        )
         self._dropped_count = 0
 
         self._loop = asyncio.new_event_loop()
@@ -508,7 +511,7 @@ class _DeliveryQueue:
 
     def submit(self, item: LLMSpan | ObserveSpan) -> None:
         try:
-            self._queue.put_nowait(item)
+            self._queue.put_nowait((item, contextvars.copy_context()))
         except queue.Full:
             self._dropped_count += 1
 
@@ -521,21 +524,35 @@ class _DeliveryQueue:
 
     def _worker(self) -> None:
         while True:
-            item = self._queue.get()
+            item, ctx = self._queue.get()
             try:
                 future = asyncio.run_coroutine_threadsafe(
-                    self._dispatch(item), self._loop
+                    self._dispatch(item, ctx), self._loop
                 )
                 future.add_done_callback(lambda _f: self._queue.task_done())
             except Exception:
                 self._queue.task_done()
 
-    async def _dispatch(self, item: LLMSpan | ObserveSpan) -> None:
+    async def _dispatch(
+        self, item: LLMSpan | ObserveSpan, ctx: contextvars.Context
+    ) -> None:
         try:
             if isinstance(item, LLMSpan):
-                await self._handler.on_llm(item)
+                deliver = self._handler.on_llm
             elif isinstance(item, ObserveSpan):
-                await self._handler.on_observe(item)
+                deliver = self._handler.on_observe
+            else:
+                return
+
+            loop = asyncio.get_running_loop()
+            coro = deliver(item)
+            try:
+                task = ctx.run(loop.create_task, coro)
+            except Exception:
+                coro.close()
+                raise
+
+            await task
         except Exception:
             pass
 
@@ -543,6 +560,10 @@ class _DeliveryQueue:
     def dropped_count(self) -> int:
         return self._dropped_count
 ```
+
+`_DeliveryQueue` creates the child task while the copied context is active,
+so handlers consistently see the correct `ContextVar` values on both Python
+3.10 and 3.11+.
 
 ---
 
