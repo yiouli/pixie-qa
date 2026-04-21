@@ -168,6 +168,8 @@ Run the app through the Runnable and capture a trace. The trace proves instrumen
 
 **Always proceed to Step 6 after tests produce scores.** Analysis is the essential final step — without it, pending evaluations are never completed and the user gets uninterpreted raw scores with no actionable insights. Do NOT stop here and ask the user whether to continue.
 
+**Cycle rule for iterative runs**: Every successful `pixie test` invocation creates a concrete `pixie_qa/results/<test_id>` directory and starts a new analysis cycle. Before you edit application code, prompts, datasets, evaluators, or rerun `pixie test`, complete Step 6 for that exact results directory. Do not skip earlier cycles and analyze only the last run.
+
 ---
 
 ### Step 6: Analyze outcomes

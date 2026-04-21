@@ -8,7 +8,7 @@
 
 After `pixie test`, the result directory looks like:
 
-```
+```text
 {PIXIE_ROOT}/results/<test_id>/
   meta.json
   dataset-{idx}/
@@ -22,6 +22,18 @@ After `pixie test`, the result directory looks like:
 ```
 
 Read `meta.json` to find the `<test_id>`. All the data you need for analysis is in this directory.
+
+---
+
+## Iteration rule
+
+If you are iterating across multiple fix/test cycles, every successful `pixie test` run creates a new `pixie_qa/results/<test_id>` directory and a new Step 6 obligation. The moment that directory exists, it becomes the analysis target for the current cycle.
+
+Before you edit application code, prompts, datasets, evaluators, or rerun `pixie test`, complete Step 6 for that exact results directory. Do not skip earlier cycles and analyze only the last run.
+
+**Additional forbidden shortcut**:
+
+- Do not create a newer `pixie_qa/results/<test_id>` and leave an older one from the same task without Step 6 artifacts.
 
 ---
 

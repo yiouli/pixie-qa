@@ -36,7 +36,7 @@ The skill guides your coding agent (Claude Code, Cursor, GitHub Copilot, etc.) t
 
 5. **Build a dataset** — Test cases with realistic inputs, pre-captured external data, and expected behavior. Each entry specifies which evaluators to run and what passing looks like.
 
-6. **Run `pixie test` and analyze** — The harness runs all entries concurrently, scores them, and the agent analyzes results: which entries failed, why, and what to fix — in the app or in the eval setup itself.
+6. **Run `pixie test` and analyze** — The harness runs all entries concurrently, scores them, and the agent analyzes results: which entries failed, why, and what to fix — in the app or in the eval setup itself. Each `pixie test` result directory should be fully analyzed before the next rerun starts.
 
 The output is a working eval pipelinem and detailed analysis + action plan that you or your coding agent can implement.
 
