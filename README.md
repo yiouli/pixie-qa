@@ -2,7 +2,6 @@
 
 [![Skill](https://img.shields.io/badge/Skill-eval--driven--dev-blueviolet?style=flat&logo=anthropic&logoColor=white)](https://skills.sh/github/awesome-copilot/eval-driven-dev)
 [![PyPI package](https://img.shields.io/pypi/v/pixie-qa?logo=pypi&logoColor=white&style=flat)](https://badge.fury.io/py/pixie-qa)
-[![Discord](https://img.shields.io/discord/1459772566528069715?logo=discord&logoColor=white&label=Discord&color=34b76a&style=flat)](https://discord.gg/7fmXQzFt)
 
 ## Agent skill for Evaluation Driven Development
 
