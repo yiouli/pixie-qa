@@ -226,31 +226,47 @@ function ResultView({ data }: { data: TestResultData }) {
 // ── Per-Dataset Section ──────────────────────────────────────────────
 
 function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
-  const passed = dataset.entries.filter((e) => {
-    const completed = e.evaluations.filter((ev) => !isPendingEvaluation(ev));
-    return completed.every(
-      (ev) => !isPendingEvaluation(ev) && ev.score >= SCORE_FAIL_THRESHOLD,
+  const failedCount = dataset.entries.filter((entry) => {
+    const completed = entry.evaluations.filter(
+      (ev): ev is EvaluationResultData => !isPendingEvaluation(ev),
     );
+    return completed.some((ev) => ev.score < SCORE_FAIL_THRESHOLD);
   }).length;
-  const total = dataset.entries.length;
+  const warningCount = dataset.entries.filter((entry) => {
+    const completed = entry.evaluations.filter(
+      (ev): ev is EvaluationResultData => !isPendingEvaluation(ev),
+    );
+    const hasFail = completed.some((ev) => ev.score < SCORE_FAIL_THRESHOLD);
+    const hasWarn = completed.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
+    return !hasFail && hasWarn;
+  }).length;
+  const passedCount = dataset.entries.filter((entry) => {
+    const completed = entry.evaluations.filter(
+      (ev): ev is EvaluationResultData => !isPendingEvaluation(ev),
+    );
+    const hasFail = completed.some((ev) => ev.score < SCORE_FAIL_THRESHOLD);
+    const hasWarn = completed.some((ev) => ev.score <= SCORE_WARN_THRESHOLD);
+    return !hasFail && !hasWarn;
+  }).length;
   const pendingCount = dataset.entries.reduce(
     (acc, e) => acc + e.evaluations.filter(isPendingEvaluation).length,
     0,
   );
-  const allPass = passed === total;
 
   return (
     <section className="mb-5 rounded-lg border border-border bg-surface p-6 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
         <h2 className="font-mono text-lg font-bold">{dataset.dataset}</h2>
-        <span
-          className={`text-xl font-bold ${allPass ? "text-pass" : "text-fail"}`}
-        >
-          {passed} passed
-          {pendingCount > 0 && (
-            <span className="text-info"> ({pendingCount} pending)</span>
-          )}{" "}
-          of {total} total
+        <span className="flex flex-wrap items-center gap-2 text-base font-semibold">
+          <span className="text-fail">{failedCount} failed</span>
+          <span className="text-ink-muted">,</span>
+          <span className="text-warn">
+            {warningCount} {warningCount === 1 ? "warning" : "warnings"}
+          </span>
+          <span className="text-ink-muted">,</span>
+          <span className="text-pass">{passedCount} passed</span>
+          <span className="text-ink-muted">,</span>
+          <span className="text-info">{pendingCount} pending</span>
         </span>
       </div>
 
