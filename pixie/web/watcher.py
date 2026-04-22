@@ -56,6 +56,17 @@ def _change_label(change: Change) -> str:
     return "unknown"
 
 
+def _telemetry_change_type(change_label: str) -> str:
+    """Return an analytics-friendly change type label."""
+    if change_label == "added":  # noqa: SIM116
+        return "create"
+    elif change_label == "modified":
+        return "update"
+    elif change_label == "deleted":
+        return "delete"
+    return "unknown"
+
+
 async def watch_artifacts(root: str, sse: SSEManager) -> None:
     """Watch the artifact root for changes and broadcast SSE events.
 
@@ -97,12 +108,15 @@ async def watch_artifacts(root: str, sse: SSEManager) -> None:
                 continue
 
         if relevant_changes:
-            result_created = any(
-                change["type"] == "added" and change["path"].startswith("results/")
-                for change in relevant_changes
-            )
-            if result_created:
-                emit("pixie_artifact_created", {"version": __version__})
+            for artifact_change in relevant_changes:
+                emit(
+                    "pixie_artifact_changed",
+                    {
+                        "version": __version__,
+                        "change_type": _telemetry_change_type(artifact_change["type"]),
+                        "artifact_path": artifact_change["path"],
+                    },
+                )
 
             logger.debug("Artifact changes: %s", relevant_changes)
             await sse.broadcast("file_change", relevant_changes)

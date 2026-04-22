@@ -3,7 +3,7 @@
 ## Goal
 
 Add lightweight, fire-and-forget usage telemetry to the `pixie-qa` Python package so we can
-see real usage time series (daily active installs, command volume, artifact creation) via PostHog.
+see real usage time series (daily active installs, command volume, artifact changes) via PostHog.
 
 ---
 
@@ -13,7 +13,7 @@ see real usage time series (daily active installs, command volume, artifact crea
   output of any command or the file watcher
 - **No new runtime dependencies** — use stdlib only (`urllib`, `threading`, `json`, `uuid`, `os`)
 - **Opt-out supported** — respect `PIXIE_NO_TELEMETRY=1` env var
-- **Anonymous** — no PII, no usernames, no file paths. Stable per-machine ID only
+- **Anonymous** — no PII, no usernames, no information of the project, Stable per-machine ID only
 
 ---
 
@@ -126,12 +126,9 @@ def start(root: str | None = None, *, tab: str | None = None, item_id: str | Non
 
 ## Call Site 3: `pixie/web/watcher.py`
 
-In `watch_artifacts()`, emit `pixie_artifact_created` when a result file is **added** (not
-modified or deleted). This signals that a user completed a test run and a result was written
-to disk.
-
-Emit once per batch of changes, not once per file — deduplicate so a single test run that
-writes multiple result files only fires one event.
+In `watch_artifacts()`, emit `pixie_artifact_changed` for each relevant artifact change detected
+by the watcher. Include the root-relative artifact path and a normalized change type so PostHog
+can distinguish creates, updates, and deletes.
 
 Add the following block inside the `async for changes in awatch(root_path):` loop, after
 `relevant_changes` is built and before the SSE broadcast calls:
@@ -140,12 +137,15 @@ Add the following block inside the `async for changes in awatch(root_path):` loo
 from pixie.telemetry import emit
 from pixie import __version__
 
-result_created = any(
-    c["type"] == "added" and c["path"].startswith("results/")
-    for c in relevant_changes
-)
-if result_created:
-    emit("pixie_artifact_created", {"version": __version__})
+for change in relevant_changes:
+    emit(
+        "pixie_artifact_changed",
+        {
+            "version": __version__,
+            "change_type": change_type,
+            "artifact_path": change["path"],
+        },
+    )
 ```
 
 Import `emit` and `__version__` at the top of `watcher.py` alongside the existing imports.
@@ -187,7 +187,9 @@ Add a brief disclosure (e.g. under a "Privacy" section):
 ## Privacy
 
 pixie-qa records anonymous usage events to understand how the tool is used in practice.
-No personal data, file contents, or identifying information is ever collected.
+Artifact-change events include the change type and the artifact path relative to the
+pixie root. No personal data, file contents, absolute paths, or project root names are
+collected.
 
 To opt out:
 
@@ -199,7 +201,7 @@ To opt out:
 ## What We Do NOT Record (explicitly out of scope)
 
 - Usernames, emails, hostnames, or any PII
-- File paths, project names, dataset names, or eval content
+- Absolute file paths, project root names, file contents, or eval content
 - Errors or stack traces
 - Any properties that require reading user files or environment beyond `__version__`
 
@@ -209,7 +211,8 @@ To opt out:
 
 - [ ] `pixie test` emits a `pixie_test` event with `version` property
 - [ ] `pixie start` emits a `pixie_start` event with `version` property
-- [ ] A completed test run emits exactly one `pixie_artifact_created` event (not one per file written)
+- [ ] Each relevant artifact change emits a `pixie_artifact_changed` event
+- [ ] `pixie_artifact_changed` includes `version`, `change_type`, and `artifact_path`
 - [ ] `PIXIE_NO_TELEMETRY=1` suppresses all three event types
 - [ ] CLI behavior, output, and exit codes are identical with or without telemetry
 - [ ] File watcher behavior and SSE broadcast timing are unchanged

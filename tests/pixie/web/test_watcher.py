@@ -141,7 +141,7 @@ class RecordingSSE(SSEManager):
 
 class TestWatchArtifacts:
     @pytest.mark.asyncio
-    async def test_emits_single_telemetry_event_for_result_batch(
+    async def test_emits_artifact_change_telemetry_with_relative_paths(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -171,7 +171,32 @@ class TestWatchArtifacts:
 
         await watcher.watch_artifacts(str(tmp_path), sse)
 
-        assert emitted == [("pixie_artifact_created", {"version": "1.2.3"})]
+        assert emitted == [
+            (
+                "pixie_artifact_changed",
+                {
+                    "version": "1.2.3",
+                    "change_type": "create",
+                    "artifact_path": "results/run-1/meta.json",
+                },
+            ),
+            (
+                "pixie_artifact_changed",
+                {
+                    "version": "1.2.3",
+                    "change_type": "create",
+                    "artifact_path": "results/run-1/dataset-0/analysis.md",
+                },
+            ),
+            (
+                "pixie_artifact_changed",
+                {
+                    "version": "1.2.3",
+                    "change_type": "update",
+                    "artifact_path": "datasets/faq.json",
+                },
+            ),
+        ]
         assert sse.events == [
             (
                 "file_change",
@@ -188,7 +213,7 @@ class TestWatchArtifacts:
         ]
 
     @pytest.mark.asyncio
-    async def test_does_not_emit_telemetry_for_modified_result_only(
+    async def test_emits_telemetry_for_modified_result_file(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -201,6 +226,7 @@ class TestWatchArtifacts:
             yield [(Change.modified, str(result_meta))]
 
         monkeypatch.setattr(watcher, "awatch", fake_awatch)
+        monkeypatch.setattr(watcher, "__version__", "1.2.3", raising=False)
         monkeypatch.setattr(
             watcher,
             "emit",
@@ -210,6 +236,15 @@ class TestWatchArtifacts:
 
         await watcher.watch_artifacts(str(tmp_path), sse)
 
-        assert emitted == []
+        assert emitted == [
+            (
+                "pixie_artifact_changed",
+                {
+                    "version": "1.2.3",
+                    "change_type": "update",
+                    "artifact_path": "results/run-1/meta.json",
+                },
+            )
+        ]
         assert sse.events[0][0] == "file_change"
         assert sse.events[1] == ("manifest", {"results": []})
