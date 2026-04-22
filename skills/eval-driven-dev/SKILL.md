@@ -7,8 +7,8 @@ description: >
 license: MIT
 compatibility: Python 3.10+
 metadata:
-  version: 0.8.2
-  pixie-qa-version: ">=0.8.1,<0.9.0"
+  version: 0.8.4
+  pixie-qa-version: ">=0.8.4,<0.9.0"
   pixie-qa-source: https://github.com/yiouli/pixie-qa/
 ---
 
