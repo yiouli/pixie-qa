@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import importlib
+import inspect
 from pathlib import Path
 
 import pytest
@@ -51,3 +54,37 @@ class TestTestCommandRateLimitConfig:
         assert limiter is not None
         assert limiter.config.rps == 7.0
         assert limiter.config.rpm == 70.0
+
+
+class TestTestCommandTelemetry:
+    def test_main_emits_usage_event(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        emitted: list[tuple[str, dict[str, str]]] = []
+
+        def fake_run(coro: object) -> int:
+            assert inspect.iscoroutine(coro)
+            coro.close()
+            return 0
+
+        monkeypatch.setattr(test_command, "__version__", "1.2.3", raising=False)
+        monkeypatch.setattr(
+            test_command,
+            "emit",
+            lambda event, properties: emitted.append((event, properties)),
+        )
+        monkeypatch.setattr(
+            test_command,
+            "configure_rate_limits_from_config",
+            lambda: None,
+        )
+        monkeypatch.setattr(asyncio, "run", fake_run)
+        wrap_module = importlib.import_module("pixie.instrumentation.wrap")
+        monkeypatch.setattr(wrap_module, "ensure_eval_capture_registered", lambda: None)
+
+        result = test_command.main([str(tmp_path), "--no-open"])
+
+        assert result == 0
+        assert emitted == [("pixie_test", {"version": "1.2.3"})]

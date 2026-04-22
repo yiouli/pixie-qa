@@ -11,6 +11,8 @@ from pathlib import Path
 
 from watchfiles import Change, awatch
 
+from pixie import __version__
+from pixie.telemetry import emit
 from pixie.web.app import SSEManager, _build_manifest
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,13 @@ async def watch_artifacts(root: str, sse: SSEManager) -> None:
                 continue
 
         if relevant_changes:
+            result_created = any(
+                change["type"] == "added" and change["path"].startswith("results/")
+                for change in relevant_changes
+            )
+            if result_created:
+                emit("pixie_artifact_created", {"version": __version__})
+
             logger.debug("Artifact changes: %s", relevant_changes)
             await sse.broadcast("file_change", relevant_changes)
             manifest = _build_manifest(root_path)

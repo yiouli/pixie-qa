@@ -35,6 +35,7 @@ tests/
 │   ├── test_config.py
 │   ├── test_config_tracing.py
 │   ├── test_init.py
+│   ├── test_telemetry.py          # Anonymous telemetry behavior
 │   ├── cli/
 │   │   ├── test_test_command.py       # pixie test config wiring
 │   │   ├── test_analyze_command.py    # pixie analyze CLI tests
@@ -149,6 +150,7 @@ Unit tests are in `tests/pixie/` and mirror the source structure. Key test files
 | `cli/test_init_command.py`          | `pixie.cli.init_command`                     | pixie init scaffolding            |
 | `cli/test_main.py`                  | `pixie.cli.main`                             | CLI entry point                   |
 | `cli/test_trace_format_commands.py` | `pixie.cli.trace_command` / `format_command` | pixie trace / format              |
+| `test_telemetry.py`                 | `pixie.telemetry`                            | install id + fire-and-forget emit |
 | `eval/test_dataset_runner.py`       | `pixie.harness.runner`                       | Dataset loading and eval runner   |
 | `eval/test_evaluation.py`           | `pixie.eval.evaluation`                      | Evaluator protocol, evaluate()    |
 | `eval/test_llm_evaluator.py`        | `pixie.eval.llm_evaluator`                   | create_llm_evaluator              |

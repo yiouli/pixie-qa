@@ -550,6 +550,20 @@ class TestAppEndpoints:
 
 
 class TestStartCommand:
+    def test_start_emits_usage_event(self) -> None:
+        with (
+            patch("pixie.cli.start_command.emit") as mock_emit,
+            patch("pixie.cli.start_command.__version__", "1.2.3"),
+            patch("pixie.cli.start_command.init_pixie_dir"),
+            patch("pixie.cli.start_command.start_detached", return_value=7118),
+        ):
+            from pixie.cli.start_command import start
+
+            result = start(root="/tmp/test-root")
+
+            assert result == 0
+            mock_emit.assert_called_once_with("pixie_start", {"version": "1.2.3"})
+
     def test_start_calls_init_and_start_detached(self) -> None:
         with (
             patch("pixie.cli.start_command.init_pixie_dir") as mock_init,

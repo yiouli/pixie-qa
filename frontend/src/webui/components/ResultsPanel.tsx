@@ -258,15 +258,20 @@ function DatasetSection({ dataset }: { dataset: DatasetResultData }) {
       <div className="mb-4 flex items-center gap-3">
         <h2 className="font-mono text-lg font-bold">{dataset.dataset}</h2>
         <span className="flex flex-wrap items-center gap-2 text-base font-semibold">
-          <span className="text-fail">{failedCount} failed</span>
-          <span className="text-ink-muted">,</span>
-          <span className="text-warn">
-            {warningCount} {warningCount === 1 ? "warning" : "warnings"}
-          </span>
-          <span className="text-ink-muted">,</span>
-          <span className="text-pass">{passedCount} passed</span>
-          <span className="text-ink-muted">,</span>
-          <span className="text-info">{pendingCount} pending</span>
+          {failedCount > 0 && (
+            <span className="text-fail">{failedCount} failed</span>
+          )}
+          {warningCount > 0 && (
+            <span className="text-warn">
+              {warningCount} {warningCount === 1 ? "warning" : "warnings"}
+            </span>
+          )}
+          {passedCount > 0 && (
+            <span className="text-pass">{passedCount} passed</span>
+          )}
+          {pendingCount > 0 && (
+            <span className="text-info">{pendingCount} pending</span>
+          )}
         </span>
       </div>
 

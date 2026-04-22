@@ -4,6 +4,13 @@ Re-exports the full public API so users can ``from pixie import ...``
 for every commonly used symbol without needing submodule paths.
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("pixie-qa")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
+
 from pixie.eval.agent_evaluator import create_agent_evaluator
 from pixie.eval.evaluable import Evaluable, TestCase
 from pixie.eval.evaluation import Evaluation, Evaluator, evaluate
@@ -49,6 +56,7 @@ from pixie.instrumentation.wrap import (
 )
 
 __all__ = [
+    "__version__",
     # Instrumentation
     "WrappedData",
     "flush",
