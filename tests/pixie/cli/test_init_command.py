@@ -49,3 +49,10 @@ class TestInitPixieDir:
         init_pixie_dir(str(root))
 
         assert root.is_dir()
+
+    def test_gitignore_includes_install_id(self, tmp_path: Path) -> None:
+        root = tmp_path / "pixie_qa"
+
+        init_pixie_dir(str(root))
+
+        assert "install_id\n" in (root / ".gitignore").read_text(encoding="utf-8")

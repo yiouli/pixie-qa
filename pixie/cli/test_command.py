@@ -16,6 +16,7 @@ import sys
 from dataclasses import replace
 from datetime import datetime, timezone
 
+from pixie import __version__
 from pixie.config import get_config
 from pixie.eval.rate_limiter import configure_rate_limits_from_config
 from pixie.harness.run_result import (
@@ -32,6 +33,7 @@ from pixie.harness.trace_capture import (
     EntryTraceLogProcessor,
     set_active_collector,
 )
+from pixie.telemetry import emit
 from pixie.web import server as web_server
 
 
@@ -230,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     configure_rate_limits_from_config()
+    emit("pixie_test", {"version": __version__})
 
     # Register the eval capture processor so wrap() output/state events
     # are accumulated into eval_output for each entry run.

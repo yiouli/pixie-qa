@@ -15,8 +15,10 @@ The command returns immediately after the server has started.  Use
 
 from __future__ import annotations
 
+from pixie import __version__
 from pixie.cli.init_command import init_pixie_dir
 from pixie.config import get_config
+from pixie.telemetry import emit
 from pixie.web.server import start_detached
 
 
@@ -41,6 +43,8 @@ def start(
     Returns:
         Exit code (0 on success, 1 if the server failed to start).
     """
+    emit("pixie_start", {"version": __version__})
+
     config = get_config()
     artifact_root = root or config.root
     init_pixie_dir(root=artifact_root)

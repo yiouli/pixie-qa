@@ -12,6 +12,7 @@ Sub-modules
 * pixie.eval
 * pixie.harness
 * pixie.instrumentation
+* pixie.telemetry
 * pixie.web
 
 Functions

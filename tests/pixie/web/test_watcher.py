@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
 
+import pytest
 from watchfiles import Change
 
+from pixie.web import watcher
+from pixie.web.app import SSEManager
 from pixie.web.watcher import _change_label, _is_artifact
 
 
@@ -124,3 +128,88 @@ class TestChangeLabel:
 
     def test_deleted(self) -> None:
         assert _change_label(Change.deleted) == "deleted"
+
+
+class RecordingSSE(SSEManager):
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[tuple[str, object]] = []
+
+    async def broadcast(self, event_type: str, data: object) -> None:
+        self.events.append((event_type, data))
+
+
+class TestWatchArtifacts:
+    @pytest.mark.asyncio
+    async def test_emits_single_telemetry_event_for_result_batch(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        result_meta = tmp_path / "results" / "run-1" / "meta.json"
+        result_analysis = tmp_path / "results" / "run-1" / "dataset-0" / "analysis.md"
+        dataset_file = tmp_path / "datasets" / "faq.json"
+        manifest = {"results": [{"name": "run-1", "path": "results/run-1"}]}
+        sse = RecordingSSE()
+        emitted: list[tuple[str, dict[str, str]]] = []
+
+        async def fake_awatch(_root: Path) -> AsyncIterator[list[tuple[Change, str]]]:
+            yield [
+                (Change.added, str(result_meta)),
+                (Change.added, str(result_analysis)),
+                (Change.modified, str(dataset_file)),
+            ]
+
+        monkeypatch.setattr(watcher, "awatch", fake_awatch)
+        monkeypatch.setattr(watcher, "__version__", "1.2.3", raising=False)
+        monkeypatch.setattr(
+            watcher,
+            "emit",
+            lambda event, properties: emitted.append((event, properties)),
+        )
+        monkeypatch.setattr(watcher, "_build_manifest", lambda _root: manifest)
+
+        await watcher.watch_artifacts(str(tmp_path), sse)
+
+        assert emitted == [("pixie_artifact_created", {"version": "1.2.3"})]
+        assert sse.events == [
+            (
+                "file_change",
+                [
+                    {"type": "added", "path": "results/run-1/meta.json"},
+                    {
+                        "type": "added",
+                        "path": "results/run-1/dataset-0/analysis.md",
+                    },
+                    {"type": "modified", "path": "datasets/faq.json"},
+                ],
+            ),
+            ("manifest", manifest),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_does_not_emit_telemetry_for_modified_result_only(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        result_meta = tmp_path / "results" / "run-1" / "meta.json"
+        sse = RecordingSSE()
+        emitted: list[tuple[str, dict[str, str]]] = []
+
+        async def fake_awatch(_root: Path) -> AsyncIterator[list[tuple[Change, str]]]:
+            yield [(Change.modified, str(result_meta))]
+
+        monkeypatch.setattr(watcher, "awatch", fake_awatch)
+        monkeypatch.setattr(
+            watcher,
+            "emit",
+            lambda event, properties: emitted.append((event, properties)),
+        )
+        monkeypatch.setattr(watcher, "_build_manifest", lambda _root: {"results": []})
+
+        await watcher.watch_artifacts(str(tmp_path), sse)
+
+        assert emitted == []
+        assert sse.events[0][0] == "file_change"
+        assert sse.events[1] == ("manifest", {"results": []})

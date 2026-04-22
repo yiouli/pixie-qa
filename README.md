@@ -52,3 +52,15 @@ Then simply talk to your coding agent in your project, e.g:
 - "Setup eval"
 - "Improve my agent's output quality"
 - "The AI response is wrong when ..., please fix"
+
+## Privacy
+
+pixie-qa records anonymous usage events to understand how the tool is used in
+practice. No personal data, file contents, project names, or identifying
+information are collected.
+
+To opt out:
+
+```bash
+PIXIE_NO_TELEMETRY=1
+```

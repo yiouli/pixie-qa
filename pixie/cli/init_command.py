@@ -24,6 +24,7 @@ _SUBDIRS = ("datasets", "results")
 _GITIGNORE_CONTENT = """\
 server.lock
 server.log
+install_id
 
 # remove this if you want to keep the results in source control
 results/**
